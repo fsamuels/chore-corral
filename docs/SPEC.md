@@ -89,7 +89,7 @@ Freeform metadata on tasks, distinct from category.
 
 Global, fixed tiers — **not** per-farm, **not** user-editable.
 
-- Exact tier set (e.g. Urgent / Soon / Whenever) to be finalized at implementation — the important constraint is that the list is fixed and shared across every farm.
+- Fixed tier set, in priority order: **Urgent**, **Soon**, **Whenever**. Shared across every farm.
 - Priority drives the **default sort order** of the task list.
 - Independent of due date — a task can have high priority with no due date, or a due date with low priority.
 

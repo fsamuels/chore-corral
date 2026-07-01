@@ -74,17 +74,17 @@ Per-farm, user-editable task categories.
 
 A task with no category set represents "Uncategorized" — this is `category_id IS NULL` on the `tasks` table, not a real row in this table.
 
-### `priorities`
+### Priority (enum, not a table)
 
-Global, fixed priority tiers — **not** scoped to a farm.
+Global, fixed priority tiers — **not** scoped to a farm, **not** a separate table.
 
-| Column | Type | Notes |
-|---|---|---|
-| `id` | uuid, PK (or a simple enum/int, TBD at implementation) | |
-| `name` | text, not null | e.g. "Urgent", "Soon", "Whenever" — exact values finalized at implementation |
-| `sort_order` | int, not null | Drives default task list sort |
+Implemented as a Postgres enum type, declared in ascending-urgency order so `ORDER BY priority DESC` gives the correct default sort (Urgent first) for free:
 
-Given this list is fixed and global, an alternative implementation is a Postgres `enum` type rather than a full table — worth deciding at implementation time based on whether any admin tooling ever needs to manage these as data. A lookup table is more flexible if that changes later; an enum is simpler if it truly never changes.
+```sql
+CREATE TYPE task_priority AS ENUM ('whenever', 'soon', 'urgent');
+```
+
+No admin tooling is planned to manage priorities as data, so a lookup table's flexibility isn't needed — see DECISIONS.md.
 
 ### `tasks`
 
@@ -96,7 +96,7 @@ The core work-item entity.
 | `farm_id` | uuid, FK → `farms.id`, not null | |
 | `title` | text, not null | |
 | `category_id` | uuid, FK → `categories.id`, nullable | Null = Uncategorized |
-| `priority_id` | uuid (or enum), FK → `priorities`, not null | |
+| `priority` | `task_priority` enum, not null | See Priority section above |
 | `status` | enum/text, not null, default 'not_started' | Values: `not_started`, `in_progress`, `done` |
 | `due_date` | date, nullable | |
 | `notes` | text, nullable | Single free-text field |
@@ -154,13 +154,13 @@ Major-event-only log, per SPEC.md (not a full audit trail).
 |---|---|---|
 | `id` | uuid, PK | |
 | `farm_id` | uuid, FK → `farms.id`, not null | Denormalized for query convenience even though most events reference a task |
-| `task_id` | uuid, nullable | Nullable because deleted tasks no longer exist — this column may reference a now-deleted row, so consider **not** using a hard FK constraint here (or using `ON DELETE SET NULL` with the task's title/id captured in a snapshot field instead) |
+| `task_id` | uuid, nullable, **no FK constraint** | Soft reference only — deliberately not enforced at the DB level, since a deleted task's row no longer exists but its log entries must survive |
 | `event_type` | text, not null | `task_created`, `task_status_changed`, `task_deleted`, `category_created`, `category_deleted` |
-| `event_detail` | jsonb, nullable | Flexible field for event-specific context (e.g. old/new status, deleted task's title as a snapshot) |
+| `event_detail` | jsonb, not null | Always includes a `task_title` snapshot (for every event type, not just deletion) plus event-specific context (e.g. old/new status). Snapshotting on every row means log entries stay readable without a join back to `tasks`, even for still-active tasks. |
 | `actor_user_id` | uuid, FK → `auth.users.id`, not null | Who performed the action |
 | `created_at` | timestamptz, default now() | |
 
-**Design note on the task_id/hard-delete tension:** since tasks are hard-deleted but the activity log needs to survive as the historical trace, `task_id` should either be a soft (non-enforcing) reference, or `event_detail` should snapshot enough task info (title, category at time of deletion) that the log entry remains meaningful even after the task record is gone. Decide the exact approach at implementation time — the important constraint is that deleting a task must never cascade-delete or orphan its activity log entries into meaninglessness.
+**Resolved: task_id is a soft reference, not a hard FK.** `task_id` is a plain `uuid` column with no foreign key constraint, so a hard-deleted task never orphans or cascades against its log entries. `event_detail.task_title` is always populated (not just on delete) so the log stays meaningful without needing a join — see DECISIONS.md.
 
 ## Row Level Security (RLS) Policy Intent
 

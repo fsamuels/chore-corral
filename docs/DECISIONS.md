@@ -57,3 +57,17 @@ Durak Tracker started as a single large spec document later split into README/RO
 DATA_MODEL was split out from ARCHITECTURE specifically because of how much schema detail this project accumulated during planning (farms, memberships, tasks, categories, tags, activity log, photos) — enough to warrant its own home rather than crowding general architecture discussion.
 
 MILESTONES was kept separate from ROADMAP on the reasoning that they serve different questions: ROADMAP answers "where is this headed" (open-ended, low-maintenance), while MILESTONES answers "what do I do next, in order, with a clear done-state" (scoped, sequential, actively maintained during build).
+
+## Priority tiers: Urgent / Soon / Whenever, implemented as a Postgres enum
+
+The tier set (SPEC.md, DATA_MODEL.md) was left as an open placeholder during initial planning. Resolved to three tiers — Urgent, Soon, Whenever — matching the casual, non-bureaucratic tone of the rest of the app (no "P0/P1/P2" enterprise-style labeling).
+
+Implemented as a Postgres `enum` type rather than a `priorities` lookup table, since no admin tooling is planned to manage priorities as data — the spec is explicit that this list is fixed, global, and not user-editable, which is exactly the case an enum fits best. A lookup table's extra flexibility (renaming, reordering, adding tiers without a migration) isn't worth the added join for a value that's asserted to never change. If that assumption breaks later (e.g. a farm wants a 4th tier), migrating an enum to a table is a contained, well-understood change.
+
+## `activity_log.task_id`: soft reference, not a hard FK
+
+Tasks are hard-deleted (see the hard-delete decision above), but activity log entries must outlive the task they reference. Resolved by making `task_id` a plain nullable `uuid` column with **no FK constraint** — deletion of a task can never cascade into or orphan-error against its log entries, because the database enforces nothing there. To keep log entries meaningful without needing a join back to `tasks` (which may 404), `event_detail` always snapshots the task's title, on every event type, not just deletion.
+
+## Dev/test farm shares the production Supabase project
+
+Clarkson's Farm (the personal dev/test farm) and Reign Cloud Ranch (production) live in the same Supabase project rather than separate projects, keeping infrastructure to a single set of environment variables and a single place to run migrations. This trades away hard isolation between dev iteration and production data — a buggy migration or test script run against the wrong farm's data has real blast radius, mitigated only by RLS's farm-scoping and by discipline about which farm_id you're operating against locally. Revisit this if the app moves toward real monetization or additional trusted users, where a bad dev-side mistake touching production data becomes a materially bigger deal than it is today.
