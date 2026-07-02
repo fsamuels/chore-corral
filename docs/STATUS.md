@@ -28,7 +28,8 @@ Earlier M1 state: Nuxt + Vuetify app scaffolded with the full tooling set (ESLin
 
 ## Known Issues
 
-- Vercel project `fsamuels-projects/chore-corral` isn't connected to the `fsamuels/chore-corral` GitHub repo — the Vercel GitHub App needs repo access granted manually in GitHub settings before Git-based deploys (production or PR previews) will work. Until then, `NUXT_PUBLIC_SUPABASE_URL`/`KEY` are only set for the Production and Development environments, not Preview.
+- The Vercel GitHub App is now connected and PR preview deploys run, but `NUXT_PUBLIC_SUPABASE_URL`/`KEY` are still only set for the Production and Development environments, not Preview — preview builds log `[@nuxt/supabase] WARN Missing NUXT_PUBLIC_SUPABASE_URL/KEY` as a result (harmless for now since nothing queries Supabase at build time, but needs closing out — see Next Steps).
+- Vercel's PR preview build for the M3 branch initially failed with `[vite]: Rollup failed to resolve import "tslib" from ".../@supabase/functions-js/.../FunctionsClient.js"`, even though `pnpm build` passed both locally and in GitHub Actions CI on the same commit. It reproduced across multiple pushes (including one that added `tslib` as an explicit direct dependency, which didn't help) and was resolved by clearing Vercel's build cache and redeploying — pointing to a stale/corrupted cached `node_modules` on Vercel's side rather than a real dependency-resolution bug. Worth remembering if a future Vercel build fails on a dependency error that CI doesn't reproduce: try a cache-cleared redeploy before chasing a code fix.
 
 ## Next Steps
 
