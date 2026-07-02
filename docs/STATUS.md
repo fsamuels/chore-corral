@@ -6,7 +6,7 @@ Current state of the project. Update this as work progresses — it should alway
 
 ## Current Phase
 
-**Pre-development.** Planning and documentation complete. Repository not yet initialized.
+**Pre-development.** Planning and documentation complete. Repository is initialized on GitHub, with branch-naming conventions and `/new-branch` / `/create-pr` skills in place (see `CLAUDE.md`). M1 not yet started.
 
 ## Milestone Progress
 
@@ -26,5 +26,4 @@ None yet — no code exists.
 
 ## Next Steps
 
-1. Initialize git repository
-2. Begin M1 (scaffold + deploy)
+1. Begin M1 (scaffold + deploy) via `/new-branch milestone m1`

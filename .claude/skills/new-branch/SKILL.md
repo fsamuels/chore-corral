@@ -1,7 +1,7 @@
 ---
 name: new-branch
-description: Create a new branch off the latest origin/main, named consistently for a milestone, feature, or bugfix.
-argument-hint: [milestone|feature|fix] [short description]
+description: Create a new branch off the latest origin/main, named consistently for a milestone, feature, bugfix, or docs/process change.
+argument-hint: [milestone|feature|fix|docs] [short description]
 disable-model-invocation: true
 allowed-tools: Bash(git *)
 ---
@@ -13,12 +13,13 @@ Create a branch off the latest `origin/main`, following this repo's naming conve
 - `milestone/m<N>-<slug>` — e.g. `milestone/m1-scaffold-deploy`. `<N>` and the slug come from the matching heading in [docs/MILESTONES.md](../../../docs/MILESTONES.md) (e.g. `## M1 — Scaffold & Deploy` → `m1-scaffold-deploy`).
 - `feature/<slug>` — e.g. `feature/task-tag-autocomplete`
 - `fix/<slug>` — e.g. `fix/overdue-flag-timezone`
+- `docs/<slug>` — documentation or process/tooling-only changes (no app code), e.g. `docs/codify-process-for-claude`
 
 `<slug>` rules: lowercase, spaces/punctuation collapsed to single hyphens, no leading/trailing hyphens, capped around 50 characters.
 
 ## Steps
 
-1. **Parse `$ARGUMENTS`.** The first word, if it is exactly `milestone`, `feature`, or `fix`, is the type; the rest of the string is the description. If the first word isn't one of those three, treat the whole string as the description and ask the user which type it is via AskUserQuestion.
+1. **Parse `$ARGUMENTS`.** The first word, if it is exactly `milestone`, `feature`, `fix`, or `docs`, is the type; the rest of the string is the description. If the first word isn't one of those four, treat the whole string as the description and ask the user which type it is via AskUserQuestion.
    - If `$ARGUMENTS` is empty, ask the user for both the type and a short description before continuing.
    - If type is `milestone` and no specific milestone number/name was given, check `docs/STATUS.md`'s Milestone Progress table for the next "Not started" milestone and confirm with the user before proceeding — don't guess silently.
 
