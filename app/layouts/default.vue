@@ -21,6 +21,12 @@ async function signOut() {
       <template v-if="user" #append>
         <FarmSwitcher />
         <v-btn
+          icon="mdi-format-list-checks"
+          aria-label="Tasks"
+          title="Tasks"
+          to="/tasks"
+        />
+        <v-btn
           icon="mdi-shape-outline"
           aria-label="Categories"
           title="Categories"
