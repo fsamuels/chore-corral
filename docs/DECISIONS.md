@@ -33,6 +33,7 @@ The photo-storage decision below includes a free-tier cost analysis for Supabase
 ## Stack: Nuxt + Vuetify (diverging from Durak Tracker's Next.js/React)
 
 Chosen deliberately to diversify framework depth rather than repeat the Next.js/React stack. Two factors drove this:
+
 1. **Genuine learning value** — Vue's reactivity model and Nuxt's data-fetching conventions (loaders, composables) are architecturally distinct from React/Next, not just a syntax reskin.
 2. **Portfolio credibility** — prior professional exposure to Vue (adjacent, not hands-on) meant Nuxt could convert that into demonstrable, shipped ownership, strengthening a multi-framework portfolio narrative for EM roles rather than showing depth in only one stack.
 
@@ -46,11 +47,12 @@ Explicitly ruled out setting up new accounts/infrastructure for this project. Th
 
 ## Database: Postgres (no alternative DB considered)
 
-Supabase's value (auto-generated APIs, RLS, Auth, Realtime, Storage) is built directly on Postgres internals — swapping the database engine isn't really separable from swapping Supabase itself, which would contradict the "no new infrastructure" constraint. Where a real decision existed, it was about Postgres *extensions* (PostGIS for future boundary/geospatial work) rather than a different database engine entirely.
+Supabase's value (auto-generated APIs, RLS, Auth, Realtime, Storage) is built directly on Postgres internals — swapping the database engine isn't really separable from swapping Supabase itself, which would contradict the "no new infrastructure" constraint. Where a real decision existed, it was about Postgres _extensions_ (PostGIS for future boundary/geospatial work) rather than a different database engine entirely.
 
 ## Authorization: RLS + application-layer, deliberately combined
 
 This was the most-discussed architectural decision in planning. The person's career background is entirely in application-layer security; Postgres RLS was genuinely unfamiliar. Two options were on the table:
+
 - **Application-layer only** (skip RLS): more transferable skill, matches existing expertise, but loses defense-in-depth if Supabase's auto-generated REST API is ever exposed and a code path forgets a scoping check.
 - **RLS as primary/only enforcement**: idiomatic Supabase pattern, real production-grade knowledge, but a net-new skill on top of an already-large pile of new things in this project (Nuxt, Vuetify, PostGIS potentially).
 

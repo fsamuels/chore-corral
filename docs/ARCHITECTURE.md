@@ -4,20 +4,20 @@ This document covers the technical stack, why each piece was chosen, and how the
 
 ## Stack Summary
 
-| Layer | Choice |
-|---|---|
-| Frontend framework | Nuxt (Vue 3) |
-| Component library | Vuetify (Material Design) |
-| Backend / database | Supabase (Postgres + Auth + Storage) |
-| Hosting | Vercel |
-| Forms & validation | VeeValidate + Zod |
-| Maps | Leaflet + `@vue-leaflet/vue-leaflet` |
-| Base map tiles | Mapbox Satellite (hybrid), toggleable; Esri World Imagery planned for comparison |
-| Testing | Vitest + `@vue/test-utils` (unit/component only for MVP) |
-| Linting | `@nuxt/eslint` + Prettier (`eslint-config-prettier` to avoid rule conflicts) |
-| Type checking | `vue-tsc`, run in CI |
-| Git hooks | Husky + lint-staged |
-| CI | GitHub Actions (lint → typecheck → test → build) |
+| Layer              | Choice                                                                           |
+| ------------------ | -------------------------------------------------------------------------------- |
+| Frontend framework | Nuxt (Vue 3)                                                                     |
+| Component library  | Vuetify (Material Design)                                                        |
+| Backend / database | Supabase (Postgres + Auth + Storage)                                             |
+| Hosting            | Vercel                                                                           |
+| Forms & validation | VeeValidate + Zod                                                                |
+| Maps               | Leaflet + `@vue-leaflet/vue-leaflet`                                             |
+| Base map tiles     | Mapbox Satellite (hybrid), toggleable; Esri World Imagery planned for comparison |
+| Testing            | Vitest + `@vue/test-utils` (unit/component only for MVP)                         |
+| Linting            | `@nuxt/eslint` + Prettier (`eslint-config-prettier` to avoid rule conflicts)     |
+| Type checking      | `vue-tsc`, run in CI                                                             |
+| Git hooks          | Husky + lint-staged                                                              |
+| CI                 | GitHub Actions (lint → typecheck → test → build)                                 |
 
 This is a deliberate divergence from the Durak Tracker stack (Next.js/React) — chosen partly for genuine architectural learning value (Vue's reactivity model, Nuxt's data-fetching conventions) and partly because it converts prior Vue-adjacent professional exposure into demonstrable, portfolio-visible ownership. See DECISIONS.md for the full reasoning.
 
@@ -28,6 +28,7 @@ This is a deliberate divergence from the Durak Tracker stack (Next.js/React) —
 Nuxt deploys to Vercel via an official adapter, so hosting stays unchanged from Durak Tracker despite the frontend framework switching. Vuetify was chosen over alternatives (Nuxt UI, PrimeVue, Quasar) specifically for its Material Design foundation — Material's mobile-first design philosophy aligns directly with this app's mobile-first requirement, and Vuetify's official Nuxt module (`vuetify-nuxt-module`) handles SSR setup and tree-shaking automatically.
 
 Relevant Vuetify components anticipated:
+
 - `v-data-table` — task list, especially once category/priority filtering is active
 - `v-bottom-navigation` — primary mobile navigation
 - `v-navigation-drawer` — farm switcher and secondary navigation on larger screens
@@ -50,6 +51,7 @@ Provides Postgres, Auth (OAuth via Google), Storage, and auto-generated APIs in 
 ### Storage & Photo Pipeline
 
 Photos are compressed client-side before upload:
+
 1. Resize to a maximum of 1600px on the longest edge.
 2. Convert to WebP.
 3. Target compressed size: ~500 KB–1 MB per photo (from a 10 MB max raw upload).
@@ -73,6 +75,7 @@ Not part of MVP. When built, this will use Leaflet.draw for polygon drawing and 
 ## Testing Strategy
 
 Moderate rigor for MVP: **unit and component tests only, no E2E** (Playwright deferred). Test coverage priorities:
+
 - Form validation logic (VeeValidate + Zod schemas)
 - Supabase query/data functions (mockable business logic)
 - Task lifecycle logic (e.g. status transitions clearing `completed_at`, category deletion's active-task check)
