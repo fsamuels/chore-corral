@@ -31,3 +31,14 @@ pnpm dev
 ```
 
 Other scripts: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.
+
+### Database migrations
+
+The schema lives in versioned migration files under `supabase/migrations/`, managed with the Supabase CLI. To apply pending migrations to the hosted project (one-time `link`, then `push` as needed):
+
+```
+npx supabase link --project-ref <project-ref>   # ref from the Supabase dashboard URL
+npx supabase db push
+```
+
+Automating this in the deploy pipeline is a planned improvement — see [ROADMAP.md](docs/ROADMAP.md).

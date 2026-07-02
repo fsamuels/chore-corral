@@ -6,14 +6,16 @@ Current state of the project. Update this as work progresses — it should alway
 
 ## Current Phase
 
-**M1 in progress.** Nuxt + Vuetify app scaffolded with the full M1 tooling set (ESLint, Prettier, vue-tsc, Husky/lint-staged, Vitest, GitHub Actions CI) — lint, typecheck, test, and build all pass locally. The app now uses `app/pages/` file-based routing: the scaffold landing card lives at `/` (`pages/index.vue`) and links to a Vuetify component sampler at `/components-demo` (demo/reference only, not a milestone deliverable). Supabase project `chore-corral` (us-east-2) is created and its public env vars are wired into both the local app and Vercel (Production/Development environments). Not yet done: the Vercel project isn't connected to the GitHub repo, so there's no live production URL and no PR preview deploys yet.
+**M2 in progress** (M1's Vercel connection still pending — see Known Issues). The full MVP schema now exists as a versioned Supabase CLI migration (`supabase/migrations/20260702154910_m2_schema_and_rls.sql`): both enums, all eight tables per DATA_MODEL.md, deny-by-default RLS with the farm-membership pattern on every farm-scoped table (append-only `activity_log`), and the private `task-photos` storage bucket with path-based per-operation policies. The migration and its RLS behavior were validated against a local Postgres 16 cluster with a shim of the Supabase-managed surface — 13 impersonation tests confirm cross-farm isolation for reads, writes, and storage paths. Not yet done: the migration hasn't been applied to the hosted Supabase project, and the two farms/memberships aren't seeded, so M2's done-state isn't met yet.
+
+Earlier M1 state: Nuxt + Vuetify app scaffolded with the full tooling set (ESLint, Prettier, vue-tsc, Husky/lint-staged, Vitest, GitHub Actions CI); `app/pages/` file-based routing with the scaffold landing card at `/` and a Vuetify component sampler at `/components-demo` (demo/reference only). Supabase project `chore-corral` (us-east-2) created with public env vars wired into the local app and Vercel (Production/Development environments).
 
 ## Milestone Progress
 
 | Milestone                | Status      |
 | ------------------------ | ----------- |
 | M1 — Scaffold & Deploy   | In Progress |
-| M2 — Schema & Data Layer | Not started |
+| M2 — Schema & Data Layer | In Progress |
 | M3 — Auth                | Not started |
 | M4 — Category Management | Not started |
 | M5 — Core Task CRUD      | Not started |
@@ -28,6 +30,7 @@ Current state of the project. Update this as work progresses — it should alway
 
 ## Next Steps
 
-1. Grant the Vercel GitHub App access to the `chore-corral` repo, connect the repo in Vercel project settings, then add the Preview environment env vars
-2. Merge this PR to get a live production URL and close out M1's done-state
-3. Before/during M2, resolve the storage-bucket RLS open question in DECISIONS.md — the schema migration needs a concrete policy expression, not a placeholder
+1. Apply the M2 migration to the hosted Supabase project from a machine with project credentials: `npx supabase link --project-ref <ref>`, then `npx supabase db push` (a future CI job for this is on ROADMAP.md)
+2. Create the two farms (Reign Cloud Ranch, Clarkson's Farm) and at least one membership row each — auth users can be created manually in the Supabase dashboard ahead of M3's OAuth
+3. Re-verify RLS in the Supabase SQL editor impersonating a test user's JWT, per M2's done-state (already verified against a local Postgres shim)
+4. Grant the Vercel GitHub App access to the `chore-corral` repo, connect the repo in Vercel project settings, then add the Preview environment env vars to close out M1's done-state

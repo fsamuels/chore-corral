@@ -2,7 +2,7 @@
 
 This document describes the Postgres schema (via Supabase) underlying Chore Corral: tables, relationships, and Row Level Security (RLS) policy intent. It complements ARCHITECTURE.md, which covers _why_ RLS was chosen as the enforcement layer; this doc focuses on _what_ the schema actually looks like.
 
-All tables live in Postgres, managed via Supabase. Exact column types/constraints below are intended as an implementation-ready starting point, not frozen SQL — refine during M2 (schema setup) as needed.
+All tables live in Postgres, managed via Supabase. The schema is implemented as versioned Supabase CLI migration files under `supabase/migrations/` (applied with `supabase db push`) — the M2 migration is the authoritative SQL; this doc describes intent and relationships.
 
 ## Entity Relationship Overview
 
@@ -90,21 +90,21 @@ No admin tooling is planned to manage priorities as data, so a lookup table's fl
 
 The core work-item entity.
 
-| Column         | Type                                       | Notes                                                                                  |
-| -------------- | ------------------------------------------ | -------------------------------------------------------------------------------------- |
-| `id`           | uuid, PK                                   |                                                                                        |
-| `farm_id`      | uuid, FK → `farms.id`, not null            |                                                                                        |
-| `title`        | text, not null                             |                                                                                        |
-| `category_id`  | uuid, FK → `categories.id`, nullable       | Null = Uncategorized                                                                   |
-| `priority`     | `task_priority` enum, not null             | See Priority section above                                                             |
-| `status`       | enum/text, not null, default 'not_started' | Values: `not_started`, `in_progress`, `done`                                           |
-| `due_date`     | date, nullable                             |                                                                                        |
-| `notes`        | text, nullable                             | Single free-text field                                                                 |
-| `lat`          | numeric, nullable                          | Single location pin (MVP)                                                              |
-| `lng`          | numeric, nullable                          |                                                                                        |
-| `created_at`   | timestamptz, default now()                 |                                                                                        |
-| `created_by`   | uuid, FK → `auth.users.id`, not null       | For activity log / attribution, not for access control (all members have equal access) |
-| `completed_at` | timestamptz, nullable                      | Set when status → done; **cleared** when status moves out of done                      |
+| Column         | Type                                                | Notes                                                                                  |
+| -------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `id`           | uuid, PK                                            |                                                                                        |
+| `farm_id`      | uuid, FK → `farms.id`, not null                     |                                                                                        |
+| `title`        | text, not null                                      |                                                                                        |
+| `category_id`  | uuid, FK → `categories.id`, nullable                | Null = Uncategorized                                                                   |
+| `priority`     | `task_priority` enum, not null                      | See Priority section above                                                             |
+| `status`       | `task_status` enum, not null, default 'not_started' | Values: `not_started`, `in_progress`, `done`                                           |
+| `due_date`     | date, nullable                                      |                                                                                        |
+| `notes`        | text, nullable                                      | Single free-text field                                                                 |
+| `lat`          | numeric, nullable                                   | Single location pin (MVP)                                                              |
+| `lng`          | numeric, nullable                                   |                                                                                        |
+| `created_at`   | timestamptz, default now()                          |                                                                                        |
+| `created_by`   | uuid, FK → `auth.users.id`, not null                | For activity log / attribution, not for access control (all members have equal access) |
+| `completed_at` | timestamptz, nullable                               | Set when status → done; **cleared** when status moves out of done                      |
 
 **No `deleted_at`** — tasks are hard-deleted per SPEC.md. Deletion produces an `activity_log` entry as the only remaining trace.
 
@@ -186,8 +186,31 @@ Since Chore Corral is using **both** RLS and application-layer checks (a deliber
 
 ## Storage (Supabase Storage)
 
-- One bucket for task photos, path structure suggested as `{farm_id}/{task_id}/{photo_id}.webp` to keep farm-scoping visible in the path itself.
-- RLS-equivalent access policies on Storage buckets should mirror the `farm_memberships` check used for database tables.
+- One bucket, `task-photos` (private, not public), path structure `{farm_id}/{task_id}/{photo_id}.webp` — the leading `farm_id` segment is what makes path-based policy scoping possible.
+- Access policies mirror the `farm_memberships` check used for database tables, but since `storage.objects` has no `farm_id` column, the farm is extracted from the object path via `storage.foldername(name)` (see DECISIONS.md for the reasoning):
+
+```sql
+-- One policy per operation; SELECT/DELETE use USING, INSERT uses WITH CHECK,
+-- UPDATE uses both. Shown here for SELECT and INSERT; UPDATE/DELETE repeat the
+-- same expression.
+CREATE POLICY "farm members can read their farm's task photos"
+ON storage.objects FOR SELECT
+USING (
+  bucket_id = 'task-photos'
+  AND (storage.foldername(name))[1]::uuid IN (
+    SELECT farm_id FROM farm_memberships WHERE user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "farm members can upload their farm's task photos"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'task-photos'
+  AND (storage.foldername(name))[1]::uuid IN (
+    SELECT farm_id FROM farm_memberships WHERE user_id = auth.uid()
+  )
+);
+```
 
 ## PostGIS (Future)
 
