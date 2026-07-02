@@ -30,6 +30,7 @@ Create a branch off the latest `origin/main`, following this repo's naming conve
 4. **Build the branch name** per the convention above.
 
 5. **Create and switch to the branch off the fetched remote tip**, not the local main:
+
    ```
    git switch -c <branch-name> origin/main
    ```

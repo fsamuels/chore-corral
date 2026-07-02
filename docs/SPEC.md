@@ -29,6 +29,7 @@ The top-level tenant boundary. Each farm is a separate property/workspace.
 - Farms can be **orphaned** (all members leave) — this is an explicit non-goal; no cleanup logic is built for MVP.
 
 For MVP, farms are created directly in the database (no in-app farm-creation flow). The first two farms are:
+
 1. **Reign Cloud Ranch** (production/primary)
 2. **Clarkson's Farm** (testing/feature review)
 
@@ -45,20 +46,20 @@ Many-to-many relationship between users and farms.
 
 The core unit of work.
 
-| Field | Required | Notes |
-|---|---|---|
-| Title | Yes | |
-| Category | Yes | Single category per task; can be "Uncategorized" |
-| Priority | Yes | Single value from a **global, fixed** tier list |
-| Due date | No | Optional; if passed and task isn't Done, task is flagged overdue |
-| Status | Yes (defaults on create) | Not Started / In Progress / Done |
-| Notes | No | Free text, single field (not a threaded log) |
-| Tags | No | Freeform text, multiple per task, autocomplete against existing tags on that farm |
-| Location | No | Single pin, optional (see Location section) |
-| Photos | No | Zero or more (see Photos section) |
-| Created date | Auto | |
-| Completed date | Auto | Set when status moves to Done; **cleared** if status moves out of Done |
-| Farm | Auto | Inherited from the active farm context; not user-editable |
+| Field          | Required                 | Notes                                                                             |
+| -------------- | ------------------------ | --------------------------------------------------------------------------------- |
+| Title          | Yes                      |                                                                                   |
+| Category       | Yes                      | Single category per task; can be "Uncategorized"                                  |
+| Priority       | Yes                      | Single value from a **global, fixed** tier list                                   |
+| Due date       | No                       | Optional; if passed and task isn't Done, task is flagged overdue                  |
+| Status         | Yes (defaults on create) | Not Started / In Progress / Done                                                  |
+| Notes          | No                       | Free text, single field (not a threaded log)                                      |
+| Tags           | No                       | Freeform text, multiple per task, autocomplete against existing tags on that farm |
+| Location       | No                       | Single pin, optional (see Location section)                                       |
+| Photos         | No                       | Zero or more (see Photos section)                                                 |
+| Created date   | Auto                     |                                                                                   |
+| Completed date | Auto                     | Set when status moves to Done; **cleared** if status moves out of Done            |
+| Farm           | Auto                     | Inherited from the active farm context; not user-editable                         |
 
 **Task creation form**: shows required fields only (Title, Category, Priority) with a "More details" expand/link to reveal all other fields (Notes, Tags, Location, Photos, Due date) at creation time.
 
@@ -110,12 +111,14 @@ Completed tasks remain visible and filterable in the task list (not hidden/archi
 Single optional pin per task (MVP). Multiple pins per task (e.g. for a fence line spanning an area) is a **deferred future feature** — the data model and UI support exactly one pin for now.
 
 **Capture flow:**
+
 1. When creating a task, the app attempts to auto-capture the device's current GPS position.
 2. The captured location is shown on a small confirmation map (mini-map) before the task is saved, allowing the user to adjust the pin if GPS accuracy is off, or if they're logging a task for a location they aren't physically standing at.
 3. If GPS is unavailable or permission is denied, the task can still be saved with **no location**, or the user can manually place a pin on a map.
 4. Location can be edited after task creation at any time (not locked once set).
 
 **Display:**
+
 - Tasks with a location appear as pins on the farm's map view.
 - Tapping a pin on the map opens the associated task (map is an interactive entry point, not just a visualization layer).
 - The map is scoped to whichever farm is currently active (no cross-farm combined view).
@@ -126,15 +129,16 @@ Single optional pin per task (MVP). Multiple pins per task (e.g. for a fence lin
 
 Zero or more per task (data model supports many; typical usage expected to be 0–1).
 
-| Field | Notes |
-|---|---|
+| Field      | Notes                                |
+| ---------- | ------------------------------------ |
 | Image file | Stored compressed (see limits below) |
-| Caption | Optional, free text |
-| Timestamp | Auto-captured at upload time |
+| Caption    | Optional, free text                  |
+| Timestamp  | Auto-captured at upload time         |
 
 **Source:** camera capture or gallery upload — both supported.
 
 **Size limits:**
+
 - **Max upload size: 10 MB** (accommodates raw phone camera output before compression).
 - **Client-side compression before storage:** resize to a maximum of 1600px on the longest edge, convert to WebP. Target compressed size: roughly 500 KB–1 MB per photo.
 - No auto-delete on task completion for MVP — photos persist regardless of task status. Storage-management strategy (deletion, archival) may be revisited later if usage grows well beyond current projections (see DECISIONS.md).
@@ -144,6 +148,7 @@ Zero or more per task (data model supports many; typical usage expected to be 0�
 Records **major events only** — not a field-by-field audit trail. Intended for historical progress tracking, not compliance/audit purposes.
 
 **Logged events (MVP):**
+
 - Task created
 - Task status changed
 - Task deleted

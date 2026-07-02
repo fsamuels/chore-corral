@@ -12,16 +12,22 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full stack breakdown and rat
 
 ## Documentation
 
-| Doc | Purpose |
-|---|---|
-| [SPEC.md](docs/SPEC.md) | Functional specification — what the app does, screen-by-screen behavior, field definitions, and edge cases |
-| [DATA_MODEL.md](docs/DATA_MODEL.md) | Database schema, table relationships, and Row Level Security policy intent |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Technical stack, rationale, and how the major pieces fit together |
-| [ROADMAP.md](docs/ROADMAP.md) | Lightweight, directional list of future features beyond MVP |
-| [MILESTONES.md](docs/MILESTONES.md) | Ordered, scoped build plan to reach MVP, with concrete done-states per milestone |
-| [STATUS.md](docs/STATUS.md) | Current build state — what's done, in progress, and known issues |
-| [DECISIONS.md](docs/DECISIONS.md) | Running log of the reasoning behind non-obvious project decisions |
+| Doc                                     | Purpose                                                                                                    |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| [SPEC.md](docs/SPEC.md)                 | Functional specification — what the app does, screen-by-screen behavior, field definitions, and edge cases |
+| [DATA_MODEL.md](docs/DATA_MODEL.md)     | Database schema, table relationships, and Row Level Security policy intent                                 |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Technical stack, rationale, and how the major pieces fit together                                          |
+| [ROADMAP.md](docs/ROADMAP.md)           | Lightweight, directional list of future features beyond MVP                                                |
+| [MILESTONES.md](docs/MILESTONES.md)     | Ordered, scoped build plan to reach MVP, with concrete done-states per milestone                           |
+| [STATUS.md](docs/STATUS.md)             | Current build state — what's done, in progress, and known issues                                           |
+| [DECISIONS.md](docs/DECISIONS.md)       | Running log of the reasoning behind non-obvious project decisions                                          |
 
 ## Getting Started
 
-Repository is initialized; the app itself isn't scaffolded yet — see [MILESTONES.md](docs/MILESTONES.md) for the M1 (Scaffold & Deploy) plan.
+```
+pnpm install
+cp .env.example .env   # fill in Supabase URL/publishable key from Project Settings → API
+pnpm dev
+```
+
+Other scripts: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.

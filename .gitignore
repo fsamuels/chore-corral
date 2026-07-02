@@ -1,0 +1,22 @@
+# Nuxt
+.nuxt
+.output
+dist
+
+# Dependencies
+node_modules
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Vercel
+.vercel
+
+# Misc
+.DS_Store
+*.log
+
+# Supabase CLI local state
+supabase/.temp
