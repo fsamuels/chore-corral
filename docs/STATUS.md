@@ -6,7 +6,7 @@ Current state of the project. Update this as work progresses — it should alway
 
 ## Current Phase
 
-**M1 in progress.** Nuxt + Vuetify app scaffolded with the full M1 tooling set (ESLint, Prettier, vue-tsc, Husky/lint-staged, Vitest, GitHub Actions CI) — lint, typecheck, test, and build all pass locally. Supabase project `chore-corral` (us-east-2) is created and its public env vars are wired into both the local app and Vercel (Production/Development environments). Not yet done: the Vercel project isn't connected to the GitHub repo, so there's no live production URL and no PR preview deploys yet.
+**M1 in progress.** Nuxt + Vuetify app scaffolded with the full M1 tooling set (ESLint, Prettier, vue-tsc, Husky/lint-staged, Vitest, GitHub Actions CI) — lint, typecheck, test, and build all pass locally. The app now uses `app/pages/` file-based routing: the scaffold landing card lives at `/` (`pages/index.vue`) and links to a Vuetify component sampler at `/components-demo` (demo/reference only, not a milestone deliverable). Supabase project `chore-corral` (us-east-2) is created and its public env vars are wired into both the local app and Vercel (Production/Development environments). Not yet done: the Vercel project isn't connected to the GitHub repo, so there's no live production URL and no PR preview deploys yet.
 
 ## Milestone Progress
 
