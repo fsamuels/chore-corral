@@ -212,6 +212,9 @@ async function submitEdit() {
       priority: editPriority.value,
       dueDate: editDueDate.value || null,
       notes: editNotes.value || null,
+      // Tag editing UI arrives in the M6 UI piece; preserve the task's
+      // current tags rather than clearing them until then.
+      tagNames: editing.value.tags.map((tag) => tag.name),
     })
     closeEdit()
   } catch (error) {

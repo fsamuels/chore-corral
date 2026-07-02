@@ -1,5 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~/types/database.types'
+import {
+  resolveTags,
+  setTaskTags,
+  listTagsForTasks,
+  type TagSummary,
+} from './tags'
 
 export type TaskPriority = Database['public']['Enums']['task_priority']
 export type TaskStatus = Database['public']['Enums']['task_status']
@@ -16,6 +22,7 @@ export interface TaskSummary {
   notes: string | null
   created_at: string
   completed_at: string | null
+  tags: TagSummary[]
 }
 
 const TASK_COLUMNS =
@@ -33,7 +40,10 @@ const PRIORITY_RANK: Record<TaskPriority, number> = {
   whenever: 0,
 }
 
-export function compareTasks(a: TaskSummary, b: TaskSummary): number {
+export function compareTasks(
+  a: Pick<TaskSummary, 'priority' | 'created_at' | 'id'>,
+  b: Pick<TaskSummary, 'priority' | 'created_at' | 'id'>,
+): number {
   const byPriority = PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority]
   if (byPriority !== 0) return byPriority
   const byCreated = a.created_at.localeCompare(b.created_at)
@@ -62,6 +72,13 @@ function toLocalDateString(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
+// `resolveTags` returns tags in first-seen input order, not alphabetical, so
+// create/update sort before attaching to a TaskSummary — consistent with how
+// `listTags`/`listTagsForTasks` already present tags sorted by name.
+function sortTagsByName(tags: TagSummary[]): TagSummary[] {
+  return [...tags].sort((a, b) => a.name.localeCompare(b.name))
+}
+
 /** All tasks for one farm (Done included, per SPEC), urgent-first. */
 export async function listTasks(
   supabase: Client,
@@ -72,7 +89,16 @@ export async function listTasks(
     .select(TASK_COLUMNS)
     .eq('farm_id', farmId)
   if (error) throw new Error(error.message)
-  return data.sort(compareTasks)
+  const sorted = data.sort(compareTasks)
+
+  const tagsByTaskId = await listTagsForTasks(
+    supabase,
+    sorted.map((task) => task.id),
+  )
+  return sorted.map((task) => ({
+    ...task,
+    tags: tagsByTaskId.get(task.id) ?? [],
+  }))
 }
 
 export interface CreateTaskInput {
@@ -83,12 +109,15 @@ export interface CreateTaskInput {
   dueDate?: string | null
   notes?: string | null
   actorUserId: string
+  tagNames?: string[]
 }
 
 /**
  * Create a task (status defaults to not_started) and log a `task_created`
  * event. Like the categories service, the two inserts are sequential, not
  * transactional — a failed log insert leaves the task in place and throws.
+ * Tag resolution/attachment happens after the insert+log, for the same
+ * reason: sequential, non-transactional steps.
  */
 export async function createTask(
   supabase: Client,
@@ -117,7 +146,17 @@ export async function createTask(
   if (error) throw new Error(error.message)
 
   await logTaskEvent(supabase, 'task_created', data, input)
-  return data
+
+  const tags = await resolveTags(supabase, {
+    farmId: input.farmId,
+    names: input.tagNames ?? [],
+  })
+  await setTaskTags(supabase, {
+    taskId: data.id,
+    tagIds: tags.map((tag) => tag.id),
+  })
+
+  return { ...data, tags: sortTagsByName(tags) }
 }
 
 export interface UpdateTaskInput {
@@ -128,12 +167,15 @@ export interface UpdateTaskInput {
   priority: TaskPriority
   dueDate: string | null
   notes: string | null
+  tagNames: string[]
 }
 
 /**
  * Edit a task's fields. Status is deliberately excluded — transitions go
  * through `changeTaskStatus` so `completed_at` and the activity log stay
- * consistent. Field-level edits are not logged (SPEC: major events only).
+ * consistent. Field-level edits are not logged (SPEC: major events only) —
+ * that includes tag changes, which replace the task's full tag set via
+ * `setTaskTags` after the field update, with no activity_log write.
  */
 export async function updateTask(
   supabase: Client,
@@ -157,7 +199,17 @@ export async function updateTask(
   if (error) throw new Error(error.message)
   const task = data[0]
   if (!task) throw new Error('Task not found')
-  return task
+
+  const tags = await resolveTags(supabase, {
+    farmId: input.farmId,
+    names: input.tagNames,
+  })
+  await setTaskTags(supabase, {
+    taskId: task.id,
+    tagIds: tags.map((tag) => tag.id),
+  })
+
+  return { ...task, tags: sortTagsByName(tags) }
 }
 
 /**
@@ -184,7 +236,13 @@ export async function changeTaskStatus(
   if (readError) throw new Error(readError.message)
   const before = current[0]
   if (!before) throw new Error('Task not found')
-  if (before.status === opts.status) return before
+
+  // Status changes don't touch tags, but the return type does carry them —
+  // fetch once and reuse for both the no-op and updated-row branches below.
+  const tags =
+    (await listTagsForTasks(supabase, [opts.taskId])).get(opts.taskId) ?? []
+
+  if (before.status === opts.status) return { ...before, tags }
 
   const { data, error } = await supabase
     .from('tasks')
@@ -203,7 +261,7 @@ export async function changeTaskStatus(
     old_status: before.status,
     new_status: task.status,
   })
-  return task
+  return { ...task, tags }
 }
 
 /**
