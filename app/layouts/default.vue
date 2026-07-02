@@ -13,9 +13,19 @@ async function signOut() {
 <template>
   <v-app>
     <v-app-bar density="comfortable">
-      <v-app-bar-title>Chore Corral</v-app-bar-title>
+      <v-app-bar-title>
+        <NuxtLink to="/" class="text-decoration-none" style="color: inherit">
+          Chore Corral
+        </NuxtLink>
+      </v-app-bar-title>
       <template v-if="user" #append>
         <FarmSwitcher />
+        <v-btn
+          icon="mdi-shape-outline"
+          aria-label="Categories"
+          title="Categories"
+          to="/categories"
+        />
         <v-btn
           icon="mdi-logout"
           aria-label="Sign out"

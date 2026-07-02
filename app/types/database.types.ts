@@ -3,6 +3,14 @@
 // Replace with `supabase gen types typescript` output once a type-generation
 // workflow exists; until then, extend this file as new tables come into use.
 
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
 export interface Database {
   public: {
     Tables: {
@@ -55,6 +63,139 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: 'farm_memberships_farm_id_fkey'
+            columns: ['farm_id']
+            isOneToOne: false
+            referencedRelation: 'farms'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      categories: {
+        Row: {
+          id: string
+          farm_id: string
+          name: string
+          deleted_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          farm_id: string
+          name: string
+          deleted_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          farm_id?: string
+          name?: string
+          deleted_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'categories_farm_id_fkey'
+            columns: ['farm_id']
+            isOneToOne: false
+            referencedRelation: 'farms'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          id: string
+          farm_id: string
+          title: string
+          category_id: string | null
+          priority: Database['public']['Enums']['task_priority']
+          status: Database['public']['Enums']['task_status']
+          due_date: string | null
+          notes: string | null
+          lat: number | null
+          lng: number | null
+          created_at: string
+          created_by: string
+          completed_at: string | null
+        }
+        Insert: {
+          id?: string
+          farm_id: string
+          title: string
+          category_id?: string | null
+          priority: Database['public']['Enums']['task_priority']
+          status?: Database['public']['Enums']['task_status']
+          due_date?: string | null
+          notes?: string | null
+          lat?: number | null
+          lng?: number | null
+          created_at?: string
+          created_by: string
+          completed_at?: string | null
+        }
+        Update: {
+          id?: string
+          farm_id?: string
+          title?: string
+          category_id?: string | null
+          priority?: Database['public']['Enums']['task_priority']
+          status?: Database['public']['Enums']['task_status']
+          due_date?: string | null
+          notes?: string | null
+          lat?: number | null
+          lng?: number | null
+          created_at?: string
+          created_by?: string
+          completed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'tasks_farm_id_fkey'
+            columns: ['farm_id']
+            isOneToOne: false
+            referencedRelation: 'farms'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'tasks_category_id_fkey'
+            columns: ['category_id']
+            isOneToOne: false
+            referencedRelation: 'categories'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      activity_log: {
+        Row: {
+          id: string
+          farm_id: string
+          task_id: string | null
+          event_type: string
+          event_detail: Json
+          actor_user_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          farm_id: string
+          task_id?: string | null
+          event_type: string
+          event_detail: Json
+          actor_user_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          farm_id?: string
+          task_id?: string | null
+          event_type?: string
+          event_detail?: Json
+          actor_user_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'activity_log_farm_id_fkey'
             columns: ['farm_id']
             isOneToOne: false
             referencedRelation: 'farms'
