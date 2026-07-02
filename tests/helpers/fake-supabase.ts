@@ -2,13 +2,18 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../../app/types/database.types'
 
 // Minimal in-memory fake of the Supabase client, covering only the query
-// chains app/services/categories.ts actually uses:
+// chains app/services/categories.ts and app/services/tasks.ts actually use:
 //
 //   from('categories').select(...).eq(...).is(...).order(...)
 //   from('categories').insert(row).select(...).single()
 //   from('tasks').select('id', { count: 'exact', head: true }).eq(...).eq(...).in(...)
 //   from('categories').update(row).eq(...).eq(...).is(...).select(...)
 //   from('activity_log').insert(row)                       // awaited with no .select()
+//   from('tasks').select(cols).eq('farm_id', ...)
+//   from('tasks').select(cols).eq('id', ...).eq('farm_id', ...)
+//   from('tasks').insert(row).select(cols).single()
+//   from('tasks').update(row).eq('id', ...).eq('farm_id', ...).select(cols)
+//   from('tasks').delete().eq('id', ...).eq('farm_id', ...).select('id, title')
 //
 // It is not a general PostgREST emulator: no joins, no or(), no partial
 // filter operators beyond eq/is/in. Keep it that way — generalizing further
@@ -25,13 +30,13 @@ export interface FakeSupabaseSeed {
 
 export interface FailSpec {
   table: TableName
-  op: 'select' | 'insert' | 'update'
+  op: 'select' | 'insert' | 'update' | 'delete'
   message?: string
 }
 
 interface FailSpecInternal {
   table: TableName
-  op: 'select' | 'insert' | 'update'
+  op: 'select' | 'insert' | 'update' | 'delete'
   message: string
 }
 
@@ -42,7 +47,7 @@ type QueryResult = {
 }
 
 class FakeQueryBuilder implements PromiseLike<QueryResult> {
-  private opType: 'select' | 'insert' | 'update' = 'select'
+  private opType: 'select' | 'insert' | 'update' | 'delete' = 'select'
   private readonly filters: Array<(row: Row) => boolean> = []
   private insertPayload?: Row
   private updatePayload?: Row
@@ -73,6 +78,11 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
   update(row: Row): this {
     this.opType = 'update'
     this.updatePayload = row
+    return this
+  }
+
+  delete(): this {
+    this.opType = 'delete'
     return this
   }
 
@@ -152,6 +162,15 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
     if (this.opType === 'update') {
       const matches = rows.filter((row) => this.filters.every((f) => f(row)))
       for (const row of matches) Object.assign(row, this.updatePayload)
+      return { data: matches.map((row) => this.project(row)), error: null }
+    }
+
+    if (this.opType === 'delete') {
+      const matches = rows.filter((row) => this.filters.every((f) => f(row)))
+      this.store[this.table] = rows.filter(
+        (row) => !this.filters.every((f) => f(row)),
+      )
+      if (!this.selectCols) return { data: null, error: null }
       return { data: matches.map((row) => this.project(row)), error: null }
     }
 
