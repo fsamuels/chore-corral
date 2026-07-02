@@ -2,17 +2,17 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-07-01
+**Last updated:** 2026-07-02
 
 ## Current Phase
 
-**Pre-development.** Planning and documentation complete. Repository is initialized on GitHub, with branch-naming conventions and `/new-branch` / `/create-pr` skills in place (see `CLAUDE.md`). M1 not yet started.
+**M1 in progress.** Nuxt + Vuetify app scaffolded with the full M1 tooling set (ESLint, Prettier, vue-tsc, Husky/lint-staged, Vitest, GitHub Actions CI) — lint, typecheck, test, and build all pass locally. Supabase project `chore-corral` (us-east-2) is created and its public env vars are wired into both the local app and Vercel (Production/Development environments). Not yet done: the Vercel project isn't connected to the GitHub repo, so there's no live production URL and no PR preview deploys yet.
 
 ## Milestone Progress
 
 | Milestone                | Status      |
 | ------------------------ | ----------- |
-| M1 — Scaffold & Deploy   | Not started |
+| M1 — Scaffold & Deploy   | In Progress |
 | M2 — Schema & Data Layer | Not started |
 | M3 — Auth                | Not started |
 | M4 — Category Management | Not started |
@@ -24,9 +24,10 @@ Current state of the project. Update this as work progresses — it should alway
 
 ## Known Issues
 
-None yet — no code exists.
+- Vercel project `fsamuels-projects/chore-corral` isn't connected to the `fsamuels/chore-corral` GitHub repo — the Vercel GitHub App needs repo access granted manually in GitHub settings before Git-based deploys (production or PR previews) will work. Until then, `NUXT_PUBLIC_SUPABASE_URL`/`KEY` are only set for the Production and Development environments, not Preview.
 
 ## Next Steps
 
-1. Begin M1 (scaffold + deploy) via `/new-branch milestone m1`
-2. Before/during M2, resolve the storage-bucket RLS open question in DECISIONS.md — the schema migration needs a concrete policy expression, not a placeholder
+1. Grant the Vercel GitHub App access to the `chore-corral` repo, connect the repo in Vercel project settings, then add the Preview environment env vars
+2. Merge this PR to get a live production URL and close out M1's done-state
+3. Before/during M2, resolve the storage-bucket RLS open question in DECISIONS.md — the schema migration needs a concrete policy expression, not a placeholder

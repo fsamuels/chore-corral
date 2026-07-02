@@ -24,4 +24,10 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full stack breakdown and rat
 
 ## Getting Started
 
-Repository is initialized; the app itself isn't scaffolded yet — see [MILESTONES.md](docs/MILESTONES.md) for the M1 (Scaffold & Deploy) plan.
+```
+pnpm install
+cp .env.example .env   # fill in Supabase URL/publishable key from Project Settings → API
+pnpm dev
+```
+
+Other scripts: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.
