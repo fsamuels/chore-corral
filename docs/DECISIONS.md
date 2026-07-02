@@ -10,18 +10,6 @@ Tracked here until decided. Once resolved, each moves out of this section and be
 
 A user can belong to multiple farms. Nothing yet specifies which farm is active immediately after login, or whether the chosen farm persists across sessions (localStorage, a server-side preference, or always defaulting to the first membership row).
 
-### Overdue-flag timezone semantics — resolve during M5 (Core Task CRUD)
-
-`due_date` is a plain `date` column with no timezone. Whether "overdue" is evaluated against server/UTC midnight or the device's local midnight is undecided — an off-by-one-day bug is easy to introduce here if it isn't decided up front.
-
-### Task list tiebreaker sort — resolve during M5 (Core Task CRUD)
-
-Priority gives the primary sort order, but ties within a tier (e.g. multiple "Urgent" tasks) have no defined secondary sort (due date? created_at?).
-
-### Delete confirmation UX — resolve during M5 (Core Task CRUD)
-
-Task deletion is a real, irreversible hard `DELETE`. SPEC.md doesn't say whether the UI requires a confirmation step before deleting — worth deciding deliberately given there's no undo.
-
 ### Mapbox usage-tier check — resolve during M7 (Location & Map View)
 
 The photo-storage decision below includes a free-tier cost analysis for Supabase Storage, but no equivalent check exists for Mapbox tile-request volume/pricing at expected usage. Likely fine at two-farm scale, but worth the same two-line sanity check applied elsewhere before relying on it.
@@ -117,3 +105,15 @@ Clarkson's Farm (the personal dev/test farm) and Reign Cloud Ranch (production) 
 M3's unrecognized-login gate needs to answer "does this authenticated user belong to any farm?". The membership middleware answers it by selecting from `farms` and checking whether any rows come back, rather than querying `farm_memberships` directly. The RLS policy on `farms` already restricts visibility to farms the user is a member of, so the two queries are equivalent — but the `farms` result doubles as the data the farm switcher and home view need anyway (id + name), so one query serves both purposes and the result is cached in shared state for the session.
 
 A deliberate distinction rides along with this: **zero rows means no access; a query _error_ does not.** If the farms query fails outright (schema not yet migrated, network trouble), the middleware lets the user through to the page, which surfaces the error, instead of redirecting to `/no-access`. Misreporting an infrastructure failure as "you haven't been invited" would send the user chasing the farm owner for a problem membership can't fix — relevant right now, since the M2 migration hasn't been applied to the hosted project yet.
+
+## Overdue-flag timezone semantics: device-local calendar date, not UTC
+
+Resolved during M5. `due_date` is a plain `date` column with no timezone, so "overdue" needed a defined reference point to avoid an off-by-one-day bug. Resolved to the device's **local** calendar date: a task is overdue only once its due date is strictly before today's local date (due-today is not overdue), computed by formatting the current moment as a local `YYYY-MM-DD` string and comparing it against `due_date` lexically. This matches how a farm worker actually experiences "today" — the alternative (comparing against UTC midnight) would flip a task overdue up to several hours early or late depending on the user's timezone relative to UTC, which reads as a bug in a single-timezone farm-ops context where there's no cross-timezone user base to serve instead.
+
+## Task list tiebreaker sort: oldest-created-first within a priority tier
+
+Resolved during M5. Priority is the primary sort key (Urgent → Soon → Whenever), but ties within a tier needed a defined secondary order. Resolved to `created_at` ascending — the oldest task in a tier surfaces first, on the reasoning that an aging urgent task deserves more visual priority than one just added, and this avoids the list silently reordering itself as new same-priority tasks are created (which a `created_at` descending or an unstable sort would both do). The comparator (`compareTasks` in `app/services/tasks.ts`) also breaks any remaining tie by `id` for a fully deterministic order, since a real timestamp collision — however unlikely — shouldn't leave row order undefined.
+
+## Task deletion: confirmation dialog required, no undo
+
+Resolved during M5. Task deletion is a real, irreversible hard `DELETE` with no soft-delete or recovery path (see the hard-delete decision above). The UI requires an explicit confirm-dialog step before deleting ("Delete “<title>”? This can't be undone."), matching the pattern already established for category soft-deletion in M4, rather than deleting immediately on the first click. Given there's no undo and the audit trail is `activity_log`-only (not a restorable history), a single accidental click permanently losing a task's title/notes/history was judged worse than the extra tap a confirmation costs.
