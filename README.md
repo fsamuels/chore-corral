@@ -24,4 +24,4 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full stack breakdown and rat
 
 ## Getting Started
 
-Not yet initialized — see [MILESTONES.md](docs/MILESTONES.md) for the M1 (Scaffold & Deploy) plan.
+Repository is initialized; the app itself isn't scaffolded yet — see [MILESTONES.md](docs/MILESTONES.md) for the M1 (Scaffold & Deploy) plan.
