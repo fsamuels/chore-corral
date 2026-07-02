@@ -186,8 +186,31 @@ Since Chore Corral is using **both** RLS and application-layer checks (a deliber
 
 ## Storage (Supabase Storage)
 
-- One bucket for task photos, path structure suggested as `{farm_id}/{task_id}/{photo_id}.webp` to keep farm-scoping visible in the path itself.
-- RLS-equivalent access policies on Storage buckets should mirror the `farm_memberships` check used for database tables.
+- One bucket, `task-photos` (private, not public), path structure `{farm_id}/{task_id}/{photo_id}.webp` — the leading `farm_id` segment is what makes path-based policy scoping possible.
+- Access policies mirror the `farm_memberships` check used for database tables, but since `storage.objects` has no `farm_id` column, the farm is extracted from the object path via `storage.foldername(name)` (see DECISIONS.md for the reasoning):
+
+```sql
+-- One policy per operation; SELECT/DELETE use USING, INSERT uses WITH CHECK,
+-- UPDATE uses both. Shown here for SELECT and INSERT; UPDATE/DELETE repeat the
+-- same expression.
+CREATE POLICY "farm members can read their farm's task photos"
+ON storage.objects FOR SELECT
+USING (
+  bucket_id = 'task-photos'
+  AND (storage.foldername(name))[1]::uuid IN (
+    SELECT farm_id FROM farm_memberships WHERE user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "farm members can upload their farm's task photos"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'task-photos'
+  AND (storage.foldername(name))[1]::uuid IN (
+    SELECT farm_id FROM farm_memberships WHERE user_id = auth.uid()
+  )
+);
+```
 
 ## PostGIS (Future)
 

@@ -6,10 +6,6 @@ A running log of the reasoning behind non-obvious choices made during planning. 
 
 Tracked here until decided. Once resolved, each moves out of this section and becomes its own dated entry below, following the same pattern used to resolve the priority-tier and `activity_log` TBDs.
 
-### Storage bucket RLS policy mechanics — resolve during M2
-
-DATA_MODEL.md's storage RLS intent says access policies should "mirror" the `farm_memberships` table-level pattern, but Supabase Storage policies check against `storage.objects.name` (the path string), not a joinable `farm_id` column. The actual policy needs to parse `farm_id` out of the `{farm_id}/{task_id}/{photo_id}.webp` path (e.g. via `storage.foldername(name)`) and join that against `farm_memberships`. Needs a concrete policy expression written before/during the M2 migration, not worked out ad hoc while writing it.
-
 ### Default farm + persistence on login — resolve during M3
 
 A user can belong to multiple farms. Nothing yet specifies which farm is active immediately after login, or whether the chosen farm persists across sessions (localStorage, a server-side preference, or always defaulting to the first membership row).
@@ -97,6 +93,20 @@ Implemented as a Postgres `enum` type rather than a `priorities` lookup table, s
 ## `activity_log.task_id`: soft reference, not a hard FK
 
 Tasks are hard-deleted (see the hard-delete decision above), but activity log entries must outlive the task they reference. Resolved by making `task_id` a plain nullable `uuid` column with **no FK constraint** — deletion of a task can never cascade into or orphan-error against its log entries, because the database enforces nothing there. To keep log entries meaningful without needing a join back to `tasks` (which may 404), `event_detail` always snapshots the task's title, on every event type, not just deletion.
+
+## Storage RLS: derive `farm_id` from the object path via `storage.foldername()`
+
+Resolved 2026-07-02 (during M2 planning). Supabase Storage policies can't join a `farm_id` column the way table policies do — `storage.objects` only exposes the path string. Since the bucket's path convention is `{farm_id}/{task_id}/{photo_id}.webp`, the policy extracts the first path segment with Supabase's `storage.foldername(name)` helper and checks it against `farm_memberships` directly:
+
+```sql
+(storage.foldername(name))[1]::uuid IN (
+  SELECT farm_id FROM farm_memberships WHERE user_id = auth.uid()
+)
+```
+
+No join through `tasks` is needed — the farm scoping is fully encoded in the path, which is exactly why the path convention leads with `farm_id`. This is implemented as **four separate policies** (SELECT, INSERT, UPDATE, DELETE) rather than one `FOR ALL` policy, so that `WITH CHECK` is properly enforced on writes (INSERT/UPDATE) and not just `USING` on reads — matching Supabase's documented storage-policy pattern.
+
+The bucket is named `task-photos`, mirroring the `task_photos` metadata table. Buckets are scoped to the Supabase project (not global like S3 bucket names), and since dev/test (Clarkson's Farm) and production (Reign Cloud Ranch) share one Supabase project, both farms' photos share this single bucket, separated by the `farm_id` path prefix and these policies. The concrete SQL lives in DATA_MODEL.md's Storage section.
 
 ## Dev/test farm shares the production Supabase project
 
