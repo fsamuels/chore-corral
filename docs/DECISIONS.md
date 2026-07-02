@@ -2,6 +2,34 @@
 
 A running log of the reasoning behind non-obvious choices made during planning. This complements PR descriptions (which document the agentic development process per-change) by capturing project-level "why" in one place, rather than scattered across individual PRs.
 
+## Open Questions (Unresolved)
+
+Tracked here until decided. Once resolved, each moves out of this section and becomes its own dated entry below, following the same pattern used to resolve the priority-tier and `activity_log` TBDs.
+
+### Storage bucket RLS policy mechanics — resolve during M2
+
+DATA_MODEL.md's storage RLS intent says access policies should "mirror" the `farm_memberships` table-level pattern, but Supabase Storage policies check against `storage.objects.name` (the path string), not a joinable `farm_id` column. The actual policy needs to parse `farm_id` out of the `{farm_id}/{task_id}/{photo_id}.webp` path (e.g. via `storage.foldername(name)`) and join that against `farm_memberships`. Needs a concrete policy expression written before/during the M2 migration, not worked out ad hoc while writing it.
+
+### Default farm + persistence on login — resolve during M3
+
+A user can belong to multiple farms. Nothing yet specifies which farm is active immediately after login, or whether the chosen farm persists across sessions (localStorage, a server-side preference, or always defaulting to the first membership row).
+
+### Overdue-flag timezone semantics — resolve during M5 (Core Task CRUD)
+
+`due_date` is a plain `date` column with no timezone. Whether "overdue" is evaluated against server/UTC midnight or the device's local midnight is undecided — an off-by-one-day bug is easy to introduce here if it isn't decided up front.
+
+### Task list tiebreaker sort — resolve during M5 (Core Task CRUD)
+
+Priority gives the primary sort order, but ties within a tier (e.g. multiple "Urgent" tasks) have no defined secondary sort (due date? created_at?).
+
+### Delete confirmation UX — resolve during M5 (Core Task CRUD)
+
+Task deletion is a real, irreversible hard `DELETE`. SPEC.md doesn't say whether the UI requires a confirmation step before deleting — worth deciding deliberately given there's no undo.
+
+### Mapbox usage-tier check — resolve during M7 (Location & Map View)
+
+The photo-storage decision below includes a free-tier cost analysis for Supabase Storage, but no equivalent check exists for Mapbox tile-request volume/pricing at expected usage. Likely fine at two-farm scale, but worth the same two-line sanity check applied elsewhere before relying on it.
+
 ## Stack: Nuxt + Vuetify (diverging from Durak Tracker's Next.js/React)
 
 Chosen deliberately to diversify framework depth rather than repeat the Next.js/React stack. Two factors drove this:

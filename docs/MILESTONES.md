@@ -38,22 +38,41 @@ For the broader, less-ordered future feature list, see ROADMAP.md.
 
 **Done when:** you can log in with Google, land on an authenticated view scoped to your farm membership(s), and a test account with no membership sees the correct error state.
 
-## M4 — Core Task CRUD (List View)
+## M4 — Category Management
 
-**Goal:** Tasks can be created, viewed, edited, and deleted, in list form, without location or photos yet.
+**Goal:** Per-farm categories can be created and soft-deleted, so the task creation form (M5) has something real to select from. Split out from the original "Core Task CRUD" milestone since it's a self-contained feature and Task's `category_id` is a required field — categories need to exist first.
 
-- Task creation form: required fields (Title, Category, Priority) with "More details" expand for Notes, Tags, Due date
+- Category management UI: create a new category, view existing per-farm categories
+- Soft-delete: blocked while any active (`Not Started` / `In Progress`) task references the category. Since M5's tasks don't exist yet, cover this guard with a unit/service-layer test against seeded data rather than the UI (also called out as a priority test area in ARCHITECTURE.md)
+- `activity_log` entries for `category_created` and `category_deleted` events
+- Categories list scoped to the active farm (per the farm switcher from M3)
+
+**Done when:** categories can be created and soft-deleted for the active farm, the active-task deletion guard is enforced and unit-tested, and both events land in `activity_log`.
+
+## M5 — Core Task CRUD (List View)
+
+**Goal:** Tasks can be created, viewed, edited, and deleted, in list form, without tags, location, or photos yet.
+
+- Task creation form: required fields (Title, Category, Priority) with "More details" expand for Notes, Due date (Tags added in M6)
 - Task list view: sorted by priority, filterable by category, shows status
 - Task editing: full expanded-fields view
 - Status transitions: Not Started / In Progress / Done, with `completed_at` set/cleared correctly
 - Overdue flagging for tasks with a passed due date
 - Hard delete with corresponding `activity_log` entry
-- Category management: create, soft-delete (blocked while active tasks reference it)
-- Tag autocomplete against existing per-farm tags
 
 **Done when:** a full task lifecycle — create, edit, change status, delete — works correctly against Supabase, respecting RLS, with activity log entries generated for create/status-change/delete events.
 
-## M5 — Location & Map View
+## M6 — Tags & Autocomplete
+
+**Goal:** Tasks can be tagged with freeform, autocompleted tags.
+
+- Tags field added to the task creation "More details" expand and to the task editing view
+- Autocomplete suggestions drawn from existing per-farm tags (`tags` + `task_tags`)
+- Entering new tag text creates a new per-farm `tags` row on save
+
+**Done when:** tags can be added to a task at creation or edit time, autocomplete surfaces existing per-farm tags, and near-duplicate tags are reduced via the suggestion list.
+
+## M7 — Location & Map View
 
 **Goal:** Tasks can have a location, and the map view is functional.
 
@@ -65,7 +84,7 @@ For the broader, less-ordered future feature list, see ROADMAP.md.
 
 **Done when:** you can create a task from the field with an accurate captured location, see it correctly placed on the map view, and tap it to open the task.
 
-## M6 — Photos
+## M8 — Photos
 
 **Goal:** Tasks can have photos attached, compressed appropriately.
 
@@ -76,7 +95,7 @@ For the broader, less-ordered future feature list, see ROADMAP.md.
 
 **Done when:** a photo taken on a mobile device is compressed, uploaded, and displayed correctly, staying within the ~500 KB–1 MB target size.
 
-## M7 — Polish & Hardening
+## M9 — Polish & Hardening
 
 **Goal:** MVP is genuinely usable day-to-day, not just feature-complete.
 
@@ -88,6 +107,8 @@ For the broader, less-ordered future feature list, see ROADMAP.md.
 
 **Done when:** you'd be comfortable using this as your actual daily task tracker for Reign Cloud Ranch.
 
+Unlike prior milestones, this one is not intended to land as a single PR — "across all views" and "throughout" mean it naturally decomposes into one PR per problem area (e.g. a mobile-responsiveness pass, an empty-states pass, an error-states pass). Track sub-scope informally in STATUS.md as each lands rather than holding it open as one branch.
+
 ---
 
-Milestones beyond M7 (named locations, boundaries, recurring tasks, pasture module, etc.) live in ROADMAP.md and will get their own milestone breakdowns when prioritized.
+Milestones beyond M9 (named locations, boundaries, recurring tasks, pasture module, etc.) live in ROADMAP.md and will get their own milestone breakdowns when prioritized.
