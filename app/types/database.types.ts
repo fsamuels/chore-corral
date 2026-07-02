@@ -165,6 +165,65 @@ export interface Database {
           },
         ]
       }
+      tags: {
+        Row: {
+          id: string
+          farm_id: string
+          name: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          farm_id: string
+          name: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          farm_id?: string
+          name?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'tags_farm_id_fkey'
+            columns: ['farm_id']
+            isOneToOne: false
+            referencedRelation: 'farms'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      task_tags: {
+        Row: {
+          task_id: string
+          tag_id: string
+        }
+        Insert: {
+          task_id: string
+          tag_id: string
+        }
+        Update: {
+          task_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'task_tags_task_id_fkey'
+            columns: ['task_id']
+            isOneToOne: false
+            referencedRelation: 'tasks'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'task_tags_tag_id_fkey'
+            columns: ['tag_id']
+            isOneToOne: false
+            referencedRelation: 'tags'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       activity_log: {
         Row: {
           id: string
