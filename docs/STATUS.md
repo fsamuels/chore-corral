@@ -2,7 +2,9 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-07-03 (Home screen now shows the outstanding/prioritized task list instead of the stale M5 placeholder)
+**Last updated:** 2026-07-03 (Footer link to the `/components-demo` sampler added to every page)
+
+**Components demo re-linked (2026-07-03).** The `/components-demo` Vuetify sampler (see M1 note below) had no in-app link after the M5 home-screen rewrite dropped the placeholder card that used to point to it. A new `AppFooter.vue` component — a plain "UI components demo" link to `/components-demo` — now renders in both `app/layouts/default.vue` and `app/layouts/blank.vue`, so it's reachable from every page again, authenticated or not.
 
 ## Current Phase
 
