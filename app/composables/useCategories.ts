@@ -47,7 +47,7 @@ export function useCategories() {
 
   async function create(name: string): Promise<void> {
     const farmId = activeFarmId.value
-    const actorUserId = user.value?.id
+    const actorUserId = getActorUserId(user.value)
     if (!farmId || !actorUserId) return
     const created = await createCategory(supabase, {
       farmId,
@@ -61,7 +61,7 @@ export function useCategories() {
 
   async function remove(categoryId: string): Promise<DeleteCategoryResult> {
     const farmId = activeFarmId.value
-    const actorUserId = user.value?.id
+    const actorUserId = getActorUserId(user.value)
     if (!farmId || !actorUserId) {
       throw new Error('No active farm or signed-in user')
     }

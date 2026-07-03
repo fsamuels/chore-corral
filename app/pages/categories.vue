@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { VForm } from 'vuetify/components'
 import type { CategorySummary } from '~/services/categories'
 
 const { fetchFarms, activeFarm, farmsError } = useFarms()
@@ -20,6 +21,7 @@ const newName = ref('')
 const creating = ref(false)
 const createError = ref<string | null>(null)
 const nameRules = [(v: string) => !!v.trim() || 'Name is required']
+const createForm = ref<VForm | null>(null)
 
 async function submitCreate() {
   const name = newName.value.trim()
@@ -29,6 +31,10 @@ async function submitCreate() {
   try {
     await create(name)
     newName.value = ''
+    // Clearing the field re-triggers `nameRules` against the now-empty
+    // string, which would otherwise flash a spurious "Name is required"
+    // right after a successful create.
+    createForm.value?.resetValidation()
   } catch (error) {
     createError.value =
       error instanceof Error ? error.message : 'Failed to create category'
@@ -92,7 +98,7 @@ async function performDelete() {
       <h1 class="text-h4 mb-1">Categories</h1>
       <p class="text-body-2 text-medium-emphasis mb-6">{{ activeFarm.name }}</p>
 
-      <v-form class="mb-6" @submit.prevent="submitCreate">
+      <v-form ref="createForm" class="mb-6" @submit.prevent="submitCreate">
         <div class="d-flex align-start ga-2">
           <v-text-field
             v-model="newName"
