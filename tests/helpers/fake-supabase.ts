@@ -22,12 +22,20 @@ import type { Database } from '../../app/types/database.types'
 //   from('task_tags').select(...).eq('task_id', ...)
 //   from('task_tags').select(...).in('task_id', [...])
 //   from('task_tags').delete().eq('task_id', ...)
+//   from('task_photos').select(...)/insert(...)/delete()... (M8, mirrors task_tags)
 //
 // It is not a general PostgREST emulator: no joins, no or(), no partial
 // filter operators beyond eq/is/in. Keep it that way — generalizing further
 // belongs in a real integration test against Supabase, not here.
+//
+// Storage is a similarly minimal fake: `.storage.from(bucketId)` returns an
+// object supporting `.upload()`, `.remove()`, and `.createSignedUrl()`,
+// backed by an in-memory Set of "uploaded" paths (see getStorageObjects()).
+// No real file bytes, encoding, or signing — just enough to let service-layer
+// tests assert on what got uploaded/removed and to fail on demand.
 
-type TableName = 'categories' | 'tasks' | 'activity_log' | 'tags' | 'task_tags'
+type TableName =
+  'categories' | 'tasks' | 'activity_log' | 'tags' | 'task_tags' | 'task_photos'
 type Row = Record<string, unknown>
 
 export interface FakeSupabaseSeed {
@@ -36,12 +44,26 @@ export interface FakeSupabaseSeed {
   activity_log?: Database['public']['Tables']['activity_log']['Row'][]
   tags?: Database['public']['Tables']['tags']['Row'][]
   task_tags?: Database['public']['Tables']['task_tags']['Row'][]
+  task_photos?: Database['public']['Tables']['task_photos']['Row'][]
 }
 
 export interface FailSpec {
   table: TableName
   op: 'select' | 'insert' | 'update' | 'delete'
   message?: string
+}
+
+// Fail-injection for the storage fake, parallel to FailSpec but keyed by
+// storage operation instead of table/op — storage isn't a Postgres table so
+// it doesn't fit FailSpec's shape.
+export interface StorageFailSpec {
+  op: 'upload' | 'remove' | 'createSignedUrl'
+  message?: string
+}
+
+interface StorageFailSpecInternal {
+  op: 'upload' | 'remove' | 'createSignedUrl'
+  message: string
 }
 
 interface FailSpecInternal {
@@ -205,15 +227,22 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
 export class FakeSupabaseClient {
   private readonly store: Record<TableName, Row[]>
   private readonly failSpecs: FailSpecInternal[]
+  private readonly storageFailSpecs: StorageFailSpecInternal[]
+  private readonly storageObjects = new Set<string>()
   private readonly counters: Record<TableName, number> = {
     categories: 0,
     tasks: 0,
     activity_log: 0,
     tags: 0,
     task_tags: 0,
+    task_photos: 0,
   }
 
-  constructor(seed: FakeSupabaseSeed = {}, failOn?: FailSpec | FailSpec[]) {
+  constructor(
+    seed: FakeSupabaseSeed = {},
+    failOn?: FailSpec | FailSpec[],
+    storageFailOn?: StorageFailSpec | StorageFailSpec[],
+  ) {
     this.store = {
       categories: cloneRows(seed.categories as unknown as Row[] | undefined),
       tasks: cloneRows(seed.tasks as unknown as Row[] | undefined),
@@ -222,12 +251,23 @@ export class FakeSupabaseClient {
       ),
       tags: cloneRows(seed.tags as unknown as Row[] | undefined),
       task_tags: cloneRows(seed.task_tags as unknown as Row[] | undefined),
+      task_photos: cloneRows(seed.task_photos as unknown as Row[] | undefined),
     }
     const specs = failOn ? (Array.isArray(failOn) ? failOn : [failOn]) : []
     this.failSpecs = specs.map((s) => ({
       table: s.table,
       op: s.op,
       message: s.message ?? `Simulated ${s.op} error on ${s.table}`,
+    }))
+
+    const storageSpecs = storageFailOn
+      ? Array.isArray(storageFailOn)
+        ? storageFailOn
+        : [storageFailOn]
+      : []
+    this.storageFailSpecs = storageSpecs.map((s) => ({
+      op: s.op,
+      message: s.message ?? `Simulated ${s.op} error on storage`,
     }))
   }
 
@@ -242,9 +282,79 @@ export class FakeSupabaseClient {
     return this.store[table]
   }
 
+  /** Test-only escape hatch: paths currently "uploaded" in the fake bucket. */
+  getStorageObjects(): string[] {
+    return [...this.storageObjects]
+  }
+
+  get storage(): { from: (bucketId: string) => FakeStorageBucket } {
+    return {
+      from: (bucketId: string) =>
+        new FakeStorageBucket(
+          bucketId,
+          this.storageObjects,
+          this.storageFailSpecs,
+        ),
+    }
+  }
+
   private nextId(table: TableName): string {
     this.counters[table] += 1
     return `${table}-${this.counters[table]}`
+  }
+}
+
+class FakeStorageBucket {
+  constructor(
+    private readonly bucketId: string,
+    private readonly objects: Set<string>,
+    private readonly failSpecs: StorageFailSpecInternal[],
+  ) {}
+
+  private matchingFailure(
+    op: StorageFailSpecInternal['op'],
+  ): StorageFailSpecInternal | undefined {
+    return this.failSpecs.find((f) => f.op === op)
+  }
+
+  async upload(
+    path: string,
+    _body: unknown,
+    _options?: { contentType?: string },
+  ): Promise<{
+    data: { path: string } | null
+    error: { message: string } | null
+  }> {
+    const failure = this.matchingFailure('upload')
+    if (failure) return { data: null, error: { message: failure.message } }
+    this.objects.add(path)
+    return { data: { path }, error: null }
+  }
+
+  async remove(
+    paths: string[],
+  ): Promise<{ data: unknown; error: { message: string } | null }> {
+    const failure = this.matchingFailure('remove')
+    if (failure) return { data: null, error: { message: failure.message } }
+    for (const path of paths) this.objects.delete(path)
+    return { data: paths.map((path) => ({ name: path })), error: null }
+  }
+
+  async createSignedUrl(
+    path: string,
+    expiresIn: number,
+  ): Promise<{
+    data: { signedUrl: string } | null
+    error: { message: string } | null
+  }> {
+    const failure = this.matchingFailure('createSignedUrl')
+    if (failure) return { data: null, error: { message: failure.message } }
+    return {
+      data: {
+        signedUrl: `https://fake-storage.test/${this.bucketId}/${path}?expires=${expiresIn}`,
+      },
+      error: null,
+    }
   }
 }
 

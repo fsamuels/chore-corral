@@ -653,6 +653,9 @@ async function performDelete() {
               :disabled="saving"
             />
 
+            <v-divider class="my-4" />
+            <TaskPhotos v-if="editing" :task-id="editing.id" />
+
             <v-alert
               v-if="editError"
               type="error"
