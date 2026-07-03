@@ -54,7 +54,7 @@ export function useTasks() {
     input: Omit<CreateTaskInput, 'farmId' | 'actorUserId'>,
   ): Promise<void> {
     const farmId = activeFarmId.value
-    const actorUserId = user.value?.id
+    const actorUserId = getActorUserId(user.value)
     if (!farmId || !actorUserId) {
       throw new Error('No active farm or signed-in user')
     }
@@ -70,7 +70,7 @@ export function useTasks() {
 
   async function update(input: Omit<UpdateTaskInput, 'farmId'>): Promise<void> {
     const farmId = activeFarmId.value
-    const actorUserId = user.value?.id
+    const actorUserId = getActorUserId(user.value)
     if (!farmId || !actorUserId) {
       throw new Error('No active farm or signed-in user')
     }
@@ -84,7 +84,7 @@ export function useTasks() {
 
   async function setStatus(taskId: string, status: TaskStatus): Promise<void> {
     const farmId = activeFarmId.value
-    const actorUserId = user.value?.id
+    const actorUserId = getActorUserId(user.value)
     if (!farmId || !actorUserId) {
       throw new Error('No active farm or signed-in user')
     }
@@ -101,7 +101,7 @@ export function useTasks() {
 
   async function remove(taskId: string): Promise<void> {
     const farmId = activeFarmId.value
-    const actorUserId = user.value?.id
+    const actorUserId = getActorUserId(user.value)
     if (!farmId || !actorUserId) {
       throw new Error('No active farm or signed-in user')
     }
