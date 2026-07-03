@@ -10,10 +10,6 @@ Tracked here until decided. Once resolved, each moves out of this section and be
 
 A user can belong to multiple farms. Nothing yet specifies which farm is active immediately after login, or whether the chosen farm persists across sessions (localStorage, a server-side preference, or always defaulting to the first membership row).
 
-### Mapbox usage-tier check — resolve during M7 (Location & Map View)
-
-The photo-storage decision below includes a free-tier cost analysis for Supabase Storage, but no equivalent check exists for Mapbox tile-request volume/pricing at expected usage. Likely fine at two-farm scale, but worth the same two-line sanity check applied elsewhere before relying on it.
-
 ## Stack: Nuxt + Vuetify (diverging from Durak Tracker's Next.js/React)
 
 Chosen deliberately to diversify framework depth rather than repeat the Next.js/React stack. Two factors drove this:
@@ -117,6 +113,10 @@ Resolved during M5. Priority is the primary sort key (Urgent → Soon → Whenev
 ## Task deletion: confirmation dialog required, no undo
 
 Resolved during M5. Task deletion is a real, irreversible hard `DELETE` with no soft-delete or recovery path (see the hard-delete decision above). The UI requires an explicit confirm-dialog step before deleting ("Delete “<title>”? This can't be undone."), matching the pattern already established for category soft-deletion in M4, rather than deleting immediately on the first click. Given there's no undo and the audit trail is `activity_log`-only (not a restorable history), a single accidental click permanently losing a task's title/notes/history was judged worse than the extra tap a confirmation costs.
+
+## Mapbox usage tier: free-tier headroom is ample at expected scale
+
+Resolved 2026-07-03 (during M7), closing the open question above the same way the Supabase Storage check was done for photos. Serving raster tiles from a Mapbox style into Leaflet (as `app/utils/map-tiles.ts` does) bills against the Static Tiles API, whose free tier is **200,000 tile requests/month** (per mapbox.com/pricing as of this writing; the more widely quoted 50,000 free "map loads" tier applies to Mapbox GL JS, not to XYZ raster consumption). Expected usage — two farms, two users, a few map/mini-map sessions a day at roughly 30–100 tiles per session — lands around a few thousand tiles a month, two orders of magnitude under the cap. Even a 10× misestimate stays comfortably free. Two mitigations ride along at zero cost: browser tile caching (repeat visits to the same farm view mostly re-serve cached tiles), and the OSM street layer fallback, which costs nothing against Mapbox at all. No paid tier or usage alerting is warranted at this scale; revisit only if the app gains real multi-tenant usage.
 
 ## Tag matching: case-insensitive in application code, not the database
 
