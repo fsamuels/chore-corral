@@ -11,10 +11,30 @@ import { FakeSupabaseClient, asSupabaseClient } from './helpers/fake-supabase'
 import type { Database } from '../app/types/database.types'
 
 type TaskRow = Database['public']['Tables']['tasks']['Row']
+type TagRow = Database['public']['Tables']['tags']['Row']
+type TaskTagRow = Database['public']['Tables']['task_tags']['Row']
 
 const FARM_A = 'farm-a'
 const FARM_B = 'farm-b'
 const ACTOR = 'user-1'
+
+function tag(overrides: Partial<TagRow> = {}): TagRow {
+  return {
+    id: 'tag-seed',
+    farm_id: FARM_A,
+    name: 'Fence',
+    created_at: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  }
+}
+
+function taskTag(overrides: Partial<TaskTagRow> = {}): TaskTagRow {
+  return {
+    task_id: 'task-seed',
+    tag_id: 'tag-seed',
+    ...overrides,
+  }
+}
 
 function task(overrides: Partial<TaskRow> = {}): TaskRow {
   return {
@@ -144,6 +164,48 @@ describe('createTask', () => {
 
     expect(fake.getTable('tasks')).toHaveLength(1)
     expect(fake.getTable('activity_log')).toHaveLength(0)
+  })
+
+  it('creates/attaches tags from tagNames and returns them sorted by name', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [],
+      activity_log: [],
+      tags: [tag({ id: 'tag-1', name: 'Gate' })],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await createTask(supabase, {
+      farmId: FARM_A,
+      title: 'Fix the gate',
+      categoryId: null,
+      priority: 'soon',
+      actorUserId: ACTOR,
+      tagNames: ['Barn', 'Gate'],
+    })
+
+    expect(result.tags.map((t) => t.name)).toEqual(['Barn', 'Gate'])
+    // "Gate" reused the existing tag rather than creating a duplicate.
+    expect(fake.getTable('tags')).toHaveLength(2)
+
+    const taskTagRows = fake
+      .getTable('task_tags')
+      .filter((r) => (r as { task_id: string }).task_id === result.id)
+    expect(taskTagRows).toHaveLength(2)
+  })
+
+  it('returns tags: [] when tagNames is omitted', async () => {
+    const fake = new FakeSupabaseClient({ tasks: [], activity_log: [] })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await createTask(supabase, {
+      farmId: FARM_A,
+      title: 'Fix the gate',
+      categoryId: null,
+      priority: 'soon',
+      actorUserId: ACTOR,
+    })
+
+    expect(result.tags).toEqual([])
   })
 })
 
@@ -298,6 +360,7 @@ describe('updateTask', () => {
       priority: 'urgent',
       dueDate: '2026-02-01',
       notes: '  updated notes  ',
+      tagNames: [],
     })
 
     expect(result).toMatchObject({
@@ -324,6 +387,7 @@ describe('updateTask', () => {
       priority: 'soon',
       dueDate: null,
       notes: null,
+      tagNames: ['Fence'],
     })
 
     expect(fake.getTable('activity_log')).toHaveLength(0)
@@ -345,6 +409,7 @@ describe('updateTask', () => {
         priority: 'soon',
         dueDate: null,
         notes: null,
+        tagNames: [],
       }),
     ).rejects.toThrow('Task title is required')
   })
@@ -365,8 +430,40 @@ describe('updateTask', () => {
         priority: 'soon',
         dueDate: null,
         notes: null,
+        tagNames: [],
       }),
     ).rejects.toThrow('Task not found')
+  })
+
+  it("replaces a task's tags, adding, removing, and changing the set", async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1' })],
+      activity_log: [],
+      tags: [
+        tag({ id: 'tag-1', name: 'Fence' }),
+        tag({ id: 'tag-2', name: 'Gate' }),
+      ],
+      task_tags: [taskTag({ task_id: 'task-1', tag_id: 'tag-1' })],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await updateTask(supabase, {
+      farmId: FARM_A,
+      taskId: 'task-1',
+      title: 'Fix the gate',
+      categoryId: null,
+      priority: 'soon',
+      dueDate: null,
+      notes: null,
+      tagNames: ['Gate', 'Barn'],
+    })
+
+    expect(result.tags.map((t) => t.name)).toEqual(['Barn', 'Gate'])
+
+    const taskTagRows = fake
+      .getTable('task_tags')
+      .filter((r) => (r as { task_id: string }).task_id === 'task-1')
+    expect(taskTagRows).toHaveLength(2)
   })
 })
 
@@ -469,6 +566,32 @@ describe('listTasks', () => {
       'task-soon',
       'task-whenever',
     ])
+  })
+
+  it("attaches each task's tags, and [] for a task with no tags", async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [
+        task({ id: 'task-1' }),
+        task({ id: 'task-2', created_at: '2026-01-02T00:00:00.000Z' }),
+      ],
+      activity_log: [],
+      tags: [
+        tag({ id: 'tag-1', name: 'Gate' }),
+        tag({ id: 'tag-2', name: 'Barn' }),
+      ],
+      task_tags: [
+        taskTag({ task_id: 'task-1', tag_id: 'tag-1' }),
+        taskTag({ task_id: 'task-1', tag_id: 'tag-2' }),
+      ],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listTasks(supabase, FARM_A)
+
+    const task1 = result.find((t) => t.id === 'task-1')
+    const task2 = result.find((t) => t.id === 'task-2')
+    expect(task1?.tags.map((t) => t.name)).toEqual(['Barn', 'Gate'])
+    expect(task2?.tags).toEqual([])
   })
 })
 

@@ -2,7 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../../app/types/database.types'
 
 // Minimal in-memory fake of the Supabase client, covering only the query
-// chains app/services/categories.ts and app/services/tasks.ts actually use:
+// chains app/services/categories.ts, app/services/tasks.ts, and
+// app/services/tags.ts actually use:
 //
 //   from('categories').select(...).eq(...).is(...).order(...)
 //   from('categories').insert(row).select(...).single()
@@ -14,18 +15,27 @@ import type { Database } from '../../app/types/database.types'
 //   from('tasks').insert(row).select(cols).single()
 //   from('tasks').update(row).eq('id', ...).eq('farm_id', ...).select(cols)
 //   from('tasks').delete().eq('id', ...).eq('farm_id', ...).select('id, title')
+//   from('tags').select(...).eq('farm_id', ...).order('name')
+//   from('tags').select(...).eq('farm_id', ...).in('name', [...])
+//   from('tags').insert(row).select(...).single()
+//   from('task_tags').insert([row, ...])                   // bulk insert, no .select()
+//   from('task_tags').select(...).eq('task_id', ...)
+//   from('task_tags').select(...).in('task_id', [...])
+//   from('task_tags').delete().eq('task_id', ...)
 //
 // It is not a general PostgREST emulator: no joins, no or(), no partial
 // filter operators beyond eq/is/in. Keep it that way — generalizing further
 // belongs in a real integration test against Supabase, not here.
 
-type TableName = 'categories' | 'tasks' | 'activity_log'
+type TableName = 'categories' | 'tasks' | 'activity_log' | 'tags' | 'task_tags'
 type Row = Record<string, unknown>
 
 export interface FakeSupabaseSeed {
   categories?: Database['public']['Tables']['categories']['Row'][]
   tasks?: Database['public']['Tables']['tasks']['Row'][]
   activity_log?: Database['public']['Tables']['activity_log']['Row'][]
+  tags?: Database['public']['Tables']['tags']['Row'][]
+  task_tags?: Database['public']['Tables']['task_tags']['Row'][]
 }
 
 export interface FailSpec {
@@ -49,7 +59,7 @@ type QueryResult = {
 class FakeQueryBuilder implements PromiseLike<QueryResult> {
   private opType: 'select' | 'insert' | 'update' | 'delete' = 'select'
   private readonly filters: Array<(row: Row) => boolean> = []
-  private insertPayload?: Row
+  private insertPayload?: Row | Row[]
   private updatePayload?: Row
   private singleMode = false
   private countMode = false
@@ -69,7 +79,7 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
     return this
   }
 
-  insert(row: Row): this {
+  insert(row: Row | Row[]): this {
     this.opType = 'insert'
     this.insertPayload = row
     return this
@@ -146,17 +156,20 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
     const rows = this.store[this.table]
 
     if (this.opType === 'insert') {
-      const created: Row = {
+      const payloads = Array.isArray(this.insertPayload)
+        ? this.insertPayload
+        : [this.insertPayload ?? {}]
+      const created = payloads.map((payload) => ({
         id: this.nextId(this.table),
         created_at: new Date().toISOString(),
-        ...this.insertPayload,
-      }
-      rows.push(created)
+        ...payload,
+      }))
+      rows.push(...created)
       if (!this.selectCols) return { data: null, error: null }
-      const projected = this.project(created)
+      const projected = created.map((row) => this.project(row))
       return this.singleMode
-        ? { data: projected, error: null }
-        : { data: [projected], error: null }
+        ? { data: projected[0], error: null }
+        : { data: projected, error: null }
     }
 
     if (this.opType === 'update') {
@@ -196,6 +209,8 @@ export class FakeSupabaseClient {
     categories: 0,
     tasks: 0,
     activity_log: 0,
+    tags: 0,
+    task_tags: 0,
   }
 
   constructor(seed: FakeSupabaseSeed = {}, failOn?: FailSpec | FailSpec[]) {
@@ -205,6 +220,8 @@ export class FakeSupabaseClient {
       activity_log: cloneRows(
         seed.activity_log as unknown as Row[] | undefined,
       ),
+      tags: cloneRows(seed.tags as unknown as Row[] | undefined),
+      task_tags: cloneRows(seed.task_tags as unknown as Row[] | undefined),
     }
     const specs = failOn ? (Array.isArray(failOn) ? failOn : [failOn]) : []
     this.failSpecs = specs.map((s) => ({

@@ -18,12 +18,17 @@ const {
   remove,
 } = useTasks()
 const { categories, fetchCategories } = useCategories()
+const { tags, fetchTags } = useTags()
 
 // Fetch farms first so the active farm resolves during SSR, then load its
-// tasks and categories (the composables' watch covers later farm switches).
+// tasks, categories, and tags (the composables' watch covers later farm
+// switches).
 await fetchFarms()
 await fetchTasks()
 await fetchCategories()
+await fetchTags()
+
+const tagSuggestions = computed(() => (tags.value ?? []).map((t) => t.name))
 
 const priorityItems: { title: string; value: TaskPriority }[] = [
   { title: 'Urgent', value: 'urgent' },
@@ -115,6 +120,7 @@ const newCategoryId = ref<string | null>(null)
 const newPriority = ref<TaskPriority>('whenever')
 const newDueDate = ref('')
 const newNotes = ref('')
+const newTags = ref<string[]>([])
 const moreDetailsOpen = ref(false)
 const creating = ref(false)
 const createError = ref<string | null>(null)
@@ -131,6 +137,7 @@ function resetCreateForm() {
   newPriority.value = 'whenever'
   newDueDate.value = ''
   newNotes.value = ''
+  newTags.value = []
   moreDetailsOpen.value = false
   createError.value = null
 }
@@ -147,6 +154,7 @@ async function submitCreate() {
       priority: newPriority.value,
       dueDate: newDueDate.value || null,
       notes: newNotes.value || null,
+      tagNames: newTags.value,
     })
     showCreate.value = false
     resetCreateForm()
@@ -165,6 +173,7 @@ const editCategoryId = ref<string | null>(null)
 const editPriority = ref<TaskPriority>('whenever')
 const editDueDate = ref('')
 const editNotes = ref('')
+const editTags = ref<string[]>([])
 const saving = ref(false)
 const editError = ref<string | null>(null)
 
@@ -191,6 +200,7 @@ function openEdit(task: TaskSummary) {
   editPriority.value = task.priority
   editDueDate.value = task.due_date ?? ''
   editNotes.value = task.notes ?? ''
+  editTags.value = task.tags.map((tag) => tag.name)
   editError.value = null
 }
 
@@ -212,6 +222,7 @@ async function submitEdit() {
       priority: editPriority.value,
       dueDate: editDueDate.value || null,
       notes: editNotes.value || null,
+      tagNames: editTags.value,
     })
     closeEdit()
   } catch (error) {
@@ -328,6 +339,16 @@ async function performDelete() {
           >
             {{ item.title }}
           </span>
+          <div v-if="item.tags.length > 0" class="d-flex flex-wrap ga-1 mt-1">
+            <v-chip
+              v-for="tag in item.tags"
+              :key="tag.id"
+              size="x-small"
+              variant="tonal"
+            >
+              {{ tag.name }}
+            </v-chip>
+          </div>
         </template>
 
         <template #[`item.category`]="{ item }">
@@ -458,6 +479,19 @@ async function performDelete() {
                 hide-details
                 class="mb-4"
               />
+              <v-combobox
+                v-model="newTags"
+                :items="tagSuggestions"
+                label="Tags"
+                multiple
+                chips
+                closable-chips
+                :disabled="creating"
+                density="comfortable"
+                variant="outlined"
+                hide-details
+                class="mb-4"
+              />
               <v-text-field
                 v-model="newDueDate"
                 label="Due date"
@@ -551,6 +585,19 @@ async function performDelete() {
               v-model="editNotes"
               label="Notes"
               rows="3"
+              :disabled="saving"
+              density="comfortable"
+              variant="outlined"
+              hide-details
+              class="mb-4"
+            />
+            <v-combobox
+              v-model="editTags"
+              :items="tagSuggestions"
+              label="Tags"
+              multiple
+              chips
+              closable-chips
               :disabled="saving"
               density="comfortable"
               variant="outlined"
