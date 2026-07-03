@@ -207,12 +207,152 @@ describe('createTask', () => {
 
     expect(result.tags).toEqual([])
   })
+
+  it('persists lat/lng when provided, and defaults both to null when omitted', async () => {
+    const fake = new FakeSupabaseClient({ tasks: [], activity_log: [] })
+    const supabase = asSupabaseClient(fake)
+
+    const withLocation = await createTask(supabase, {
+      farmId: FARM_A,
+      title: 'Fix the gate',
+      categoryId: null,
+      priority: 'soon',
+      actorUserId: ACTOR,
+      lat: 40.7128,
+      lng: -74.006,
+    })
+    expect(withLocation.lat).toBe(40.7128)
+    expect(withLocation.lng).toBe(-74.006)
+
+    const withoutLocation = await createTask(supabase, {
+      farmId: FARM_A,
+      title: 'Mow the field',
+      categoryId: null,
+      priority: 'soon',
+      actorUserId: ACTOR,
+    })
+    expect(withoutLocation.lat).toBeNull()
+    expect(withoutLocation.lng).toBeNull()
+  })
+
+  it('rejects a half-set pin (lat without lng, or lng without lat)', async () => {
+    const fake = new FakeSupabaseClient({ tasks: [], activity_log: [] })
+    const supabase = asSupabaseClient(fake)
+
+    await expect(
+      createTask(supabase, {
+        farmId: FARM_A,
+        title: 'Fix the gate',
+        categoryId: null,
+        priority: 'soon',
+        actorUserId: ACTOR,
+        lat: 40.7128,
+        lng: null,
+      }),
+    ).rejects.toThrow('Location requires both lat and lng, or neither')
+
+    await expect(
+      createTask(supabase, {
+        farmId: FARM_A,
+        title: 'Fix the gate',
+        categoryId: null,
+        priority: 'soon',
+        actorUserId: ACTOR,
+        lat: null,
+        lng: -74.006,
+      }),
+    ).rejects.toThrow('Location requires both lat and lng, or neither')
+
+    expect(fake.getTable('tasks')).toHaveLength(0)
+  })
+
+  it('rejects out-of-range lat/lng and accepts boundary values, including (0, 0)', async () => {
+    const fake = new FakeSupabaseClient({ tasks: [], activity_log: [] })
+    const supabase = asSupabaseClient(fake)
+
+    await expect(
+      createTask(supabase, {
+        farmId: FARM_A,
+        title: 'Fix the gate',
+        categoryId: null,
+        priority: 'soon',
+        actorUserId: ACTOR,
+        lat: 90.1,
+        lng: 0,
+      }),
+    ).rejects.toThrow('Location lat must be a number between -90 and 90')
+
+    await expect(
+      createTask(supabase, {
+        farmId: FARM_A,
+        title: 'Fix the gate',
+        categoryId: null,
+        priority: 'soon',
+        actorUserId: ACTOR,
+        lat: -90.1,
+        lng: 0,
+      }),
+    ).rejects.toThrow('Location lat must be a number between -90 and 90')
+
+    await expect(
+      createTask(supabase, {
+        farmId: FARM_A,
+        title: 'Fix the gate',
+        categoryId: null,
+        priority: 'soon',
+        actorUserId: ACTOR,
+        lat: 0,
+        lng: 180.1,
+      }),
+    ).rejects.toThrow('Location lng must be a number between -180 and 180')
+
+    await expect(
+      createTask(supabase, {
+        farmId: FARM_A,
+        title: 'Fix the gate',
+        categoryId: null,
+        priority: 'soon',
+        actorUserId: ACTOR,
+        lat: 0,
+        lng: -180.1,
+      }),
+    ).rejects.toThrow('Location lng must be a number between -180 and 180')
+
+    // Boundary values are all valid, and (0, 0) is not mistaken for "unset"
+    // even though 0 is falsy.
+    for (const [lat, lng] of [
+      [90, 0],
+      [-90, 0],
+      [0, 180],
+      [0, -180],
+      [0, 0],
+    ] as const) {
+      const result = await createTask(supabase, {
+        farmId: FARM_A,
+        title: 'Fix the gate',
+        categoryId: null,
+        priority: 'soon',
+        actorUserId: ACTOR,
+        lat,
+        lng,
+      })
+      expect(result.lat).toBe(lat)
+      expect(result.lng).toBe(lng)
+    }
+  })
 })
 
 describe('changeTaskStatus', () => {
   it('moves not_started to done, sets completed_at, and logs the transition', async () => {
     const fake = new FakeSupabaseClient({
-      tasks: [task({ id: 'task-1', status: 'not_started' })],
+      tasks: [
+        task({
+          id: 'task-1',
+          status: 'not_started',
+          lat: 40.7128,
+          lng: -74.006,
+        }),
+      ],
       activity_log: [],
     })
     const supabase = asSupabaseClient(fake)
@@ -227,6 +367,9 @@ describe('changeTaskStatus', () => {
     expect(result.status).toBe('done')
     expect(result.completed_at).toEqual(expect.any(String))
     expect(result.completed_at).not.toBeNull()
+    // Status transitions don't touch location — lat/lng pass through unchanged.
+    expect(result.lat).toBe(40.7128)
+    expect(result.lng).toBe(-74.006)
 
     const log = fake.getTable('activity_log')
     expect(log).toHaveLength(1)
@@ -360,6 +503,8 @@ describe('updateTask', () => {
       priority: 'urgent',
       dueDate: '2026-02-01',
       notes: '  updated notes  ',
+      lat: null,
+      lng: null,
       tagNames: [],
     })
 
@@ -387,6 +532,8 @@ describe('updateTask', () => {
       priority: 'soon',
       dueDate: null,
       notes: null,
+      lat: null,
+      lng: null,
       tagNames: ['Fence'],
     })
 
@@ -409,6 +556,8 @@ describe('updateTask', () => {
         priority: 'soon',
         dueDate: null,
         notes: null,
+        lat: null,
+        lng: null,
         tagNames: [],
       }),
     ).rejects.toThrow('Task title is required')
@@ -430,6 +579,8 @@ describe('updateTask', () => {
         priority: 'soon',
         dueDate: null,
         notes: null,
+        lat: null,
+        lng: null,
         tagNames: [],
       }),
     ).rejects.toThrow('Task not found')
@@ -455,6 +606,8 @@ describe('updateTask', () => {
       priority: 'soon',
       dueDate: null,
       notes: null,
+      lat: null,
+      lng: null,
       tagNames: ['Gate', 'Barn'],
     })
 
@@ -464,6 +617,82 @@ describe('updateTask', () => {
       .getTable('task_tags')
       .filter((r) => (r as { task_id: string }).task_id === 'task-1')
     expect(taskTagRows).toHaveLength(2)
+  })
+
+  it('sets a location on a task that had none, moves it, and clears it', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1', lat: null, lng: null })],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const withLocation = await updateTask(supabase, {
+      farmId: FARM_A,
+      taskId: 'task-1',
+      title: 'Fix the gate',
+      categoryId: null,
+      priority: 'soon',
+      dueDate: null,
+      notes: null,
+      lat: 40.7128,
+      lng: -74.006,
+      tagNames: [],
+    })
+    expect(withLocation.lat).toBe(40.7128)
+    expect(withLocation.lng).toBe(-74.006)
+
+    const moved = await updateTask(supabase, {
+      farmId: FARM_A,
+      taskId: 'task-1',
+      title: 'Fix the gate',
+      categoryId: null,
+      priority: 'soon',
+      dueDate: null,
+      notes: null,
+      lat: 51.5074,
+      lng: -0.1278,
+      tagNames: [],
+    })
+    expect(moved.lat).toBe(51.5074)
+    expect(moved.lng).toBe(-0.1278)
+
+    const cleared = await updateTask(supabase, {
+      farmId: FARM_A,
+      taskId: 'task-1',
+      title: 'Fix the gate',
+      categoryId: null,
+      priority: 'soon',
+      dueDate: null,
+      notes: null,
+      lat: null,
+      lng: null,
+      tagNames: [],
+    })
+    expect(cleared.lat).toBeNull()
+    expect(cleared.lng).toBeNull()
+  })
+
+  it('rejects a half-set pin', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1' })],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    await expect(
+      updateTask(supabase, {
+        farmId: FARM_A,
+        taskId: 'task-1',
+        title: 'Fix the gate',
+        categoryId: null,
+        priority: 'soon',
+        dueDate: null,
+        notes: null,
+        lat: 40.7128,
+        lng: null,
+        tagNames: [],
+      }),
+    ).rejects.toThrow('Location requires both lat and lng, or neither')
   })
 })
 
@@ -528,6 +757,29 @@ describe('listTasks', () => {
     const result = await listTasks(supabase, FARM_A)
 
     expect(result.map((t) => t.id)).toEqual(['task-1'])
+  })
+
+  it('carries lat/lng through unchanged', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [
+        task({ id: 'task-1', lat: 40.7128, lng: -74.006 }),
+        task({
+          id: 'task-2',
+          lat: null,
+          lng: null,
+          created_at: '2026-01-02T00:00:00.000Z',
+        }),
+      ],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listTasks(supabase, FARM_A)
+
+    const task1 = result.find((t) => t.id === 'task-1')
+    const task2 = result.find((t) => t.id === 'task-2')
+    expect(task1).toMatchObject({ lat: 40.7128, lng: -74.006 })
+    expect(task2).toMatchObject({ lat: null, lng: null })
   })
 
   it('orders urgent before soon before whenever, and oldest-first within a priority tier', async () => {

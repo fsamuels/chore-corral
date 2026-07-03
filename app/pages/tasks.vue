@@ -222,6 +222,10 @@ async function submitEdit() {
       priority: editPriority.value,
       dueDate: editDueDate.value || null,
       notes: editNotes.value || null,
+      // Pass the existing pin through unchanged — the location picker UI
+      // lands later in M7.
+      lat: editing.value.lat,
+      lng: editing.value.lng,
       tagNames: editTags.value,
     })
     closeEdit()
