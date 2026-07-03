@@ -28,6 +28,20 @@ await fetchTasks()
 await fetchCategories()
 await fetchTags()
 
+// Deep link from the map view (?task=<id>): open that task's edit dialog,
+// then strip the param so a reload/refresh doesn't reopen it. Client-only —
+// the dialog is a client interaction, and a bogus/unknown id is ignored.
+if (import.meta.client) {
+  const route = useRoute()
+  const router = useRouter()
+  const taskId = route.query.task
+  if (typeof taskId === 'string') {
+    const match = tasks.value?.find((task) => task.id === taskId)
+    if (match) openEdit(match)
+    router.replace({ query: {} })
+  }
+}
+
 const tagSuggestions = computed(() => (tags.value ?? []).map((t) => t.name))
 
 const priorityItems: { title: string; value: TaskPriority }[] = [

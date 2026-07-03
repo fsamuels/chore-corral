@@ -3,7 +3,7 @@
 // this component must never render during SSR. Consumers get an empty
 // placeholder server-side and the map after hydration.
 import 'leaflet/dist/leaflet.css'
-import { Icon, type LeafletMouseEvent } from 'leaflet'
+import { Icon, type LeafletMouseEvent, type Map as LeafletMap } from 'leaflet'
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png'
 import iconUrl from 'leaflet/dist/images/marker-icon.png'
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png'
@@ -29,6 +29,8 @@ const props = withDefaults(
 const emit = defineEmits<{
   /** A click on the map itself (not a marker), with the clicked coordinate. */
   mapClick: [coords: { lat: number; lng: number }]
+  /** Forwarded from LMap's `ready` event once the underlying Leaflet map exists. */
+  ready: [map: LeafletMap]
 }>()
 
 const config = useRuntimeConfig()
@@ -40,6 +42,10 @@ function onMapClick(event: LeafletMouseEvent) {
   if (!event.latlng) return
   emit('mapClick', { lat: event.latlng.lat, lng: event.latlng.lng })
 }
+
+function onReady(map: LeafletMap) {
+  emit('ready', map)
+}
 </script>
 
 <template>
@@ -49,6 +55,7 @@ function onMapClick(event: LeafletMouseEvent) {
       :zoom="props.zoom"
       :use-global-leaflet="false"
       @click="onMapClick"
+      @ready="onReady"
     >
       <LControlLayers v-if="layers.length > 1" />
       <LTileLayer
