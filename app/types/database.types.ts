@@ -224,6 +224,38 @@ export interface Database {
           },
         ]
       }
+      task_photos: {
+        Row: {
+          id: string
+          task_id: string
+          storage_path: string
+          caption: string | null
+          taken_at: string
+        }
+        Insert: {
+          id?: string
+          task_id: string
+          storage_path: string
+          caption?: string | null
+          taken_at?: string
+        }
+        Update: {
+          id?: string
+          task_id?: string
+          storage_path?: string
+          caption?: string | null
+          taken_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'task_photos_task_id_fkey'
+            columns: ['task_id']
+            isOneToOne: false
+            referencedRelation: 'tasks'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       activity_log: {
         Row: {
           id: string
