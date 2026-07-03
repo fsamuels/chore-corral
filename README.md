@@ -26,7 +26,8 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full stack breakdown and rat
 
 ```
 pnpm install
-cp .env.example .env   # fill in Supabase URL/publishable key from Project Settings → API
+cp .env.example .env   # fill in Supabase URL/publishable key from Project Settings → API;
+                       # optionally a Mapbox token for satellite tiles (OSM-only without it)
 pnpm dev
 ```
 
