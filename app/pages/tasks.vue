@@ -28,6 +28,20 @@ await fetchTasks()
 await fetchCategories()
 await fetchTags()
 
+// Deep link from the map view (?task=<id>): open that task's edit dialog,
+// then strip the param so a reload/refresh doesn't reopen it. Client-only —
+// the dialog is a client interaction, and a bogus/unknown id is ignored.
+if (import.meta.client) {
+  const route = useRoute()
+  const router = useRouter()
+  const taskId = route.query.task
+  if (typeof taskId === 'string') {
+    const match = tasks.value?.find((task) => task.id === taskId)
+    if (match) openEdit(match)
+    router.replace({ query: {} })
+  }
+}
+
 const tagSuggestions = computed(() => (tags.value ?? []).map((t) => t.name))
 
 const priorityItems: { title: string; value: TaskPriority }[] = [
@@ -92,6 +106,15 @@ function categoryDisplay(categoryId: string | null): {
   return { text: '(deleted category)', deleted: true }
 }
 
+// Mini-map starting point before a pin exists (SPEC: the farm's default
+// map center, manually set at farm creation — may be unset).
+const farmCenter = computed(() => {
+  const farm = activeFarm.value
+  return farm?.default_lat != null && farm?.default_lng != null
+    ? { lat: farm.default_lat, lng: farm.default_lng }
+    : null
+})
+
 const snackbarMessage = ref<string | null>(null)
 const showSnackbar = ref(false)
 
@@ -121,6 +144,7 @@ const newPriority = ref<TaskPriority>('whenever')
 const newDueDate = ref('')
 const newNotes = ref('')
 const newTags = ref<string[]>([])
+const newLocation = ref<{ lat: number; lng: number } | null>(null)
 const moreDetailsOpen = ref(false)
 const creating = ref(false)
 const createError = ref<string | null>(null)
@@ -138,6 +162,7 @@ function resetCreateForm() {
   newDueDate.value = ''
   newNotes.value = ''
   newTags.value = []
+  newLocation.value = null
   moreDetailsOpen.value = false
   createError.value = null
 }
@@ -154,6 +179,8 @@ async function submitCreate() {
       priority: newPriority.value,
       dueDate: newDueDate.value || null,
       notes: newNotes.value || null,
+      lat: newLocation.value?.lat ?? null,
+      lng: newLocation.value?.lng ?? null,
       tagNames: newTags.value,
     })
     showCreate.value = false
@@ -174,6 +201,7 @@ const editPriority = ref<TaskPriority>('whenever')
 const editDueDate = ref('')
 const editNotes = ref('')
 const editTags = ref<string[]>([])
+const editLocation = ref<{ lat: number; lng: number } | null>(null)
 const saving = ref(false)
 const editError = ref<string | null>(null)
 
@@ -201,6 +229,10 @@ function openEdit(task: TaskSummary) {
   editDueDate.value = task.due_date ?? ''
   editNotes.value = task.notes ?? ''
   editTags.value = task.tags.map((tag) => tag.name)
+  editLocation.value =
+    task.lat !== null && task.lng !== null
+      ? { lat: task.lat, lng: task.lng }
+      : null
   editError.value = null
 }
 
@@ -222,6 +254,8 @@ async function submitEdit() {
       priority: editPriority.value,
       dueDate: editDueDate.value || null,
       notes: editNotes.value || null,
+      lat: editLocation.value?.lat ?? null,
+      lng: editLocation.value?.lng ?? null,
       tagNames: editTags.value,
     })
     closeEdit()
@@ -500,6 +534,14 @@ async function performDelete() {
                 density="comfortable"
                 variant="outlined"
                 hide-details
+                class="mb-4"
+              />
+              <p class="text-body-2 mb-2">Location</p>
+              <LocationPicker
+                v-model="newLocation"
+                auto-capture
+                :fallback-center="farmCenter"
+                :disabled="creating"
               />
             </div>
 
@@ -602,6 +644,13 @@ async function performDelete() {
               density="comfortable"
               variant="outlined"
               hide-details
+              class="mb-4"
+            />
+            <p class="text-body-2 mb-2">Location</p>
+            <LocationPicker
+              v-model="editLocation"
+              :fallback-center="farmCenter"
+              :disabled="saving"
             />
 
             <v-alert

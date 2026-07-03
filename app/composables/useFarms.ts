@@ -21,7 +21,7 @@ export function useFarms() {
     if (farms.value !== null) return farms.value
     const { data, error } = await supabase
       .from('farms')
-      .select('id, name')
+      .select('id, name, default_lat, default_lng')
       .order('name')
     if (error) {
       farmsError.value = error.message

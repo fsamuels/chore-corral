@@ -10,8 +10,6 @@ import {
 export type TaskPriority = Database['public']['Enums']['task_priority']
 export type TaskStatus = Database['public']['Enums']['task_status']
 
-// M5 works with everything on `tasks` except lat/lng, which arrive with the
-// map work in M7.
 export interface TaskSummary {
   id: string
   title: string
@@ -20,13 +18,15 @@ export interface TaskSummary {
   status: TaskStatus
   due_date: string | null
   notes: string | null
+  lat: number | null
+  lng: number | null
   created_at: string
   completed_at: string | null
   tags: TagSummary[]
 }
 
 const TASK_COLUMNS =
-  'id, title, category_id, priority, status, due_date, notes, created_at, completed_at'
+  'id, title, category_id, priority, status, due_date, notes, lat, lng, created_at, completed_at'
 
 type Client = SupabaseClient<Database>
 
@@ -72,6 +72,28 @@ function toLocalDateString(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
+/**
+ * Validate a task's location pin: both `lat`/`lng` must be set or both must
+ * be null (a half-set pin is invalid), and each must be a finite number
+ * within its valid range. `0` is a legitimate coordinate (Gulf of Guinea
+ * notwithstanding), so this checks `=== null`, not falsiness.
+ */
+export function assertValidLocation(
+  lat: number | null,
+  lng: number | null,
+): void {
+  if ((lat === null) !== (lng === null)) {
+    throw new Error('Location requires both lat and lng, or neither')
+  }
+  if (lat === null || lng === null) return
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+    throw new Error('Location lat must be a number between -90 and 90')
+  }
+  if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
+    throw new Error('Location lng must be a number between -180 and 180')
+  }
+}
+
 // `resolveTags` returns tags in first-seen input order, not alphabetical, so
 // create/update sort before attaching to a TaskSummary — consistent with how
 // `listTags`/`listTagsForTasks` already present tags sorted by name.
@@ -108,6 +130,8 @@ export interface CreateTaskInput {
   priority: TaskPriority
   dueDate?: string | null
   notes?: string | null
+  lat?: number | null
+  lng?: number | null
   actorUserId: string
   tagNames?: string[]
 }
@@ -125,6 +149,7 @@ export async function createTask(
 ): Promise<TaskSummary> {
   const title = input.title.trim()
   if (!title) throw new Error('Task title is required')
+  assertValidLocation(input.lat ?? null, input.lng ?? null)
 
   // status/completed_at match the DB defaults; passing them explicitly means
   // the minimal test fake doesn't have to know about column defaults.
@@ -138,6 +163,8 @@ export async function createTask(
       status: 'not_started',
       due_date: input.dueDate ?? null,
       notes: input.notes?.trim() || null,
+      lat: input.lat ?? null,
+      lng: input.lng ?? null,
       created_by: input.actorUserId,
       completed_at: null,
     })
@@ -167,6 +194,8 @@ export interface UpdateTaskInput {
   priority: TaskPriority
   dueDate: string | null
   notes: string | null
+  lat: number | null
+  lng: number | null
   tagNames: string[]
 }
 
@@ -183,6 +212,7 @@ export async function updateTask(
 ): Promise<TaskSummary> {
   const title = input.title.trim()
   if (!title) throw new Error('Task title is required')
+  assertValidLocation(input.lat, input.lng)
 
   const { data, error } = await supabase
     .from('tasks')
@@ -192,6 +222,8 @@ export async function updateTask(
       priority: input.priority,
       due_date: input.dueDate,
       notes: input.notes?.trim() || null,
+      lat: input.lat,
+      lng: input.lng,
     })
     .eq('id', input.taskId)
     .eq('farm_id', input.farmId)

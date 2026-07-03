@@ -26,6 +26,7 @@ async function signOut() {
           title="Tasks"
           to="/tasks"
         />
+        <v-btn icon="mdi-map-outline" aria-label="Map" title="Map" to="/map" />
         <v-btn
           icon="mdi-shape-outline"
           aria-label="Categories"
