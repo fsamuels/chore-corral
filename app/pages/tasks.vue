@@ -56,13 +56,6 @@ const statusItems: { title: string; value: TaskStatus }[] = [
   { title: 'Done', value: 'done' },
 ]
 
-const priorityDisplay: Record<TaskPriority, { color: string; label: string }> =
-  {
-    urgent: { color: 'error', label: 'Urgent' },
-    soon: { color: 'warning', label: 'Soon' },
-    whenever: { color: '', label: 'Whenever' },
-  }
-
 const headers = [
   { title: 'Title', key: 'title', sortable: false },
   { title: 'Category', key: 'category', sortable: false },
@@ -100,10 +93,7 @@ function categoryDisplay(categoryId: string | null): {
   text: string
   deleted: boolean
 } {
-  if (categoryId === null) return { text: 'Uncategorized', deleted: false }
-  const category = categories.value?.find((c) => c.id === categoryId)
-  if (category) return { text: category.name, deleted: false }
-  return { text: '(deleted category)', deleted: true }
+  return categoryDisplayName(categoryId, categories.value)
 }
 
 // Mini-map starting point before a pin exists (SPEC: the farm's default
@@ -401,10 +391,10 @@ async function performDelete() {
           <v-chip
             size="small"
             :color="
-              priorityDisplay[item.priority as TaskPriority].color || undefined
+              PRIORITY_DISPLAY[item.priority as TaskPriority].color || undefined
             "
           >
-            {{ priorityDisplay[item.priority as TaskPriority].label }}
+            {{ PRIORITY_DISPLAY[item.priority as TaskPriority].label }}
           </v-chip>
         </template>
 
