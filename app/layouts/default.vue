@@ -1,13 +1,11 @@
 <script setup lang="ts">
-const supabase = useSupabaseClient()
 const user = useSupabaseUser()
-const { resetFarms } = useFarms()
+const { applyTheme } = useThemePreference()
 
-async function signOut() {
-  await supabase.auth.signOut()
-  resetFarms()
-  await navigateTo('/login')
-}
+// Apply the saved theme during SSR and again when auth state changes (the
+// signed-in user's metadata may carry a different preference than the cookie).
+applyTheme()
+watch(user, () => applyTheme())
 </script>
 
 <template>
@@ -33,12 +31,7 @@ async function signOut() {
           title="Categories"
           to="/categories"
         />
-        <v-btn
-          icon="mdi-logout"
-          aria-label="Sign out"
-          title="Sign out"
-          @click="signOut"
-        />
+        <AccountMenu />
       </template>
     </v-app-bar>
     <v-main>

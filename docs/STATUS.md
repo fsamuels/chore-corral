@@ -2,7 +2,9 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-07-04 (Fixed a blank-page crash on `/tasks?task=<id>` deep links)
+**Last updated:** 2026-07-03 (UI improvements: per-user brand themes, account menu, icons, dashboard stat cards, empty states)
+
+**UI improvements (2026-07-03).** The app now has a per-user theme system: four equipment-brand Vuetify themes (Classic blue, John Deere green, Kubota orange, Massey Ferguson red), each with light and dark variants, defined in `nuxt.config.ts`. The preference is stored in Supabase user metadata (follows the user across devices) with a cookie copy so the theme applies during SSR without a flash (`app/composables/useThemePreference.ts`). A new app-bar account menu (`AccountMenu.vue`) hosts the brand picker, a light/dark toggle, and the Sign Out action (moved out of the app bar's standalone logout button). Alongside theming: consistent mdi icons for task status/priority/overdue across `/tasks`, `/` and `/categories` (`STATUS_DISPLAY`/`OVERDUE_ICON` added to `app/utils/task-display.ts`), the home screen's summary chips upgraded to themed stat cards (outstanding/urgent/overdue), and friendly centered empty states (icon + message + create button where relevant) replacing the plain-text empty cards on the dashboard, tasks, and categories pages.
 
 **Components demo re-linked (2026-07-03).** The `/components-demo` Vuetify sampler (see M1 note below) had no in-app link after the M5 home-screen rewrite dropped the placeholder card that used to point to it. A new `AppFooter.vue` component — a plain "UI components demo" link to `/components-demo` — now renders in both `app/layouts/default.vue` and `app/layouts/blank.vue`, so it's reachable from every page again, authenticated or not.
 
