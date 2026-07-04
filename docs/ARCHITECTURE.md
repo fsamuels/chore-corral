@@ -30,8 +30,9 @@ Nuxt deploys to Vercel via an official adapter, so hosting stays unchanged from 
 Relevant Vuetify components anticipated:
 
 - `v-data-table` — task list, especially once category/priority filtering is active
-- `v-bottom-navigation` — primary mobile navigation
-- `v-navigation-drawer` — farm switcher and secondary navigation on larger screens
+- `v-bottom-navigation` — primary mobile navigation (Home and Map only, on smAndDown)
+- `v-navigation-drawer` — secondary navigation (Tasks management, Categories management, Change Farm page, Settings page, Sign out) on all screen sizes, opened from app-bar hamburger button; includes signed-in user's email at the top
+- `v-app-bar` — app title links to home; hamburger button (left) opens drawer; on desktop (mdAndUp) shows Home and Map icon buttons
 - Form components paired with VeeValidate + Zod
 
 ### Forms: VeeValidate + Zod
