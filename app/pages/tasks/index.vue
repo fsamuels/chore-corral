@@ -1,9 +1,16 @@
 <script setup lang="ts">
 import {
   isTaskOverdue,
+  type TaskPriority,
   type TaskStatus,
   type TaskSummary,
 } from '~/services/tasks'
+import {
+  ALL,
+  defaultTaskFilters,
+  filterTasks,
+  type DueDateFilter,
+} from '~/utils/task-filters'
 
 const { fetchFarms, activeFarm, farmsError } = useFarms()
 const { tasks, tasksError, loading, fetchTasks, setStatus } = useTasks()
@@ -19,6 +26,27 @@ const statusItems: { title: string; value: TaskStatus }[] = [
   { title: 'Not started', value: 'not_started' },
   { title: 'In progress', value: 'in_progress' },
   { title: 'Done', value: 'done' },
+]
+
+const statusFilterItems = [
+  { title: 'All statuses', value: ALL },
+  ...statusItems,
+]
+
+const priorityFilterItems: {
+  title: string
+  value: TaskPriority | typeof ALL
+}[] = [
+  { title: 'All priorities', value: ALL },
+  { title: 'Urgent', value: 'urgent' },
+  { title: 'Soon', value: 'soon' },
+  { title: 'Whenever', value: 'whenever' },
+]
+
+const dueDateFilterItems: { title: string; value: DueDateFilter }[] = [
+  { title: 'Any due date', value: ALL },
+  { title: 'Has due date', value: 'has_due_date' },
+  { title: 'No due date', value: 'no_due_date' },
 ]
 
 const headers = [
@@ -41,16 +69,36 @@ const categoryItems = computed(() =>
 const ALL_CATEGORIES = 'all'
 const selectedCategory = ref<string | null>(ALL_CATEGORIES)
 
-const filterItems = computed(() => [
+const categoryFilterItems = computed(() => [
   { title: 'All categories', value: ALL_CATEGORIES },
   { title: 'Uncategorized', value: null },
   ...categoryItems.value,
 ])
 
+const filters = ref(defaultTaskFilters())
+
+const hasActiveFilters = computed(
+  () =>
+    selectedCategory.value !== ALL_CATEGORIES ||
+    filters.value.status !== ALL ||
+    filters.value.priority !== ALL ||
+    filters.value.dueDate !== ALL ||
+    filters.value.overdueOnly ||
+    filters.value.search.trim() !== '',
+)
+
+function resetFilters() {
+  selectedCategory.value = ALL_CATEGORIES
+  filters.value = defaultTaskFilters()
+}
+
 const filteredTasks = computed(() => {
   const all = tasks.value ?? []
-  if (selectedCategory.value === ALL_CATEGORIES) return all
-  return all.filter((task) => task.category_id === selectedCategory.value)
+  const byCategory =
+    selectedCategory.value === ALL_CATEGORIES
+      ? all
+      : all.filter((task) => task.category_id === selectedCategory.value)
+  return filterTasks(byCategory, filters.value)
 })
 
 function categoryDisplay(categoryId: string | null): {
@@ -107,16 +155,71 @@ function openTask(taskId: string) {
         <v-btn color="primary" to="/tasks/new">New task</v-btn>
       </div>
 
-      <v-select
-        v-model="selectedCategory"
-        :items="filterItems"
-        label="Category"
+      <v-text-field
+        v-model="filters.search"
+        label="Search by title"
+        prepend-inner-icon="mdi-magnify"
         density="comfortable"
         variant="outlined"
         hide-details
-        style="max-width: 280px"
-        class="mb-6"
+        clearable
+        class="mb-4"
+        style="max-width: 400px"
       />
+
+      <div class="d-flex flex-wrap ga-4 align-center mb-4">
+        <v-select
+          v-model="selectedCategory"
+          :items="categoryFilterItems"
+          label="Category"
+          density="comfortable"
+          variant="outlined"
+          hide-details
+          style="max-width: 220px"
+        />
+        <v-select
+          v-model="filters.status"
+          :items="statusFilterItems"
+          label="Status"
+          density="comfortable"
+          variant="outlined"
+          hide-details
+          style="max-width: 220px"
+        />
+        <v-select
+          v-model="filters.priority"
+          :items="priorityFilterItems"
+          label="Priority"
+          density="comfortable"
+          variant="outlined"
+          hide-details
+          style="max-width: 220px"
+        />
+        <v-select
+          v-model="filters.dueDate"
+          :items="dueDateFilterItems"
+          label="Due date"
+          density="comfortable"
+          variant="outlined"
+          hide-details
+          style="max-width: 220px"
+        />
+        <v-checkbox
+          v-model="filters.overdueOnly"
+          label="Overdue only"
+          density="comfortable"
+          hide-details
+        />
+        <v-btn
+          v-if="hasActiveFilters"
+          variant="text"
+          density="comfortable"
+          prepend-icon="mdi-filter-remove-outline"
+          @click="resetFilters"
+        >
+          Clear filters
+        </v-btn>
+      </div>
 
       <v-alert
         v-if="tasksError"
@@ -149,7 +252,15 @@ function openTask(taskId: string) {
         class="text-center py-12 text-medium-emphasis"
       >
         <v-icon icon="mdi-filter-variant-remove" size="64" class="mb-4" />
-        <p class="text-body-1">No tasks in this category.</p>
+        <p class="text-body-1">No tasks match the current filters.</p>
+        <v-btn
+          v-if="hasActiveFilters"
+          variant="text"
+          class="mt-2"
+          @click="resetFilters"
+        >
+          Clear filters
+        </v-btn>
       </div>
 
       <v-data-table
