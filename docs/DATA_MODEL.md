@@ -168,7 +168,7 @@ Major-event-only log, per SPEC.md (not a full audit trail).
 
 ### `farm_member_profiles`
 
-Not a table — a `security_invoker` view joining `farm_memberships` to `auth.users`, exposing just enough of `auth.users` (id, email) to attribute `activity_log` entries to a person. `auth.users` itself is never exposed directly via PostgREST.
+Not a table — a view joining `farm_memberships` to `auth.users`, exposing just enough of `auth.users` (id, email) to attribute `activity_log` entries to a person. `auth.users` itself is never exposed directly via PostgREST.
 
 | Column    | Type           | Notes                           |
 | --------- | -------------- | ------------------------------- |
@@ -176,7 +176,7 @@ Not a table — a `security_invoker` view joining `farm_memberships` to `auth.us
 | `user_id` | uuid           | From `farm_memberships.user_id` |
 | `email`   | text, nullable | From `auth.users.email`         |
 
-`security_invoker = true` means the view runs under the querying user's own RLS rather than the view owner's, so it's exactly as permissive as `farm_memberships`' existing "users can view their own memberships" policy — no separate grant/policy is needed on the view itself. A view can't carry its own `create policy` the way a table can, so this is the equivalent mechanism for a view. One row per `(farm_id, user_id)` pair — a user who belongs to multiple farms appears once per farm, which is expected since callers always filter by a specific `farm_id`.
+The view runs with its owner's privileges (the Postgres default for views — the owner can read `auth.users` and isn't subject to `farm_memberships`' RLS), and carries its membership scoping in its own definition: a `where` clause restricts output to farms the querying user (`auth.uid()`) belongs to, and `security_barrier` keeps caller-supplied predicates from being evaluated ahead of that filter. Only `authenticated` holds a SELECT grant on the view. A view can't carry its own `create policy` the way a table can, so the in-view predicate is the equivalent mechanism. It was originally created as a `security_invoker` view instead, which failed in production — see DECISIONS.md for why that didn't work. One row per `(farm_id, user_id)` pair — a user who belongs to multiple farms appears once per farm, which is expected since callers always filter by a specific `farm_id`.
 
 ## Row Level Security (RLS) Policy Intent
 
