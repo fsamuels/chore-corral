@@ -71,36 +71,70 @@ function categoryName(task: TaskSummary): string {
 
       <template v-else>
         <div class="d-flex flex-wrap ga-3 mt-4 mb-6">
-          <v-chip size="large" variant="tonal">
-            {{ outstandingTasks.length }} outstanding
-          </v-chip>
-          <v-chip
-            size="large"
+          <v-card
             variant="tonal"
-            :color="urgentCount > 0 ? 'error' : undefined"
+            color="primary"
+            class="flex-grow-1"
+            style="min-width: 160px"
           >
-            {{ urgentCount }} urgent
-          </v-chip>
-          <v-chip
-            size="large"
+            <v-card-text class="d-flex align-center ga-3">
+              <v-icon icon="mdi-format-list-checks" size="large" />
+              <div>
+                <div class="text-h5">{{ outstandingTasks.length }}</div>
+                <div class="text-body-2">Outstanding</div>
+              </div>
+            </v-card-text>
+          </v-card>
+
+          <v-card
+            variant="tonal"
+            :color="urgentCount > 0 ? 'warning' : undefined"
+            class="flex-grow-1"
+            style="min-width: 160px"
+          >
+            <v-card-text class="d-flex align-center ga-3">
+              <v-icon icon="mdi-fire" size="large" />
+              <div>
+                <div class="text-h5">{{ urgentCount }}</div>
+                <div class="text-body-2">Urgent</div>
+              </div>
+            </v-card-text>
+          </v-card>
+
+          <v-card
             variant="tonal"
             :color="overdueCount > 0 ? 'error' : undefined"
+            class="flex-grow-1"
+            style="min-width: 160px"
           >
-            {{ overdueCount }} overdue
-          </v-chip>
+            <v-card-text class="d-flex align-center ga-3">
+              <v-icon icon="mdi-alert-circle" size="large" />
+              <div>
+                <div class="text-h5">{{ overdueCount }}</div>
+                <div class="text-body-2">Overdue</div>
+              </div>
+            </v-card-text>
+          </v-card>
         </div>
 
-        <v-card v-if="!tasks || tasks.length === 0" variant="tonal">
-          <v-card-text>
-            No tasks yet.
-            <NuxtLink to="/tasks">Add one</NuxtLink>
-            to start tracking work on this farm.
-          </v-card-text>
-        </v-card>
+        <div
+          v-if="!tasks || tasks.length === 0"
+          class="text-center py-12 text-medium-emphasis"
+        >
+          <v-icon icon="mdi-clipboard-text-outline" size="64" class="mb-4" />
+          <p class="text-body-1 mb-4">
+            No tasks yet. Add one to start tracking work on this farm.
+          </p>
+          <v-btn color="primary" variant="tonal" to="/tasks">New task</v-btn>
+        </div>
 
-        <v-card v-else-if="outstandingTasks.length === 0" variant="tonal">
-          <v-card-text> Nothing outstanding — every task is done. </v-card-text>
-        </v-card>
+        <div
+          v-else-if="outstandingTasks.length === 0"
+          class="text-center py-12 text-medium-emphasis"
+        >
+          <v-icon icon="mdi-check-circle-outline" size="64" class="mb-4" />
+          <p class="text-body-1">Nothing outstanding — every task is done.</p>
+        </div>
 
         <v-list v-else lines="two" class="mb-2">
           <v-list-item
@@ -109,6 +143,7 @@ function categoryName(task: TaskSummary): string {
             :to="`/tasks?task=${task.id}`"
             border
             rounded
+            elevation="1"
             class="mb-2"
           >
             <template #prepend>

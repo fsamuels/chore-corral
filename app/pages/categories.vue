@@ -145,16 +145,17 @@ async function performDelete() {
         <v-progress-circular indeterminate color="primary" />
       </div>
 
-      <v-card
+      <div
         v-else-if="!categories || categories.length === 0"
-        variant="tonal"
+        class="text-center py-12 text-medium-emphasis"
       >
-        <v-card-text>
+        <v-icon icon="mdi-shape-outline" size="64" class="mb-4" />
+        <p class="text-body-1">
           No categories yet. Add one above to start organizing tasks.
-        </v-card-text>
-      </v-card>
+        </p>
+      </div>
 
-      <v-list v-else lines="one">
+      <v-list v-else lines="one" elevation="1" rounded>
         <v-list-item
           v-for="category in categories"
           :key="category.id"

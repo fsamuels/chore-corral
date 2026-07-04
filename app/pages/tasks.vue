@@ -341,15 +341,24 @@ async function performDelete() {
         <v-progress-circular indeterminate color="primary" />
       </div>
 
-      <v-card v-else-if="!tasks || tasks.length === 0" variant="tonal">
-        <v-card-text>
-          No tasks yet. Add one above to start tracking work on this farm.
-        </v-card-text>
-      </v-card>
+      <div
+        v-else-if="!tasks || tasks.length === 0"
+        class="text-center py-12 text-medium-emphasis"
+      >
+        <v-icon icon="mdi-clipboard-text-outline" size="64" class="mb-4" />
+        <p class="text-body-1 mb-4">
+          No tasks yet. Add one to start tracking work on this farm.
+        </p>
+        <v-btn color="primary" @click="openCreate">New task</v-btn>
+      </div>
 
-      <v-card v-else-if="filteredTasks.length === 0" variant="tonal">
-        <v-card-text> No tasks in this category. </v-card-text>
-      </v-card>
+      <div
+        v-else-if="filteredTasks.length === 0"
+        class="text-center py-12 text-medium-emphasis"
+      >
+        <v-icon icon="mdi-filter-variant-remove" size="64" class="mb-4" />
+        <p class="text-body-1">No tasks in this category.</p>
+      </div>
 
       <v-data-table
         v-else
@@ -358,6 +367,7 @@ async function performDelete() {
         :items-per-page="-1"
         hide-default-footer
         density="comfortable"
+        elevation="1"
       >
         <template #[`item.title`]="{ item }">
           <span
