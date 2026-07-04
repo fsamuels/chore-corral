@@ -162,6 +162,22 @@ Major-event-only log, per SPEC.md (not a full audit trail).
 
 **Resolved: task_id is a soft reference, not a hard FK.** `task_id` is a plain `uuid` column with no foreign key constraint, so a hard-deleted task never orphans or cascades against its log entries. `event_detail.task_title` is always populated (not just on delete) so the log stays meaningful without needing a join — see DECISIONS.md.
 
+`activity_log` is now read by the app (a task's View page renders its history), not just written — see DECISIONS.md for the reversal of the original "Supabase-dashboard-only" MVP scoping call.
+
+## Views
+
+### `farm_member_profiles`
+
+Not a table — a `security_invoker` view joining `farm_memberships` to `auth.users`, exposing just enough of `auth.users` (id, email) to attribute `activity_log` entries to a person. `auth.users` itself is never exposed directly via PostgREST.
+
+| Column    | Type           | Notes                           |
+| --------- | -------------- | ------------------------------- |
+| `farm_id` | uuid           | From `farm_memberships`         |
+| `user_id` | uuid           | From `farm_memberships.user_id` |
+| `email`   | text, nullable | From `auth.users.email`         |
+
+`security_invoker = true` means the view runs under the querying user's own RLS rather than the view owner's, so it's exactly as permissive as `farm_memberships`' existing "users can view their own memberships" policy — no separate grant/policy is needed on the view itself. A view can't carry its own `create policy` the way a table can, so this is the equivalent mechanism for a view. One row per `(farm_id, user_id)` pair — a user who belongs to multiple farms appears once per farm, which is expected since callers always filter by a specific `farm_id`.
+
 ## Row Level Security (RLS) Policy Intent
 
 All farm-scoped tables (`categories`, `tasks`, `tags`, `task_tags`, `task_photos`, `activity_log`) should have RLS **enabled by default** (deny-by-default), with policies granting access based on farm membership:

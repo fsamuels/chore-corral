@@ -52,7 +52,7 @@ export function useTasks() {
 
   async function create(
     input: Omit<CreateTaskInput, 'farmId' | 'actorUserId'>,
-  ): Promise<void> {
+  ): Promise<TaskSummary> {
     const farmId = activeFarmId.value
     const actorUserId = getActorUserId(user.value)
     if (!farmId || !actorUserId) {
@@ -66,6 +66,7 @@ export function useTasks() {
     const next = [...(tasks.value ?? []), created]
     next.sort(compareTasks)
     tasks.value = next
+    return created
   }
 
   async function update(input: Omit<UpdateTaskInput, 'farmId'>): Promise<void> {

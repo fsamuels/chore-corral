@@ -3,6 +3,7 @@ import {
   changeTaskStatus,
   createTask,
   deleteTask,
+  getTask,
   isTaskOverdue,
   listTasks,
   updateTask,
@@ -844,6 +845,45 @@ describe('listTasks', () => {
     const task2 = result.find((t) => t.id === 'task-2')
     expect(task1?.tags.map((t) => t.name)).toEqual(['Barn', 'Gate'])
     expect(task2?.tags).toEqual([])
+  })
+})
+
+describe('getTask', () => {
+  it('returns the matching task, with tags attached', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1' })],
+      tags: [tag({ id: 'tag-1', name: 'Gate' })],
+      task_tags: [taskTag({ task_id: 'task-1', tag_id: 'tag-1' })],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await getTask(supabase, { farmId: FARM_A, taskId: 'task-1' })
+
+    expect(result?.id).toBe('task-1')
+    expect(result?.tags.map((t) => t.name)).toEqual(['Gate'])
+  })
+
+  it('returns null for a non-existent id rather than throwing', async () => {
+    const fake = new FakeSupabaseClient({ tasks: [task({ id: 'task-1' })] })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await getTask(supabase, {
+      farmId: FARM_A,
+      taskId: 'no-such-task',
+    })
+
+    expect(result).toBeNull()
+  })
+
+  it('returns null when the task exists but belongs to a different farm', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1', farm_id: FARM_A })],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await getTask(supabase, { farmId: FARM_B, taskId: 'task-1' })
+
+    expect(result).toBeNull()
   })
 })
 

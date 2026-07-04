@@ -1,6 +1,6 @@
 import type { Ref } from 'vue'
 import type { Database } from '~/types/database.types'
-import { compressImage } from '~/utils/photo-compression'
+import { compressImage, MAX_UPLOAD_BYTES } from '~/utils/photo-compression'
 import {
   deleteTaskPhoto,
   getTaskPhotoUrl,
@@ -9,9 +9,6 @@ import {
   uploadTaskPhoto,
   type PhotoSummary,
 } from '~/services/photos'
-
-// SPEC: raw uploads are capped before client-side compression runs.
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 /**
  * Photos for a single task. Unlike the per-farm composables (`useTasks`,

@@ -155,7 +155,9 @@ Records **major events only** — not a field-by-field audit trail. Intended for
 - Category created
 - Category deleted (soft delete)
 
-Field-level edits (e.g. changing a task's notes or due date) are **not** individually logged. There is no dedicated in-app UI for browsing the activity log in MVP — it's available to query directly (e.g. via Supabase dashboard) if needed, not a user-facing feature.
+Field-level edits (e.g. changing a task's notes or due date) are **not** individually logged.
+
+Each task's activity history is shown in-app, on that task's View page (see below), most-recent-first, attributed to the member who performed the action (resolved via the `farm_member_profiles` view — see DATA_MODEL.md). This reverses the original MVP scoping call to leave the log as Supabase-dashboard-only (see DECISIONS.md); it's no longer purely a background record.
 
 ## Views
 
@@ -166,12 +168,24 @@ Field-level edits (e.g. changing a task's notes or due date) are **not** individ
 - Filterable by category.
 - Shows completed tasks (filterable, not hidden).
 - Overdue tasks (due date passed, not Done) are visually flagged.
+- Tapping/clicking a row opens that task's View page.
+
+### Task View page
+
+- Read-only, more detailed presentation of a single task than the list or edit form show: full field values, tags, location, photos, and the task's Activity Log history (see above).
+- Reachable from the task list, the Map view, and the dashboard's outstanding-tasks list.
+- Includes a quick status-change control (no need to open Edit just to mark a task In Progress or Done) and a link to the Edit page.
+
+### Task Create / Edit pages
+
+- Full pages, not modal dialogs — separate routes for creating a task, viewing a task, and editing a task (see the Task section above for the create/edit field behavior).
+- Photos added at creation time are staged client-side (local previews only) and uploaded once the task is successfully created — a task must exist before a photo's storage path/row can.
 
 ### Map View
 
 - Per-farm (scoped to active farm, no cross-farm view).
 - Shows pins for all tasks with a location set.
-- Tapping a pin opens the task.
+- Tapping a pin opens the task's View page.
 - Static display for MVP; boundary drawing and area measurement are future features (see ROADMAP.md).
 
 ### Farm Switcher

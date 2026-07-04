@@ -21,7 +21,7 @@ const farmCenter = computed(() => {
 })
 
 function onOpen(taskId: string) {
-  navigateTo({ path: '/tasks', query: { task: taskId } })
+  navigateTo(`/tasks/${taskId}`)
 }
 </script>
 
