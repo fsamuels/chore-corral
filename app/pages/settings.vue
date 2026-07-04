@@ -1,33 +1,17 @@
 <script setup lang="ts">
-const supabase = useSupabaseClient()
 const user = useSupabaseUser()
-const { resetFarms } = useFarms()
 const { preference, setBrand, setDark } = useThemePreference()
-
-async function signOut() {
-  await supabase.auth.signOut()
-  resetFarms()
-  await navigateTo('/login')
-}
 </script>
 
 <template>
-  <v-menu location="bottom end" :close-on-content-click="false">
-    <template #activator="{ props }">
-      <v-btn
-        icon="mdi-account-circle"
-        aria-label="Account"
-        title="Account"
-        v-bind="props"
-      />
-    </template>
-    <v-card min-width="260">
-      <v-list density="compact">
-        <v-list-item
-          :title="user?.email ?? 'Account'"
-          prepend-icon="mdi-account-circle"
-        />
-        <v-divider />
+  <v-container max-width="600">
+    <h1 class="text-h4 mb-1">Settings</h1>
+    <p class="text-body-2 text-medium-emphasis mb-4">
+      Signed in as {{ user?.email }}
+    </p>
+
+    <v-card>
+      <v-list>
         <v-list-subheader>Theme</v-list-subheader>
         <v-list-item
           v-for="brand in THEME_BRANDS"
@@ -47,6 +31,7 @@ async function signOut() {
             />
           </template>
         </v-list-item>
+        <v-divider />
         <v-list-item
           :title="preference.dark ? 'Dark mode' : 'Light mode'"
           @click="setDark(!preference.dark)"
@@ -70,13 +55,7 @@ async function signOut() {
             />
           </template>
         </v-list-item>
-        <v-divider />
-        <v-list-item
-          title="Sign out"
-          prepend-icon="mdi-logout"
-          @click="signOut"
-        />
       </v-list>
     </v-card>
-  </v-menu>
+  </v-container>
 </template>
