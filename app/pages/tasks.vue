@@ -395,6 +395,7 @@ async function performDelete() {
         <template #[`item.priority`]="{ item }">
           <v-chip
             size="small"
+            :prepend-icon="PRIORITY_DISPLAY[item.priority as TaskPriority].icon"
             :color="
               PRIORITY_DISPLAY[item.priority as TaskPriority].color || undefined
             "
@@ -410,11 +411,26 @@ async function performDelete() {
             density="compact"
             variant="outlined"
             hide-details
-            style="width: 150px"
+            style="width: 170px"
             @update:model-value="
               (value: TaskStatus) => onStatusChange(item, value)
             "
-          />
+          >
+            <template #selection="{ item: selected }">
+              <v-icon
+                :icon="STATUS_DISPLAY[selected.value as TaskStatus].icon"
+                size="small"
+                class="mr-1"
+              />
+              {{ selected.title }}
+            </template>
+            <template #item="{ item: option, props: itemProps }">
+              <v-list-item
+                v-bind="itemProps"
+                :prepend-icon="STATUS_DISPLAY[option.value as TaskStatus].icon"
+              />
+            </template>
+          </v-select>
         </template>
 
         <template #[`item.due_date`]="{ item }">
@@ -425,6 +441,7 @@ async function performDelete() {
             v-if="isTaskOverdue(item)"
             size="x-small"
             color="error"
+            :prepend-icon="OVERDUE_ICON"
             class="ml-2"
           >
             Overdue

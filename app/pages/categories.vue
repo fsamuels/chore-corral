@@ -159,6 +159,7 @@ async function performDelete() {
           v-for="category in categories"
           :key="category.id"
           :title="category.name"
+          prepend-icon="mdi-shape-outline"
         >
           <template #append>
             <v-btn

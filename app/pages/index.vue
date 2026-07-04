@@ -111,6 +111,9 @@ function categoryName(task: TaskSummary): string {
             rounded
             class="mb-2"
           >
+            <template #prepend>
+              <v-icon :icon="STATUS_DISPLAY[task.status].icon" class="mr-3" />
+            </template>
             <v-list-item-title :class="{ 'text-error': isTaskOverdue(task) }">
               {{ task.title }}
             </v-list-item-title>
@@ -122,11 +125,17 @@ function categoryName(task: TaskSummary): string {
               <v-chip
                 size="small"
                 class="mr-2"
+                :prepend-icon="PRIORITY_DISPLAY[task.priority].icon"
                 :color="PRIORITY_DISPLAY[task.priority].color || undefined"
               >
                 {{ PRIORITY_DISPLAY[task.priority].label }}
               </v-chip>
-              <v-chip v-if="isTaskOverdue(task)" size="small" color="error">
+              <v-chip
+                v-if="isTaskOverdue(task)"
+                size="small"
+                color="error"
+                :prepend-icon="OVERDUE_ICON"
+              >
                 Overdue
               </v-chip>
             </template>
