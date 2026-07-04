@@ -165,10 +165,11 @@ Each task's activity history is shown in-app, on that task's View page (see belo
 
 - Default view of the task list.
 - Sorted by priority (descending) by default.
-- Filterable by category.
-- Shows completed tasks (filterable, not hidden).
+- Filterable by category, status, priority, and due-date presence (has a due date / has none); a free-text title search and an "overdue only" toggle are also available. Filters combine (AND), and all are additive on top of the default unfiltered list.
+- Shows completed tasks (filterable, not hidden) — the Status filter is what lets a user narrow to or exclude Done tasks; there is no separate hide-completed switch.
 - Overdue tasks (due date passed, not Done) are visually flagged.
 - Tapping/clicking a row opens that task's View page.
+- The dashboard's outstanding-tasks list (home screen) offers its own priority and due-date-presence filters, scoped to the non-Done subset it already shows; its summary stat cards (Outstanding/Urgent/Overdue) always reflect all outstanding tasks regardless of that list's filter state.
 
 ### Task View page
 
