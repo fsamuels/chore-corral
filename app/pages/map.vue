@@ -2,7 +2,7 @@
 const { fetchFarms, activeFarm, farmsError } = useFarms()
 const { tasks, tasksError, loading, fetchTasks } = useTasks()
 
-// Same fetch order as tasks.vue: farms first so the active farm resolves
+// Same fetch order as tasks/index.vue: farms first so the active farm resolves
 // during SSR, then that farm's tasks.
 await fetchFarms()
 await fetchTasks()
