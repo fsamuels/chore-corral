@@ -125,7 +125,9 @@ function categoryName(task: TaskSummary): string {
           <p class="text-body-1 mb-4">
             No tasks yet. Add one to start tracking work on this farm.
           </p>
-          <v-btn color="primary" variant="tonal" to="/tasks">New task</v-btn>
+          <v-btn color="primary" variant="tonal" to="/tasks/new"
+            >New task</v-btn
+          >
         </div>
 
         <div
