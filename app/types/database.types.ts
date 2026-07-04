@@ -295,7 +295,16 @@ export interface Database {
         ]
       }
     }
-    Views: Record<string, never>
+    Views: {
+      farm_member_profiles: {
+        Row: {
+          farm_id: string
+          user_id: string
+          email: string | null
+        }
+        Relationships: []
+      }
+    }
     Functions: Record<string, never>
     Enums: {
       task_priority: 'whenever' | 'soon' | 'urgent'

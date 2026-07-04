@@ -140,7 +140,7 @@ function categoryName(task: TaskSummary): string {
           <v-list-item
             v-for="task in outstandingTasks"
             :key="task.id"
-            :to="`/tasks?task=${task.id}`"
+            :to="`/tasks/${task.id}`"
             border
             rounded
             elevation="1"

@@ -123,6 +123,28 @@ export async function listTasks(
   }))
 }
 
+/**
+ * A single task by id, scoped to farmId. Returns null rather than throwing
+ * when the row doesn't exist (bad id, wrong farm, or already deleted) so
+ * the view/edit pages can render a "not found" state instead of an error.
+ */
+export async function getTask(
+  supabase: Client,
+  opts: { farmId: string; taskId: string },
+): Promise<TaskSummary | null> {
+  const { data, error } = await supabase
+    .from('tasks')
+    .select(TASK_COLUMNS)
+    .eq('id', opts.taskId)
+    .eq('farm_id', opts.farmId)
+  if (error) throw new Error(error.message)
+  const task = data[0]
+  if (!task) return null
+
+  const tagsByTaskId = await listTagsForTasks(supabase, [task.id])
+  return { ...task, tags: tagsByTaskId.get(task.id) ?? [] }
+}
+
 export interface CreateTaskInput {
   farmId: string
   title: string

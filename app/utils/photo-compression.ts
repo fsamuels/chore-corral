@@ -4,6 +4,11 @@
 // this implements and docs/DATA_MODEL.md for the storage path convention the
 // resulting blob is uploaded under.
 
+// SPEC: raw uploads are capped before client-side compression runs. Shared by
+// every photo-upload entry point (`useTaskPhotos`, `StagedTaskPhotos`) so the
+// limit isn't duplicated as a magic number in more than one place.
+export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
 /**
  * Compute output dimensions for an image so its longest edge is at most
  * `maxEdge`, preserving aspect ratio. Pure function, no browser APIs — kept

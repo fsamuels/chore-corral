@@ -23,6 +23,8 @@ import type { Database } from '../../app/types/database.types'
 //   from('task_tags').select(...).in('task_id', [...])
 //   from('task_tags').delete().eq('task_id', ...)
 //   from('task_photos').select(...)/insert(...)/delete()... (M8, mirrors task_tags)
+//   from('activity_log').select(...).eq('farm_id',...).eq('task_id',...).order('created_at',{ascending:false})
+//   from('farm_member_profiles').select(...).eq('farm_id',...).in('user_id',[...])
 //
 // It is not a general PostgREST emulator: no joins, no or(), no partial
 // filter operators beyond eq/is/in. Keep it that way — generalizing further
@@ -35,7 +37,13 @@ import type { Database } from '../../app/types/database.types'
 // tests assert on what got uploaded/removed and to fail on demand.
 
 type TableName =
-  'categories' | 'tasks' | 'activity_log' | 'tags' | 'task_tags' | 'task_photos'
+  | 'categories'
+  | 'tasks'
+  | 'activity_log'
+  | 'tags'
+  | 'task_tags'
+  | 'task_photos'
+  | 'farm_member_profiles'
 type Row = Record<string, unknown>
 
 export interface FakeSupabaseSeed {
@@ -45,6 +53,9 @@ export interface FakeSupabaseSeed {
   tags?: Database['public']['Tables']['tags']['Row'][]
   task_tags?: Database['public']['Tables']['task_tags']['Row'][]
   task_photos?: Database['public']['Tables']['task_photos']['Row'][]
+  // Not a real table (it's a view), but the fake doesn't need to model that
+  // distinction — it just needs queryable rows.
+  farm_member_profiles?: Database['public']['Views']['farm_member_profiles']['Row'][]
 }
 
 export interface FailSpec {
@@ -86,6 +97,7 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
   private singleMode = false
   private countMode = false
   private orderCol?: string
+  private orderAscending = true
   private selectCols?: string[]
 
   constructor(
@@ -133,8 +145,9 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
     return this
   }
 
-  order(column: string): this {
+  order(column: string, options?: { ascending?: boolean }): this {
     this.orderCol = column
+    this.orderAscending = options?.ascending ?? true
     return this
   }
 
@@ -216,8 +229,9 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
     }
     if (this.orderCol) {
       const col = this.orderCol
-      matches = [...matches].sort((a, b) =>
-        String(a[col]).localeCompare(String(b[col])),
+      const direction = this.orderAscending ? 1 : -1
+      matches = [...matches].sort(
+        (a, b) => direction * String(a[col]).localeCompare(String(b[col])),
       )
     }
     return { data: matches.map((row) => this.project(row)), error: null }
@@ -236,6 +250,7 @@ export class FakeSupabaseClient {
     tags: 0,
     task_tags: 0,
     task_photos: 0,
+    farm_member_profiles: 0,
   }
 
   constructor(
@@ -252,6 +267,9 @@ export class FakeSupabaseClient {
       tags: cloneRows(seed.tags as unknown as Row[] | undefined),
       task_tags: cloneRows(seed.task_tags as unknown as Row[] | undefined),
       task_photos: cloneRows(seed.task_photos as unknown as Row[] | undefined),
+      farm_member_profiles: cloneRows(
+        seed.farm_member_profiles as unknown as Row[] | undefined,
+      ),
     }
     const specs = failOn ? (Array.isArray(failOn) ? failOn : [failOn]) : []
     this.failSpecs = specs.map((s) => ({
