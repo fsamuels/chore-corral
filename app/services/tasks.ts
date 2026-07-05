@@ -218,15 +218,19 @@ export interface UpdateTaskInput {
   notes: string | null
   lat: number | null
   lng: number | null
+  actorUserId: string
   tagNames: string[]
 }
 
 /**
  * Edit a task's fields. Status is deliberately excluded — transitions go
  * through `changeTaskStatus` so `completed_at` and the activity log stay
- * consistent. Field-level edits are not logged (SPEC: major events only) —
- * that includes tag changes, which replace the task's full tag set via
- * `setTaskTags` after the field update, with no activity_log write.
+ * consistent. Most field-level edits are not logged (SPEC: major events
+ * only) — that includes tag changes, which replace the task's full tag set
+ * via `setTaskTags` after the field update, with no activity_log write. The
+ * two exceptions are priority and due date: a change to either logs a
+ * `task_priority_changed` / `task_due_date_changed` event with the old/new
+ * pair, read-before-write to capture the prior value.
  */
 export async function updateTask(
   supabase: Client,
@@ -235,6 +239,15 @@ export async function updateTask(
   const title = input.title.trim()
   if (!title) throw new Error('Task title is required')
   assertValidLocation(input.lat, input.lng)
+
+  const { data: current, error: readError } = await supabase
+    .from('tasks')
+    .select(TASK_COLUMNS)
+    .eq('id', input.taskId)
+    .eq('farm_id', input.farmId)
+  if (readError) throw new Error(readError.message)
+  const before = current[0]
+  if (!before) throw new Error('Task not found')
 
   const { data, error } = await supabase
     .from('tasks')
@@ -253,6 +266,19 @@ export async function updateTask(
   if (error) throw new Error(error.message)
   const task = data[0]
   if (!task) throw new Error('Task not found')
+
+  if (before.priority !== task.priority) {
+    await logTaskEvent(supabase, 'task_priority_changed', task, input, {
+      old_priority: before.priority,
+      new_priority: task.priority,
+    })
+  }
+  if (before.due_date !== task.due_date) {
+    await logTaskEvent(supabase, 'task_due_date_changed', task, input, {
+      old_due_date: before.due_date,
+      new_due_date: task.due_date,
+    })
+  }
 
   const tags = await resolveTags(supabase, {
     farmId: input.farmId,
@@ -345,10 +371,15 @@ export async function deleteTask(
 // soft reference for the same reason.
 async function logTaskEvent(
   supabase: Client,
-  eventType: 'task_created' | 'task_status_changed' | 'task_deleted',
+  eventType:
+    | 'task_created'
+    | 'task_status_changed'
+    | 'task_priority_changed'
+    | 'task_due_date_changed'
+    | 'task_deleted',
   task: { id: string; title: string },
   opts: { farmId: string; actorUserId: string },
-  extraDetail: Record<string, string> = {},
+  extraDetail: Record<string, string | null> = {},
 ): Promise<void> {
   const { error } = await supabase.from('activity_log').insert({
     farm_id: opts.farmId,

@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { isTaskOverdue, type TaskStatus } from '~/services/tasks'
+import {
+  isTaskOverdue,
+  type TaskPriority,
+  type TaskStatus,
+} from '~/services/tasks'
 import { listActivityForTask, type ActivityEntry } from '~/services/activity'
 
 const route = useRoute()
@@ -84,6 +88,8 @@ if (import.meta.client) {
 const EVENT_ICON: Record<string, string> = {
   task_created: 'mdi-plus-circle-outline',
   task_status_changed: 'mdi-swap-horizontal',
+  task_priority_changed: 'mdi-flag-outline',
+  task_due_date_changed: 'mdi-calendar-clock',
   task_deleted: 'mdi-delete-outline',
 }
 
@@ -94,6 +100,16 @@ function eventLabel(entry: ActivityEntry): string {
     const label = (s: string) =>
       statusItems.find((i) => i.value === s)?.title ?? s
     return `Status changed: ${label(oldStatus)} → ${label(newStatus)}`
+  }
+  if (entry.event_type === 'task_priority_changed') {
+    const label = (p: string) => PRIORITY_DISPLAY[p as TaskPriority]?.label ?? p
+    const oldPriority = String(entry.event_detail.old_priority ?? '')
+    const newPriority = String(entry.event_detail.new_priority ?? '')
+    return `Priority changed: ${label(oldPriority)} → ${label(newPriority)}`
+  }
+  if (entry.event_type === 'task_due_date_changed') {
+    const label = (d: unknown) => (d == null ? 'none' : String(d))
+    return `Due date changed: ${label(entry.event_detail.old_due_date)} → ${label(entry.event_detail.new_due_date)}`
   }
   if (entry.event_type === 'task_created') return 'Task created'
   if (entry.event_type === 'task_deleted') return 'Task deleted'
