@@ -69,13 +69,19 @@ export function useTasks() {
     return created
   }
 
-  async function update(input: Omit<UpdateTaskInput, 'farmId'>): Promise<void> {
+  async function update(
+    input: Omit<UpdateTaskInput, 'farmId' | 'actorUserId'>,
+  ): Promise<void> {
     const farmId = activeFarmId.value
     const actorUserId = getActorUserId(user.value)
     if (!farmId || !actorUserId) {
       throw new Error('No active farm or signed-in user')
     }
-    const updated = await updateTask(supabase, { ...input, farmId })
+    const updated = await updateTask(supabase, {
+      ...input,
+      farmId,
+      actorUserId,
+    })
     const next = (tasks.value ?? []).map((task) =>
       task.id === updated.id ? updated : task,
     )

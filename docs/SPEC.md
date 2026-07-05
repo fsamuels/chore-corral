@@ -151,11 +151,13 @@ Records **major events only** — not a field-by-field audit trail. Intended for
 
 - Task created
 - Task status changed
+- Task priority changed
+- Task due date changed
 - Task deleted
 - Category created
 - Category deleted (soft delete)
 
-Field-level edits (e.g. changing a task's notes or due date) are **not** individually logged.
+Most field-level edits (e.g. changing a task's title or notes) are **not** individually logged. The exceptions are priority and due date changes, which are significant enough to track and so each log an event with the old/new values.
 
 Each task's activity history is shown in-app, on that task's View page (see below), most-recent-first, attributed to the member who performed the action (resolved via the `farm_member_profiles` view — see DATA_MODEL.md). This reverses the original MVP scoping call to leave the log as Supabase-dashboard-only (see DECISIONS.md); it's no longer purely a background record.
 

@@ -506,6 +506,7 @@ describe('updateTask', () => {
       notes: '  updated notes  ',
       lat: null,
       lng: null,
+      actorUserId: ACTOR,
       tagNames: [],
     })
 
@@ -518,9 +519,9 @@ describe('updateTask', () => {
     })
   })
 
-  it('writes no activity_log entries', async () => {
+  it('writes no activity_log entries when priority and due date are unchanged', async () => {
     const fake = new FakeSupabaseClient({
-      tasks: [task({ id: 'task-1' })],
+      tasks: [task({ id: 'task-1', priority: 'soon', due_date: null })],
       activity_log: [],
     })
     const supabase = asSupabaseClient(fake)
@@ -532,13 +533,144 @@ describe('updateTask', () => {
       categoryId: null,
       priority: 'soon',
       dueDate: null,
-      notes: null,
+      notes: 'new notes',
       lat: null,
       lng: null,
+      actorUserId: ACTOR,
       tagNames: ['Fence'],
     })
 
     expect(fake.getTable('activity_log')).toHaveLength(0)
+  })
+
+  it('logs a task_priority_changed event when priority changes', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1', priority: 'soon' })],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    await updateTask(supabase, {
+      farmId: FARM_A,
+      taskId: 'task-1',
+      title: 'Fix the gate',
+      categoryId: 'cat-seed',
+      priority: 'urgent',
+      dueDate: null,
+      notes: null,
+      lat: null,
+      lng: null,
+      actorUserId: ACTOR,
+      tagNames: [],
+    })
+
+    const log = fake.getTable('activity_log')
+    expect(log).toHaveLength(1)
+    expect(log[0]).toMatchObject({
+      event_type: 'task_priority_changed',
+      event_detail: {
+        task_title: 'Fix the gate',
+        old_priority: 'soon',
+        new_priority: 'urgent',
+      },
+      actor_user_id: ACTOR,
+    })
+  })
+
+  it('logs a task_due_date_changed event when a due date is set from null', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1', due_date: null })],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    await updateTask(supabase, {
+      farmId: FARM_A,
+      taskId: 'task-1',
+      title: 'Fix the gate',
+      categoryId: 'cat-seed',
+      priority: 'soon',
+      dueDate: '2026-03-01',
+      notes: null,
+      lat: null,
+      lng: null,
+      actorUserId: ACTOR,
+      tagNames: [],
+    })
+
+    const log = fake.getTable('activity_log')
+    expect(log).toHaveLength(1)
+    expect(log[0]).toMatchObject({
+      event_type: 'task_due_date_changed',
+      event_detail: {
+        task_title: 'Fix the gate',
+        old_due_date: null,
+        new_due_date: '2026-03-01',
+      },
+      actor_user_id: ACTOR,
+    })
+  })
+
+  it('logs a task_due_date_changed event when a due date is cleared to null', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1', due_date: '2026-03-01' })],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    await updateTask(supabase, {
+      farmId: FARM_A,
+      taskId: 'task-1',
+      title: 'Fix the gate',
+      categoryId: 'cat-seed',
+      priority: 'soon',
+      dueDate: null,
+      notes: null,
+      lat: null,
+      lng: null,
+      actorUserId: ACTOR,
+      tagNames: [],
+    })
+
+    const log = fake.getTable('activity_log')
+    expect(log).toHaveLength(1)
+    expect(log[0]).toMatchObject({
+      event_type: 'task_due_date_changed',
+      event_detail: {
+        task_title: 'Fix the gate',
+        old_due_date: '2026-03-01',
+        new_due_date: null,
+      },
+    })
+  })
+
+  it('logs two events when both priority and due date change', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1', priority: 'soon', due_date: null })],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    await updateTask(supabase, {
+      farmId: FARM_A,
+      taskId: 'task-1',
+      title: 'Fix the gate',
+      categoryId: 'cat-seed',
+      priority: 'urgent',
+      dueDate: '2026-03-01',
+      notes: null,
+      lat: null,
+      lng: null,
+      actorUserId: ACTOR,
+      tagNames: [],
+    })
+
+    const log = fake.getTable('activity_log')
+    expect(log).toHaveLength(2)
+    expect(log.map((r) => (r as { event_type: string }).event_type)).toEqual([
+      'task_priority_changed',
+      'task_due_date_changed',
+    ])
   })
 
   it('throws on an empty title', async () => {
@@ -559,6 +691,7 @@ describe('updateTask', () => {
         notes: null,
         lat: null,
         lng: null,
+        actorUserId: ACTOR,
         tagNames: [],
       }),
     ).rejects.toThrow('Task title is required')
@@ -582,6 +715,7 @@ describe('updateTask', () => {
         notes: null,
         lat: null,
         lng: null,
+        actorUserId: ACTOR,
         tagNames: [],
       }),
     ).rejects.toThrow('Task not found')
@@ -609,6 +743,7 @@ describe('updateTask', () => {
       notes: null,
       lat: null,
       lng: null,
+      actorUserId: ACTOR,
       tagNames: ['Gate', 'Barn'],
     })
 
@@ -637,6 +772,7 @@ describe('updateTask', () => {
       notes: null,
       lat: 40.7128,
       lng: -74.006,
+      actorUserId: ACTOR,
       tagNames: [],
     })
     expect(withLocation.lat).toBe(40.7128)
@@ -652,6 +788,7 @@ describe('updateTask', () => {
       notes: null,
       lat: 51.5074,
       lng: -0.1278,
+      actorUserId: ACTOR,
       tagNames: [],
     })
     expect(moved.lat).toBe(51.5074)
@@ -667,6 +804,7 @@ describe('updateTask', () => {
       notes: null,
       lat: null,
       lng: null,
+      actorUserId: ACTOR,
       tagNames: [],
     })
     expect(cleared.lat).toBeNull()
@@ -691,6 +829,7 @@ describe('updateTask', () => {
         notes: null,
         lat: 40.7128,
         lng: null,
+        actorUserId: ACTOR,
         tagNames: [],
       }),
     ).rejects.toThrow('Location requires both lat and lng, or neither')

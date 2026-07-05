@@ -4,6 +4,8 @@ import type { Database } from '~/types/database.types'
 export type ActivityEventType =
   | 'task_created'
   | 'task_status_changed'
+  | 'task_priority_changed'
+  | 'task_due_date_changed'
   | 'task_deleted'
   | 'category_created'
   | 'category_deleted'
