@@ -44,6 +44,7 @@ const title = ref('')
 const categoryId = ref<string | null>(null)
 const priority = ref<TaskPriority>('whenever')
 const dueDate = ref('')
+const estimatedMinutes = ref('')
 const notes = ref('')
 const taskTags = ref<string[]>([])
 const location = ref<{ lat: number; lng: number } | null>(null)
@@ -65,6 +66,7 @@ async function submit() {
       categoryId: categoryId.value,
       priority: priority.value,
       dueDate: dueDate.value || null,
+      estimatedMinutes: parseEstimatedMinutesInput(estimatedMinutes.value),
       notes: notes.value || null,
       lat: location.value?.lat ?? null,
       lng: location.value?.lng ?? null,
@@ -203,6 +205,18 @@ async function submit() {
             v-model="dueDate"
             label="Due date"
             type="date"
+            :disabled="creating"
+            density="comfortable"
+            variant="outlined"
+            hide-details
+            class="mb-4"
+          />
+          <v-text-field
+            v-model="estimatedMinutes"
+            label="Estimated time (minutes)"
+            type="number"
+            min="1"
+            step="1"
             :disabled="creating"
             density="comfortable"
             variant="outlined"

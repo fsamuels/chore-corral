@@ -56,6 +56,7 @@ const editTitle = ref('')
 const editCategoryId = ref<string | null>(null)
 const editPriority = ref<TaskPriority>('whenever')
 const editDueDate = ref('')
+const editEstimatedMinutes = ref('')
 const editNotes = ref('')
 const editTags = ref<string[]>([])
 const editLocation = ref<{ lat: number; lng: number } | null>(null)
@@ -70,6 +71,8 @@ watch(
     editCategoryId.value = value.category_id
     editPriority.value = value.priority
     editDueDate.value = value.due_date ?? ''
+    editEstimatedMinutes.value =
+      value.estimated_minutes !== null ? String(value.estimated_minutes) : ''
     editNotes.value = value.notes ?? ''
     editTags.value = value.tags.map((tag) => tag.name)
     editLocation.value =
@@ -97,6 +100,7 @@ async function submitEdit() {
       categoryId: editCategoryId.value,
       priority: editPriority.value,
       dueDate: editDueDate.value || null,
+      estimatedMinutes: parseEstimatedMinutesInput(editEstimatedMinutes.value),
       notes: editNotes.value || null,
       lat: editLocation.value?.lat ?? null,
       lng: editLocation.value?.lng ?? null,
@@ -225,6 +229,18 @@ async function performDelete() {
             v-model="editDueDate"
             label="Due date"
             type="date"
+            :disabled="saving"
+            density="comfortable"
+            variant="outlined"
+            hide-details
+            class="mb-4"
+          />
+          <v-text-field
+            v-model="editEstimatedMinutes"
+            label="Estimated time (minutes)"
+            type="number"
+            min="1"
+            step="1"
             :disabled="saving"
             density="comfortable"
             variant="outlined"

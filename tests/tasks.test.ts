@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  assertValidEstimatedMinutes,
   changeTaskStatus,
   createTask,
   deleteTask,
@@ -52,6 +53,7 @@ function task(overrides: Partial<TaskRow> = {}): TaskRow {
     created_at: '2026-01-01T00:00:00.000Z',
     created_by: ACTOR,
     completed_at: null,
+    estimated_minutes: null,
     ...overrides,
   }
 }
@@ -234,6 +236,52 @@ describe('createTask', () => {
     })
     expect(withoutLocation.lat).toBeNull()
     expect(withoutLocation.lng).toBeNull()
+  })
+
+  it('persists estimatedMinutes when provided, and defaults to null when omitted', async () => {
+    const fake = new FakeSupabaseClient({ tasks: [], activity_log: [] })
+    const supabase = asSupabaseClient(fake)
+
+    const withEstimate = await createTask(supabase, {
+      farmId: FARM_A,
+      title: 'Fix the gate',
+      categoryId: null,
+      priority: 'soon',
+      actorUserId: ACTOR,
+      estimatedMinutes: 90,
+    })
+    expect(withEstimate.estimated_minutes).toBe(90)
+
+    const withoutEstimate = await createTask(supabase, {
+      farmId: FARM_A,
+      title: 'Mow the field',
+      categoryId: null,
+      priority: 'soon',
+      actorUserId: ACTOR,
+    })
+    expect(withoutEstimate.estimated_minutes).toBeNull()
+  })
+
+  it('rejects zero, negative, and fractional estimates, writing no task row', async () => {
+    const fake = new FakeSupabaseClient({ tasks: [], activity_log: [] })
+    const supabase = asSupabaseClient(fake)
+
+    for (const estimatedMinutes of [0, -30, 1.5]) {
+      await expect(
+        createTask(supabase, {
+          farmId: FARM_A,
+          title: 'Fix the gate',
+          categoryId: null,
+          priority: 'soon',
+          actorUserId: ACTOR,
+          estimatedMinutes,
+        }),
+      ).rejects.toThrow(
+        'Estimated time must be a positive whole number of minutes',
+      )
+    }
+
+    expect(fake.getTable('tasks')).toHaveLength(0)
   })
 
   it('rejects a half-set pin (lat without lng, or lng without lat)', async () => {
@@ -506,6 +554,7 @@ describe('updateTask', () => {
       notes: '  updated notes  ',
       lat: null,
       lng: null,
+      estimatedMinutes: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -536,6 +585,7 @@ describe('updateTask', () => {
       notes: 'new notes',
       lat: null,
       lng: null,
+      estimatedMinutes: null,
       actorUserId: ACTOR,
       tagNames: ['Fence'],
     })
@@ -560,6 +610,7 @@ describe('updateTask', () => {
       notes: null,
       lat: null,
       lng: null,
+      estimatedMinutes: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -594,6 +645,7 @@ describe('updateTask', () => {
       notes: null,
       lat: null,
       lng: null,
+      estimatedMinutes: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -628,6 +680,7 @@ describe('updateTask', () => {
       notes: null,
       lat: null,
       lng: null,
+      estimatedMinutes: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -661,6 +714,7 @@ describe('updateTask', () => {
       notes: null,
       lat: null,
       lng: null,
+      estimatedMinutes: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -691,6 +745,7 @@ describe('updateTask', () => {
         notes: null,
         lat: null,
         lng: null,
+        estimatedMinutes: null,
         actorUserId: ACTOR,
         tagNames: [],
       }),
@@ -715,6 +770,7 @@ describe('updateTask', () => {
         notes: null,
         lat: null,
         lng: null,
+        estimatedMinutes: null,
         actorUserId: ACTOR,
         tagNames: [],
       }),
@@ -743,6 +799,7 @@ describe('updateTask', () => {
       notes: null,
       lat: null,
       lng: null,
+      estimatedMinutes: null,
       actorUserId: ACTOR,
       tagNames: ['Gate', 'Barn'],
     })
@@ -772,6 +829,7 @@ describe('updateTask', () => {
       notes: null,
       lat: 40.7128,
       lng: -74.006,
+      estimatedMinutes: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -788,6 +846,7 @@ describe('updateTask', () => {
       notes: null,
       lat: 51.5074,
       lng: -0.1278,
+      estimatedMinutes: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -804,11 +863,82 @@ describe('updateTask', () => {
       notes: null,
       lat: null,
       lng: null,
+      estimatedMinutes: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
     expect(cleared.lat).toBeNull()
     expect(cleared.lng).toBeNull()
+  })
+
+  it('sets, changes, and clears the estimated time, logging nothing', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1', estimated_minutes: null })],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const base = {
+      farmId: FARM_A,
+      taskId: 'task-1',
+      title: 'Fix the gate',
+      categoryId: 'cat-seed' as string | null,
+      priority: 'soon' as const,
+      dueDate: null,
+      notes: null,
+      lat: null,
+      lng: null,
+      actorUserId: ACTOR,
+      tagNames: [],
+    }
+
+    const set = await updateTask(supabase, { ...base, estimatedMinutes: 45 })
+    expect(set.estimated_minutes).toBe(45)
+
+    const changed = await updateTask(supabase, {
+      ...base,
+      estimatedMinutes: 120,
+    })
+    expect(changed.estimated_minutes).toBe(120)
+
+    const cleared = await updateTask(supabase, {
+      ...base,
+      estimatedMinutes: null,
+    })
+    expect(cleared.estimated_minutes).toBeNull()
+
+    // Estimate edits are not activity-logged (SPEC: major events only, with
+    // priority and due date as the sole field-edit exceptions).
+    expect(fake.getTable('activity_log')).toHaveLength(0)
+  })
+
+  it('rejects an invalid estimate, leaving the task unchanged', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1', estimated_minutes: 30 })],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    await expect(
+      updateTask(supabase, {
+        farmId: FARM_A,
+        taskId: 'task-1',
+        title: 'Fix the gate',
+        categoryId: null,
+        priority: 'soon',
+        dueDate: null,
+        notes: null,
+        lat: null,
+        lng: null,
+        estimatedMinutes: 0,
+        actorUserId: ACTOR,
+        tagNames: [],
+      }),
+    ).rejects.toThrow(
+      'Estimated time must be a positive whole number of minutes',
+    )
+
+    expect((fake.getTable('tasks')[0] as TaskRow).estimated_minutes).toBe(30)
   })
 
   it('rejects a half-set pin', async () => {
@@ -829,6 +959,7 @@ describe('updateTask', () => {
         notes: null,
         lat: 40.7128,
         lng: null,
+        estimatedMinutes: null,
         actorUserId: ACTOR,
         tagNames: [],
       }),
@@ -1023,6 +1154,23 @@ describe('getTask', () => {
     const result = await getTask(supabase, { farmId: FARM_B, taskId: 'task-1' })
 
     expect(result).toBeNull()
+  })
+})
+
+describe('assertValidEstimatedMinutes', () => {
+  it('accepts null (no estimate) and positive integers up to the Postgres integer max', () => {
+    expect(() => assertValidEstimatedMinutes(null)).not.toThrow()
+    expect(() => assertValidEstimatedMinutes(1)).not.toThrow()
+    expect(() => assertValidEstimatedMinutes(90)).not.toThrow()
+    expect(() => assertValidEstimatedMinutes(2147483647)).not.toThrow()
+  })
+
+  it('rejects zero, negatives, fractions, non-finite values, and Postgres integer overflow', () => {
+    for (const minutes of [0, -1, 1.5, NaN, Infinity, 2147483648]) {
+      expect(() => assertValidEstimatedMinutes(minutes)).toThrow(
+        'Estimated time must be a positive whole number of minutes',
+      )
+    }
   })
 })
 

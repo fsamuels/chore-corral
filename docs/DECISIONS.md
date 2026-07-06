@@ -159,3 +159,11 @@ Resolved 2026-07-06, implementing ROADMAP.md's "Optional shopping list per task"
 **No `activity_log` events.** Adding, checking, renaming, or removing a shopping item writes nothing to `activity_log` — the same call made for photos in M8. SPEC.md's log records major events only, and shopping-list churn is descriptive task context (like captions or notes edits), not a lifecycle event. Logging every check/uncheck would bury the meaningful entries (status/priority/due-date changes) in noise.
 
 One small mechanical note: items list in insertion order via `ORDER BY created_at ASC, id ASC`. The `id` tiebreaker — which `task_photos`' `taken_at` ordering doesn't have — is deliberate: `now()` is transaction-time, so bulk-inserted rows would share a `created_at` and have undefined relative order without it.
+
+## Task estimated time: integer minutes, not an interval, and unlogged edits
+
+Resolved 2026-07-06, implementing ROADMAP.md's "Task estimated time" item. Two calls rode along:
+
+**`estimated_minutes integer` (nullable, `CHECK (estimated_minutes IS NULL OR estimated_minutes > 0)`), not a Postgres `interval`.** An `interval` is the semantically "correct" type for a duration, but it arrives over PostgREST as a string the app would have to parse and re-format on every read — needless friction against the hand-written types in `app/types/database.types.ts`, where an integer maps cleanly to `number | null`. The unit-in-the-name convention also sets up the future actual-time feature (ROADMAP.md's in-app timer) with an obvious sibling — `actual_minutes`, same unit, same type — so estimated vs. actual can someday sit side by side with zero conversion logic. Null is the sole "unset" sentinel: existing tasks were left null with no backfill, and the CHECK deliberately passes null so unset rows are unaffected while zero/negative values are rejected. No RLS or index change — the column rides on `tasks`' existing farm-membership `for all` policy, which is column-agnostic.
+
+**No `activity_log` events for estimate edits.** SPEC.md's log records major events only, and its two field-edit exceptions — priority and due date — are deliberate and closed: an estimate is descriptive planning context, like notes or tags, not a lifecycle event. Changing or clearing it writes nothing to the log.

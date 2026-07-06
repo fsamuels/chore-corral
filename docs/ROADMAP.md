@@ -4,7 +4,7 @@ A lightweight, directional list of features and phases beyond MVP. This is inten
 
 ## Near-Term (Post-MVP)
 
-- **Task estimated time** — an optional field on a task for how long it's expected to take, set at creation/edit time (a plain user estimate, not derived from anything).
+- **Task estimated time** — **Done (2026-07-06).** An optional field on a task for how long it's expected to take, set at creation/edit time (a plain user estimate, not derived from anything). Stored as `tasks.estimated_minutes` (nullable integer), named to pair with the future actual-time feature below.
 - **Task actual time via in-app start/stop timer** — a separate, distinct feature from the estimate above: start/stop a timer while actively working a task, with the actual elapsed time tracked from those sessions. A task could be started/stopped multiple times across sessions, so this likely needs its own time-entry log rather than a single duration field on `tasks` — scope the data model out properly before building. Once both exist, the task view can show estimated vs. actual side by side.
 - **Optional shopping list per task** — **Done (2026-07-06).** A task can carry an optional list of items to buy for it (e.g. parts, supplies), checked off independently of the task's own status. Modeled as its own feature/table (`task_shopping_items`) rather than reusing the tags or notes fields.
 - **Optional tool list per task** — a task can carry an optional list of tools needed to do it, checked off independently of task status. Structurally similar to the shopping list above but kept as a separate concept per an explicit choice not to unify them, in case the two diverge later (e.g. a shopping list wanting price/store fields a tool list wouldn't need).

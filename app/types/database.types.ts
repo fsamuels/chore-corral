@@ -117,6 +117,7 @@ export interface Database {
           created_at: string
           created_by: string
           completed_at: string | null
+          estimated_minutes: number | null
         }
         Insert: {
           id?: string
@@ -132,6 +133,7 @@ export interface Database {
           created_at?: string
           created_by: string
           completed_at?: string | null
+          estimated_minutes?: number | null
         }
         Update: {
           id?: string
@@ -147,6 +149,7 @@ export interface Database {
           created_at?: string
           created_by?: string
           completed_at?: string | null
+          estimated_minutes?: number | null
         }
         Relationships: [
           {
