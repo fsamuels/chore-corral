@@ -31,21 +31,31 @@ async function signOut() {
 <template>
   <v-app>
     <v-app-bar density="comfortable">
-      <template v-if="user" #prepend>
-        <v-app-bar-nav-icon aria-label="Menu" @click="drawer = !drawer" />
-      </template>
       <v-app-bar-title>
         <NuxtLink to="/" class="text-decoration-none" style="color: inherit">
           {{ appBarTitle }}
         </NuxtLink>
       </v-app-bar-title>
-      <template v-if="user && !mobile" #append>
-        <v-btn icon="mdi-home-outline" aria-label="Home" title="Home" to="/" />
-        <v-btn icon="mdi-map-outline" aria-label="Map" title="Map" to="/map" />
+      <template v-if="user" #append>
+        <template v-if="!mobile">
+          <v-btn
+            icon="mdi-home-outline"
+            aria-label="Home"
+            title="Home"
+            to="/"
+          />
+          <v-btn
+            icon="mdi-map-outline"
+            aria-label="Map"
+            title="Map"
+            to="/map"
+          />
+        </template>
+        <v-app-bar-nav-icon aria-label="Menu" @click="drawer = !drawer" />
       </template>
     </v-app-bar>
 
-    <v-navigation-drawer v-if="user" v-model="drawer" temporary>
+    <v-navigation-drawer v-if="user" v-model="drawer" location="end" temporary>
       <v-list density="compact" nav>
         <v-list-item
           :title="user?.email ?? 'Account'"
