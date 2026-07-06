@@ -31,9 +31,10 @@ with normalized as (
   from tags
 ),
 canonical as (
-  select farm_id, normalized_name, min(id) as canonical_id
+  select distinct on (farm_id, normalized_name)
+    farm_id, normalized_name, id as canonical_id
   from normalized
-  group by farm_id, normalized_name
+  order by farm_id, normalized_name, id
 )
 insert into task_tags (task_id, tag_id)
 select distinct tt.task_id, c.canonical_id
@@ -53,9 +54,10 @@ with normalized as (
   from tags
 ),
 canonical as (
-  select farm_id, normalized_name, min(id) as canonical_id
+  select distinct on (farm_id, normalized_name)
+    farm_id, normalized_name, id as canonical_id
   from normalized
-  group by farm_id, normalized_name
+  order by farm_id, normalized_name, id
 )
 delete from task_tags tt
 using normalized n, canonical c
@@ -73,9 +75,10 @@ with normalized as (
   from tags
 ),
 canonical as (
-  select farm_id, normalized_name, min(id) as canonical_id
+  select distinct on (farm_id, normalized_name)
+    farm_id, normalized_name, id as canonical_id
   from normalized
-  group by farm_id, normalized_name
+  order by farm_id, normalized_name, id
 )
 delete from tags t
 using normalized n, canonical c
