@@ -264,6 +264,9 @@ async function performDelete() {
           <v-divider class="my-4" />
           <TaskPhotos :task-id="task.id" />
 
+          <v-divider class="my-4" />
+          <TaskShoppingList :task-id="task.id" />
+
           <v-alert
             v-if="editError"
             type="error"

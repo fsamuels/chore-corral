@@ -297,6 +297,10 @@ const hasLocation = computed(
           <TaskPhotos :task-id="task.id" />
         </div>
 
+        <div class="mb-6">
+          <TaskShoppingList :task-id="task.id" readonly />
+        </div>
+
         <v-divider class="my-6" />
 
         <div>

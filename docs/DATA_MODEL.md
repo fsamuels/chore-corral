@@ -19,6 +19,7 @@ farm_memberships ──────► farms
                             │          │ referenced by
                             │          ▼
                             │        tasks ──┬──► task_photos
+                            │          │      ├──► task_shopping_items
                             │          │      └──► task_tags ──► tags
                             │          │
                             │          └──► activity_log
@@ -146,6 +147,20 @@ Composite PK on (`task_id`, `tag_id`).
 
 Actual image files live in Supabase Storage (a bucket, RLS-scoped by farm via the associated task), not in the database — this table stores metadata and the storage reference only.
 
+### `task_shopping_items`
+
+Optional per-task shopping list — items to buy for a task (parts, supplies), each independently checkable. A task may have zero such items (the feature is opt-in).
+
+| Column       | Type                             | Notes                               |
+| ------------ | -------------------------------- | ----------------------------------- |
+| `id`         | uuid, PK                         |                                     |
+| `task_id`    | uuid, FK → `tasks.id`, not null  | `ON DELETE CASCADE` with the task   |
+| `name`       | text, not null                   | Free-text item description          |
+| `checked`    | boolean, not null, default false | Per-item bought/not-bought toggle   |
+| `created_at` | timestamptz, default now()       | Insertion order = stable list order |
+
+Like `task_tags` and `task_photos`, this table carries no `farm_id`; it is scoped to a farm through its parent task, and its RLS policy joins through `tasks`. No unique constraint on (`task_id`, `name`) — duplicate item names on the same task are intentionally allowed (e.g. two separate "bolts" line items). Items are listed per task in insertion order: `ORDER BY created_at ASC, id ASC` (the `id` tiebreaker keeps order deterministic if rows are ever bulk-inserted in one transaction, where `created_at` values would be identical).
+
 ### `activity_log`
 
 Major-event-only log, per SPEC.md (not a full audit trail).
@@ -180,7 +195,7 @@ The view runs with its owner's privileges (the Postgres default for views — th
 
 ## Row Level Security (RLS) Policy Intent
 
-All farm-scoped tables (`categories`, `tasks`, `tags`, `task_tags`, `task_photos`, `activity_log`) should have RLS **enabled by default** (deny-by-default), with policies granting access based on farm membership:
+All farm-scoped tables (`categories`, `tasks`, `tags`, `task_tags`, `task_photos`, `task_shopping_items`, `activity_log`) should have RLS **enabled by default** (deny-by-default), with policies granting access based on farm membership:
 
 ```sql
 -- Illustrative pattern, not final SQL
