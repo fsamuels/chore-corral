@@ -184,7 +184,7 @@ describe('createTask', () => {
       tagNames: ['Barn', 'Gate'],
     })
 
-    expect(result.tags.map((t) => t.name)).toEqual(['Barn', 'Gate'])
+    expect(result.tags.map((t) => t.name)).toEqual(['barn', 'Gate'])
     // "Gate" reused the existing tag rather than creating a duplicate.
     expect(fake.getTable('tags')).toHaveLength(2)
 
@@ -747,7 +747,7 @@ describe('updateTask', () => {
       tagNames: ['Gate', 'Barn'],
     })
 
-    expect(result.tags.map((t) => t.name)).toEqual(['Barn', 'Gate'])
+    expect(result.tags.map((t) => t.name)).toEqual(['barn', 'Gate'])
 
     const taskTagRows = fake
       .getTable('task_tags')
