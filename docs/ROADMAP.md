@@ -4,6 +4,9 @@ A lightweight, directional list of features and phases beyond MVP. This is inten
 
 ## Near-Term (Post-MVP)
 
+- **Task time tracking** — record how long a task actually took. Two related but distinct pieces: (1) an in-app start/stop timer while actively working a task (likely a new state on the task, or a separate time-entry log, capturing start/stop timestamps), and (2) a derived/displayed "time spent" total per task built from those timer sessions. Needs its own data model design (a task could be started/stopped multiple times across sessions) — scope this out properly before building rather than bolting a single duration field onto `tasks`.
+- **Optional shopping list per task** — a task can carry an optional list of items to buy for it (e.g. parts, supplies), checked off independently of the task's own status. Modeled as its own feature/table rather than reusing the tags or notes fields.
+- **Optional tool list per task** — a task can carry an optional list of tools needed to do it, checked off independently of task status. Structurally similar to the shopping list above but kept as a separate concept per an explicit choice not to unify them, in case the two diverge later (e.g. a shopping list wanting price/store fields a tool list wouldn't need).
 - **Named/saved locations** — a defined set of named property locations (e.g. "Barn", "North Pond", "East Pasture") to tag tasks with, rather than freeform pins only. Likely the natural predecessor to boundary polygons below.
 - **Multiple location pins per task** — e.g. a fence repair spanning several points. Requires extracting task location into its own table (see DATA_MODEL.md).
 - **Esri World Imagery comparison** — try Esri's satellite tiles alongside Mapbox and compare resolution/quality over this specific property, given Esri's ag-sector focus.

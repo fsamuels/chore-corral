@@ -107,6 +107,18 @@ For the broader, less-ordered future feature list, see ROADMAP.md.
 
 **Done when:** you'd be comfortable using this as your actual daily task tracker for Reign Cloud Ranch.
 
+### Backlog items (collected 2026-07-06)
+
+Specific, scoped items from a brainstorming pass, each small enough to land as its own PR per the "not a single PR" note above:
+
+- **Material Design FAB on home page** — a floating action button (bottom-right, per Material spec) to jump straight to task creation, rather than only the existing "New task"/quiet links.
+- **Move the "UI components demo" link out of the footer** — `/components-demo` is currently linked from `AppFooter.vue`; move that link into the main nav drawer instead so it's reachable the same way as other pages, and drop the footer link.
+- **Larger buttons on task-management actions** — the status-advance button and other inline task action controls (on `/`, `/tasks`, task view/edit pages) should be sized up for easier tapping.
+- **Nav drawer moves from left to right** — a right-handed-user preference. Touches `app/layouts/default.vue` and any layout assumptions elsewhere that hardcode drawer side.
+- **New Tags page** — a page listing every tag used on the active farm with a usage count (number of tasks tagged with it), likely under a new route alongside `/categories`. Builds on the existing `listTags`/`tags` service layer from M6.
+- **Icon accessibility pass** — icons used for status/priority/overdue/location/photo indicators etc. (`STATUS_DISPLAY`, `PRIORITY_DISPLAY`, `OVERDUE_ICON` and friends in `app/utils/task-display.ts`, plus ad hoc icons elsewhere) need an accessible label (tooltip, `aria-label`, and/or visible text) so meaning isn't icon-only.
+- **Standardize tag naming convention** — resolved to **lowercase, spaces allowed** (e.g. "fence repair", not "fence-repair" or "Fence Repair"). `resolveTags` (`app/services/tags.ts`) currently only dedupes case-insensitively; it needs to also normalize input to lowercase before matching/creating, and existing tag rows created before this lands need a one-time normalization pass (data migration/backfill, not just a schema change) so old and newly-created tags don't drift into two conventions. See DECISIONS.md for the tag-matching background this extends.
+
 Unlike prior milestones, this one is not intended to land as a single PR — "across all views" and "throughout" mean it naturally decomposes into one PR per problem area (e.g. a mobile-responsiveness pass, an empty-states pass, an error-states pass). Track sub-scope informally in STATUS.md as each lands rather than holding it open as one branch.
 
 ---
