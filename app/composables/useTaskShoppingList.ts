@@ -37,13 +37,19 @@ export function useTaskShoppingList(taskId: Ref<string | null | undefined>) {
     }
     loading.value = true
     try {
-      items.value = await listShoppingItems(supabase, id)
+      const list = await listShoppingItems(supabase, id)
+      // A slower fetch for a task that's no longer open must not overwrite
+      // the current task's list (the watcher has already kicked off a fresh
+      // fetch that owns the state now).
+      if (taskId.value !== id) return
+      items.value = list
       itemsError.value = null
     } catch (error) {
+      if (taskId.value !== id) return
       itemsError.value =
         error instanceof Error ? error.message : 'Failed to load shopping list'
     } finally {
-      loading.value = false
+      if (taskId.value === id) loading.value = false
     }
   }
 
@@ -60,7 +66,9 @@ export function useTaskShoppingList(taskId: Ref<string | null | undefined>) {
     adding.value = true
     try {
       const item = await addShoppingItem(supabase, { taskId: id, name })
-      items.value = [...(items.value ?? []), item]
+      // Same staleness guard as fetchItems: don't append to another task's
+      // list if the open task changed while the insert was in flight.
+      if (taskId.value === id) items.value = [...(items.value ?? []), item]
     } catch (error) {
       mutationError.value =
         error instanceof Error ? error.message : 'Failed to add item'
@@ -69,15 +77,22 @@ export function useTaskShoppingList(taskId: Ref<string | null | undefined>) {
     }
   }
 
+  // Safe across task switches: if the open task changed mid-flight, the
+  // updated id is no longer in the list and the map is a no-op.
+  function replaceItem(updated: ShoppingItemSummary): void {
+    items.value =
+      items.value?.map((i) => (i.id === updated.id ? updated : i)) ?? null
+  }
+
   async function toggle(item: ShoppingItemSummary): Promise<void> {
     mutationError.value = null
     try {
-      const updated = await setShoppingItemChecked(supabase, {
-        itemId: item.id,
-        checked: !item.checked,
-      })
-      items.value =
-        items.value?.map((i) => (i.id === updated.id ? updated : i)) ?? null
+      replaceItem(
+        await setShoppingItemChecked(supabase, {
+          itemId: item.id,
+          checked: !item.checked,
+        }),
+      )
     } catch (error) {
       mutationError.value =
         error instanceof Error ? error.message : 'Failed to update item'
@@ -90,12 +105,7 @@ export function useTaskShoppingList(taskId: Ref<string | null | undefined>) {
   ): Promise<void> {
     mutationError.value = null
     try {
-      const updated = await renameShoppingItem(supabase, {
-        itemId: item.id,
-        name,
-      })
-      items.value =
-        items.value?.map((i) => (i.id === updated.id ? updated : i)) ?? null
+      replaceItem(await renameShoppingItem(supabase, { itemId: item.id, name }))
     } catch (error) {
       mutationError.value =
         error instanceof Error ? error.message : 'Failed to rename item'

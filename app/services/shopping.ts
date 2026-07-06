@@ -54,24 +54,33 @@ export async function addShoppingItem(
 }
 
 /**
- * Set an item's checked (bought) state. Follows `updateTask`'s pattern:
- * `.update().eq().select()` returns an array, and the first element is
- * taken (`.single()` chained after `.update()` isn't supported — see
- * `updateTaskPhotoCaption`).
+ * Shared update path for the two single-field mutations below. Follows
+ * `updateTask`'s pattern: `.update().eq().select()` returns an array, and
+ * the first element is taken (`.single()` chained after `.update()` isn't
+ * supported — see `updateTaskPhotoCaption`).
  */
-export async function setShoppingItemChecked(
+async function updateShoppingItem(
   supabase: Client,
-  opts: { itemId: string; checked: boolean },
+  itemId: string,
+  patch: { name?: string; checked?: boolean },
 ): Promise<ShoppingItemSummary> {
   const { data, error } = await supabase
     .from('task_shopping_items')
-    .update({ checked: opts.checked })
-    .eq('id', opts.itemId)
+    .update(patch)
+    .eq('id', itemId)
     .select(ITEM_COLUMNS)
   if (error) throw new Error(error.message)
   const item = data[0]
   if (!item) throw new Error('Shopping item not found')
   return item
+}
+
+/** Set an item's checked (bought) state. */
+export async function setShoppingItemChecked(
+  supabase: Client,
+  opts: { itemId: string; checked: boolean },
+): Promise<ShoppingItemSummary> {
+  return updateShoppingItem(supabase, opts.itemId, { checked: opts.checked })
 }
 
 /** Rename an item, trimming the new name. */
@@ -81,16 +90,7 @@ export async function renameShoppingItem(
 ): Promise<ShoppingItemSummary> {
   const name = opts.name.trim()
   if (!name) throw new Error('Item name is required')
-
-  const { data, error } = await supabase
-    .from('task_shopping_items')
-    .update({ name })
-    .eq('id', opts.itemId)
-    .select(ITEM_COLUMNS)
-  if (error) throw new Error(error.message)
-  const item = data[0]
-  if (!item) throw new Error('Shopping item not found')
-  return item
+  return updateShoppingItem(supabase, opts.itemId, { name })
 }
 
 /** Delete an item from a task's shopping list. */

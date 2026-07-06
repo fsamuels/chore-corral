@@ -42,7 +42,7 @@ watch(
   { immediate: true },
 )
 
-function onNameBlur(item: ShoppingItemSummary): void {
+async function onNameBlur(item: ShoppingItemSummary): Promise<void> {
   const draft = (drafts[item.id] ?? '').trim()
   if (!draft) {
     // An item can't be renamed to nothing — reset instead (delete is the
@@ -50,8 +50,14 @@ function onNameBlur(item: ShoppingItemSummary): void {
     drafts[item.id] = item.name
     return
   }
+  // The items watcher never overwrites an existing draft, so the field's
+  // display state has to be kept in sync here: normalize to the trimmed
+  // value (what actually gets stored) up front, and revert to the last
+  // saved name if the rename fails rather than showing an unsaved edit.
+  drafts[item.id] = draft
   if (draft === item.name) return
-  rename(item, draft)
+  await rename(item, draft)
+  if (mutationError.value) drafts[item.id] = item.name
 }
 
 // Per-item in-flight tracking so only the affected row's controls disable.
