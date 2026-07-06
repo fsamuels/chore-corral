@@ -85,6 +85,7 @@ Freeform metadata on tasks, distinct from category.
 - Multiple tags per task.
 - Freeform text entry with **autocomplete** suggestions drawn from tags already used on that farm (reduces duplicate near-identical tags like "fence" vs. "fencing").
 - Not filterable in the MVP task list (descriptive metadata only, category is the filterable dimension).
+- Normalized to lowercase (internal whitespace collapsed to single spaces) on save, so "Fence Repair" and "fence repair" resolve to the same stored tag rather than near-duplicates.
 
 ### Priority
 

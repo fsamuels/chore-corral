@@ -21,6 +21,7 @@ import type { Database } from '../../app/types/database.types'
 //   from('task_tags').insert([row, ...])                   // bulk insert, no .select()
 //   from('task_tags').select(...).eq('task_id', ...)
 //   from('task_tags').select(...).in('task_id', [...])
+//   from('task_tags').select(...).in('tag_id', [...])
 //   from('task_tags').delete().eq('task_id', ...)
 //   from('task_photos').select(...)/insert(...)/delete()... (M8, mirrors task_tags)
 //   from('activity_log').select(...).eq('farm_id',...).eq('task_id',...).order('created_at',{ascending:false})
