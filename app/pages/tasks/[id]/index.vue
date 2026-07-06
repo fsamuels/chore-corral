@@ -232,6 +232,12 @@ const hasLocation = computed(
             {{ categoryDisplay(task.category_id).text }}
           </v-chip>
           <v-chip v-if="task.due_date"> Due {{ task.due_date }} </v-chip>
+          <v-chip
+            v-if="task.estimated_minutes !== null"
+            prepend-icon="mdi-timer-outline"
+          >
+            Est. {{ formatEstimatedMinutes(task.estimated_minutes) }}
+          </v-chip>
         </div>
 
         <v-select

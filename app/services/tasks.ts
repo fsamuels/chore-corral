@@ -22,12 +22,13 @@ export interface TaskSummary {
   lng: number | null
   created_at: string
   completed_at: string | null
+  estimated_minutes: number | null
   tags: TagSummary[]
   photo_count: number
 }
 
 const TASK_COLUMNS =
-  'id, title, category_id, priority, status, due_date, notes, lat, lng, created_at, completed_at'
+  'id, title, category_id, priority, status, due_date, notes, lat, lng, created_at, completed_at, estimated_minutes'
 
 // listTasks alone embeds the photo count (a `task_photos(count)` relation),
 // since it's the only read path that needs it for the home-screen list;
@@ -240,6 +241,29 @@ export function assertValidLocation(
   }
 }
 
+// Postgres `integer` max — a larger estimate would clear the positivity
+// check below but fail the insert/update with an opaque overflow error.
+const MAX_ESTIMATED_MINUTES = 2_147_483_647
+
+/**
+ * Validate a task's estimated time: null means "no estimate" and always
+ * passes; a set value must be a positive whole number of minutes within
+ * Postgres integer range. `Number.isInteger` rejects NaN/Infinity along
+ * with fractions, mirroring the DB CHECK constraint (`estimated_minutes >
+ * 0` on an integer column) so bad input fails fast with a readable message
+ * instead of a Postgres error.
+ */
+export function assertValidEstimatedMinutes(minutes: number | null): void {
+  if (minutes === null) return
+  if (
+    !Number.isInteger(minutes) ||
+    minutes <= 0 ||
+    minutes > MAX_ESTIMATED_MINUTES
+  ) {
+    throw new Error('Estimated time must be a positive whole number of minutes')
+  }
+}
+
 // `resolveTags` returns tags in first-seen input order, not alphabetical, so
 // create/update sort before attaching to a TaskSummary — consistent with how
 // `listTags`/`listTagsForTasks` already present tags sorted by name.
@@ -312,6 +336,7 @@ export interface CreateTaskInput {
   notes?: string | null
   lat?: number | null
   lng?: number | null
+  estimatedMinutes?: number | null
   actorUserId: string
   tagNames?: string[]
 }
@@ -330,6 +355,7 @@ export async function createTask(
   const title = input.title.trim()
   if (!title) throw new Error('Task title is required')
   assertValidLocation(input.lat ?? null, input.lng ?? null)
+  assertValidEstimatedMinutes(input.estimatedMinutes ?? null)
 
   // status/completed_at match the DB defaults; passing them explicitly means
   // the minimal test fake doesn't have to know about column defaults.
@@ -345,6 +371,7 @@ export async function createTask(
       notes: input.notes?.trim() || null,
       lat: input.lat ?? null,
       lng: input.lng ?? null,
+      estimated_minutes: input.estimatedMinutes ?? null,
       created_by: input.actorUserId,
       completed_at: null,
     })
@@ -378,6 +405,7 @@ export interface UpdateTaskInput {
   notes: string | null
   lat: number | null
   lng: number | null
+  estimatedMinutes: number | null
   actorUserId: string
   tagNames: string[]
 }
@@ -387,10 +415,11 @@ export interface UpdateTaskInput {
  * through `changeTaskStatus` so `completed_at` and the activity log stay
  * consistent. Most field-level edits are not logged (SPEC: major events
  * only) — that includes tag changes, which replace the task's full tag set
- * via `setTaskTags` after the field update, with no activity_log write. The
- * two exceptions are priority and due date: a change to either logs a
- * `task_priority_changed` / `task_due_date_changed` event with the old/new
- * pair, read-before-write to capture the prior value.
+ * via `setTaskTags` after the field update, with no activity_log write, and
+ * estimated-time changes, which are descriptive planning context like notes
+ * (see DECISIONS.md). The two exceptions are priority and due date: a change
+ * to either logs a `task_priority_changed` / `task_due_date_changed` event
+ * with the old/new pair, read-before-write to capture the prior value.
  */
 export async function updateTask(
   supabase: Client,
@@ -399,6 +428,7 @@ export async function updateTask(
   const title = input.title.trim()
   if (!title) throw new Error('Task title is required')
   assertValidLocation(input.lat, input.lng)
+  assertValidEstimatedMinutes(input.estimatedMinutes)
 
   const { data: current, error: readError } = await supabase
     .from('tasks')
@@ -422,6 +452,7 @@ export async function updateTask(
       notes: input.notes?.trim() || null,
       lat: input.lat,
       lng: input.lng,
+      estimated_minutes: input.estimatedMinutes,
     })
     .eq('id', input.taskId)
     .eq('farm_id', input.farmId)

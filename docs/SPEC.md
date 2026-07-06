@@ -46,23 +46,24 @@ Many-to-many relationship between users and farms.
 
 The core unit of work.
 
-| Field          | Required                 | Notes                                                                             |
-| -------------- | ------------------------ | --------------------------------------------------------------------------------- |
-| Title          | Yes                      |                                                                                   |
-| Category       | Yes                      | Single category per task; can be "Uncategorized"                                  |
-| Priority       | Yes                      | Single value from a **global, fixed** tier list                                   |
-| Due date       | No                       | Optional; if passed and task isn't Done, task is flagged overdue                  |
-| Status         | Yes (defaults on create) | Not Started / In Progress / Done                                                  |
-| Notes          | No                       | Free text, single field (not a threaded log)                                      |
-| Tags           | No                       | Freeform text, multiple per task, autocomplete against existing tags on that farm |
-| Location       | No                       | Single pin, optional (see Location section)                                       |
-| Photos         | No                       | Zero or more (see Photos section)                                                 |
-| Shopping list  | No                       | Zero or more items to buy (see Shopping list section)                             |
-| Created date   | Auto                     |                                                                                   |
-| Completed date | Auto                     | Set when status moves to Done; **cleared** if status moves out of Done            |
-| Farm           | Auto                     | Inherited from the active farm context; not user-editable                         |
+| Field          | Required                 | Notes                                                                                                                                                                                                           |
+| -------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Title          | Yes                      |                                                                                                                                                                                                                 |
+| Category       | Yes                      | Single category per task; can be "Uncategorized"                                                                                                                                                                |
+| Priority       | Yes                      | Single value from a **global, fixed** tier list                                                                                                                                                                 |
+| Due date       | No                       | Optional; if passed and task isn't Done, task is flagged overdue                                                                                                                                                |
+| Estimated time | No                       | A plain user estimate (whole minutes) of how long the task should take, set at create/edit time — not derived from anything, and distinct from the future timer-measured "actual time" feature (see ROADMAP.md) |
+| Status         | Yes (defaults on create) | Not Started / In Progress / Done                                                                                                                                                                                |
+| Notes          | No                       | Free text, single field (not a threaded log)                                                                                                                                                                    |
+| Tags           | No                       | Freeform text, multiple per task, autocomplete against existing tags on that farm                                                                                                                               |
+| Location       | No                       | Single pin, optional (see Location section)                                                                                                                                                                     |
+| Photos         | No                       | Zero or more (see Photos section)                                                                                                                                                                               |
+| Shopping list  | No                       | Zero or more items to buy (see Shopping list section)                                                                                                                                                           |
+| Created date   | Auto                     |                                                                                                                                                                                                                 |
+| Completed date | Auto                     | Set when status moves to Done; **cleared** if status moves out of Done                                                                                                                                          |
+| Farm           | Auto                     | Inherited from the active farm context; not user-editable                                                                                                                                                       |
 
-**Task creation form**: shows required fields only (Title, Category, Priority) with a "More details" expand/link to reveal all other fields (Notes, Tags, Location, Photos, Due date) at creation time.
+**Task creation form**: shows required fields only (Title, Category, Priority) with a "More details" expand/link to reveal all other fields (Notes, Tags, Location, Photos, Due date, Estimated time) at creation time.
 
 **Task editing**: opens with all fields expanded by default (no collapsed state when editing an existing task).
 

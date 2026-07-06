@@ -64,6 +64,32 @@ function daysBetween(today: string, dueDate: string): number {
   return Math.round((dueMs - todayMs) / msPerDay)
 }
 
+/**
+ * Parse the create/edit forms' estimated-time text input: empty or
+ * whitespace-only means "no estimate" (null); anything else converts via
+ * `Number`, leaving range/integer rejection (including the NaN a
+ * non-numeric string produces) to the service's
+ * `assertValidEstimatedMinutes` and its readable message.
+ */
+export function parseEstimatedMinutesInput(raw: string): number | null {
+  const trimmed = raw.trim()
+  return trimmed === '' ? null : Number(trimmed)
+}
+
+/**
+ * Compact "1h 30m" rendering of a task's `estimated_minutes`. Expects a
+ * positive integer (the service's `assertValidEstimatedMinutes` enforces
+ * that on write); whole hours drop the minutes part ("2h") and sub-hour
+ * estimates drop the hours part ("45m").
+ */
+export function formatEstimatedMinutes(minutes: number): string {
+  const hours = Math.floor(minutes / 60)
+  const remainder = minutes % 60
+  if (hours === 0) return `${remainder}m`
+  if (remainder === 0) return `${hours}h`
+  return `${hours}h ${remainder}m`
+}
+
 export function categoryDisplayName(
   categoryId: string | null,
   categories: Pick<CategorySummary, 'id' | 'name'>[] | null | undefined,
