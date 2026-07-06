@@ -121,7 +121,7 @@ Per-farm freeform tags.
 | `name`       | text, not null                  |                                                    |
 | `created_at` | timestamptz, default now()      |                                                    |
 
-Unique constraint on (`farm_id`, `name`) — avoids duplicate tags within a farm; autocomplete queries against this table filtered by `farm_id`.
+Unique constraint on (`farm_id`, `name`) — avoids duplicate tags within a farm; autocomplete queries against this table filtered by `farm_id`. `name` is stored normalized — lowercase, internal whitespace collapsed to single spaces — so "Fence", "fence ", and "fence " can't coexist as distinct rows; see DECISIONS.md for the normalize-on-write and backfill-merge reasoning.
 
 ### `task_tags`
 

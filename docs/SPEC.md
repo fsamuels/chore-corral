@@ -85,6 +85,8 @@ Freeform metadata on tasks, distinct from category.
 - Multiple tags per task.
 - Freeform text entry with **autocomplete** suggestions drawn from tags already used on that farm (reduces duplicate near-identical tags like "fence" vs. "fencing").
 - Not filterable in the MVP task list (descriptive metadata only, category is the filterable dimension).
+- Normalized on save to a consistent naming convention: lowercase, with internal whitespace collapsed to single spaces (e.g. "Fence Repair" and "fence repair" both save as "fence repair") — spaces are allowed, unlike a hyphenated or camelCase slug style.
+- A read-only `/tags` page lists every tag on the active farm alongside a usage count (number of tasks carrying it).
 
 ### Priority
 

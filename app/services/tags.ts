@@ -7,6 +7,10 @@ export interface TagSummary {
   created_at: string
 }
 
+export interface TagUsageSummary extends TagSummary {
+  taskCount: number
+}
+
 type Client = SupabaseClient<Database>
 
 /** Active per-farm tags, sorted by name. */
@@ -24,34 +28,38 @@ export async function listTags(
 }
 
 /**
+ * Normalize a tag name to this app's stored convention: lowercase, trimmed,
+ * with internal whitespace collapsed to single spaces (so "Fence   Repair"
+ * and "fence repair" are the same tag, not just case-insensitively equal).
+ */
+function normalizeTagName(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+/**
  * Resolve freeform tag name input into `tags` rows, creating any that don't
- * exist yet for the farm. Names are trimmed, empty entries dropped, and
- * duplicates (case-insensitively — "Fence"/"fence" are the same tag) merged,
- * keeping the first-seen casing. Postgres `text` comparison is case-sensitive,
- * so `.in('name', [...])` can't be relied on for the case-insensitive match;
- * instead this fetches all of the farm's tags and matches in JS.
+ * exist yet for the farm. Names are normalized (trimmed, lowercased, internal
+ * whitespace collapsed) before matching or creating, so "Fence", "fence ",
+ * and "fence  " all resolve to the same stored `fence` row. Postgres `text`
+ * comparison is case-sensitive, so `.in('name', [...])` can't be relied on
+ * for a case-insensitive match; instead this fetches all of the farm's tags
+ * and matches in JS.
  */
 export async function resolveTags(
   supabase: Client,
   opts: { farmId: string; names: string[] },
 ): Promise<TagSummary[]> {
-  const trimmed = opts.names.map((name) => name.trim()).filter(Boolean)
-  if (trimmed.length === 0) return []
-
-  const uniqueByKey = new Map<string, string>()
-  for (const name of trimmed) {
-    const key = name.toLowerCase()
-    if (!uniqueByKey.has(key)) uniqueByKey.set(key, name)
-  }
+  const uniqueNames = [
+    ...new Set(opts.names.map(normalizeTagName).filter(Boolean)),
+  ]
+  if (uniqueNames.length === 0) return []
 
   const existing = await listTags(supabase, opts.farmId)
   const existingByKey = new Map(
-    existing.map((tag) => [tag.name.toLowerCase(), tag]),
+    existing.map((tag) => [normalizeTagName(tag.name), tag]),
   )
 
-  const namesToCreate = [...uniqueByKey.entries()]
-    .filter(([key]) => !existingByKey.has(key))
-    .map(([, name]) => name)
+  const namesToCreate = uniqueNames.filter((name) => !existingByKey.has(name))
 
   let created: TagSummary[] = []
   if (namesToCreate.length > 0) {
@@ -63,12 +71,12 @@ export async function resolveTags(
     created = data
   }
   const createdByKey = new Map(
-    created.map((tag) => [tag.name.toLowerCase(), tag]),
+    created.map((tag) => [normalizeTagName(tag.name), tag]),
   )
 
-  return [...uniqueByKey.keys()].map((key) => {
+  return uniqueNames.map((key) => {
     const tag = existingByKey.get(key) ?? createdByKey.get(key)
-    if (!tag) throw new Error(`Failed to resolve tag "${uniqueByKey.get(key)}"`)
+    if (!tag) throw new Error(`Failed to resolve tag "${key}"`)
     return tag
   })
 }
@@ -139,4 +147,36 @@ export async function listTagsForTasks(
     list.sort((a, b) => a.name.localeCompare(b.name))
   }
   return result
+}
+
+/**
+ * All of a farm's tags with a usage count (how many tasks carry each tag),
+ * sorted by name. Two queries instead of a join, mirroring
+ * `listTagsForTasks`: fetch the farm's tags, then the `task_tags` rows for
+ * those tag ids (already farm-scoped since the tags themselves are), and
+ * count occurrences per tag id in JS.
+ */
+export async function listTagsWithCounts(
+  supabase: Client,
+  farmId: string,
+): Promise<TagUsageSummary[]> {
+  const tags = await listTags(supabase, farmId)
+  if (tags.length === 0) return []
+
+  const tagIds = tags.map((tag) => tag.id)
+  const { data: links, error: linksError } = await supabase
+    .from('task_tags')
+    .select('tag_id')
+    .in('tag_id', tagIds)
+  if (linksError) throw new Error(linksError.message)
+
+  const countByTagId = new Map<string, number>()
+  for (const link of links) {
+    countByTagId.set(link.tag_id, (countByTagId.get(link.tag_id) ?? 0) + 1)
+  }
+
+  return tags.map((tag) => ({
+    ...tag,
+    taskCount: countByTagId.get(tag.id) ?? 0,
+  }))
 }

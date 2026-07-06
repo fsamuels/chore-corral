@@ -74,6 +74,12 @@ async function signOut() {
           to="/categories"
           @click="drawer = false"
         />
+        <v-list-item
+          title="Tags"
+          prepend-icon="mdi-tag-multiple-outline"
+          to="/tags"
+          @click="drawer = false"
+        />
         <v-divider class="my-1" />
         <v-list-item
           title="Change farm"

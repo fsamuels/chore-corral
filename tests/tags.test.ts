@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   listTags,
   listTagsForTasks,
+  listTagsWithCounts,
   resolveTags,
   setTaskTags,
 } from '../app/services/tags'
@@ -50,7 +51,7 @@ describe('listTags', () => {
 })
 
 describe('resolveTags', () => {
-  it('creates new tags that do not exist yet', async () => {
+  it('creates new tags that do not exist yet, normalized to lowercase', async () => {
     const fake = new FakeSupabaseClient({ tags: [] })
     const supabase = asSupabaseClient(fake)
 
@@ -59,7 +60,7 @@ describe('resolveTags', () => {
       names: ['Fence', 'Gate'],
     })
 
-    expect(result.map((t) => t.name)).toEqual(['Fence', 'Gate'])
+    expect(result.map((t) => t.name)).toEqual(['fence', 'gate'])
     expect(fake.getTable('tags')).toHaveLength(2)
   })
 
@@ -119,7 +120,37 @@ describe('resolveTags', () => {
       names: ['  Fence  ', '   ', ''],
     })
 
-    expect(result.map((t) => t.name)).toEqual(['Fence'])
+    expect(result.map((t) => t.name)).toEqual(['fence'])
+  })
+
+  it('collapses internal whitespace so "Fence   Repair" and "fence repair" are the same tag', async () => {
+    const fake = new FakeSupabaseClient({ tags: [] })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await resolveTags(supabase, {
+      farmId: FARM_A,
+      names: ['Fence   Repair', 'fence repair', 'fence  repair'],
+    })
+
+    expect(result.map((t) => t.name)).toEqual(['fence repair'])
+    expect(fake.getTable('tags')).toHaveLength(1)
+  })
+
+  it('reuses an existing normalized tag when input has extra whitespace', async () => {
+    const fake = new FakeSupabaseClient({
+      tags: [tag({ id: 'tag-1', farm_id: FARM_A, name: 'fence repair' })],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await resolveTags(supabase, {
+      farmId: FARM_A,
+      names: ['Fence    Repair '],
+    })
+
+    expect(result).toEqual([
+      { id: 'tag-1', name: 'fence repair', created_at: tag().created_at },
+    ])
+    expect(fake.getTable('tags')).toHaveLength(1)
   })
 
   it('returns [] for empty input without any DB calls', async () => {
@@ -235,5 +266,83 @@ describe('listTagsForTasks', () => {
     const result = await listTagsForTasks(supabase, [])
 
     expect(result.size).toBe(0)
+  })
+})
+
+describe('listTagsWithCounts', () => {
+  it('returns an empty array when the farm has no tags', async () => {
+    const fake = new FakeSupabaseClient({ tags: [] })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listTagsWithCounts(supabase, FARM_A)
+
+    expect(result).toEqual([])
+  })
+
+  it('reports a count of zero for a tag no task uses', async () => {
+    const fake = new FakeSupabaseClient({
+      tags: [tag({ id: 'tag-1', name: 'Fence' })],
+      task_tags: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listTagsWithCounts(supabase, FARM_A)
+
+    expect(result).toEqual([
+      {
+        id: 'tag-1',
+        name: 'Fence',
+        created_at: tag().created_at,
+        taskCount: 0,
+      },
+    ])
+  })
+
+  it('counts tasks per tag, alphabetically sorted', async () => {
+    const fake = new FakeSupabaseClient({
+      tags: [
+        tag({ id: 'tag-1', name: 'Mowing' }),
+        tag({ id: 'tag-2', name: 'Fence' }),
+      ],
+      task_tags: [
+        taskTag({ task_id: 'task-1', tag_id: 'tag-1' }),
+        taskTag({ task_id: 'task-2', tag_id: 'tag-1' }),
+        taskTag({ task_id: 'task-3', tag_id: 'tag-1' }),
+        taskTag({ task_id: 'task-1', tag_id: 'tag-2' }),
+      ],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listTagsWithCounts(supabase, FARM_A)
+
+    expect(result.map((t) => [t.name, t.taskCount])).toEqual([
+      ['Fence', 1],
+      ['Mowing', 3],
+    ])
+  })
+
+  it("only counts the given farm's tags and tasks", async () => {
+    const fake = new FakeSupabaseClient({
+      tags: [
+        tag({ id: 'tag-1', farm_id: FARM_A, name: 'Fence' }),
+        tag({ id: 'tag-2', farm_id: FARM_B, name: 'Aardvark' }),
+      ],
+      task_tags: [
+        taskTag({ task_id: 'task-1', tag_id: 'tag-1' }),
+        taskTag({ task_id: 'task-2', tag_id: 'tag-2' }),
+      ],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listTagsWithCounts(supabase, FARM_A)
+
+    expect(result).toEqual([
+      {
+        id: 'tag-1',
+        name: 'Fence',
+        created_at: tag().created_at,
+        taskCount: 1,
+      },
+    ])
   })
 })
