@@ -278,18 +278,20 @@ async function performDelete() {
             <v-btn
               color="error"
               variant="text"
+              size="large"
               :disabled="saving"
               @click="confirmingDelete = true"
             >
               Delete
             </v-btn>
             <div class="d-flex ga-2">
-              <v-btn :disabled="saving" :to="`/tasks/${task.id}`">
+              <v-btn size="large" :disabled="saving" :to="`/tasks/${task.id}`">
                 Cancel
               </v-btn>
               <v-btn
                 type="submit"
                 color="primary"
+                size="large"
                 :loading="saving"
                 :disabled="!editTitle.trim()"
               >
@@ -316,10 +318,19 @@ async function performDelete() {
             </v-card-text>
             <v-card-actions>
               <v-spacer />
-              <v-btn :disabled="deleting" @click="confirmingDelete = false">
+              <v-btn
+                size="large"
+                :disabled="deleting"
+                @click="confirmingDelete = false"
+              >
                 Cancel
               </v-btn>
-              <v-btn color="error" :loading="deleting" @click="performDelete">
+              <v-btn
+                color="error"
+                size="large"
+                :loading="deleting"
+                @click="performDelete"
+              >
                 Delete
               </v-btn>
             </v-card-actions>

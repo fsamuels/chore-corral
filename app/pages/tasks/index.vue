@@ -149,7 +149,7 @@ function openTask(taskId: string) {
     <template v-else-if="activeFarm">
       <div class="d-flex align-start justify-space-between mb-1">
         <h1 class="text-h4 mb-1">Tasks</h1>
-        <v-btn color="primary" to="/tasks/new">New task</v-btn>
+        <v-btn color="primary" size="large" to="/tasks/new">New task</v-btn>
       </div>
 
       <v-text-field
@@ -241,7 +241,7 @@ function openTask(taskId: string) {
         <p class="text-body-1 mb-4">
           No tasks yet. Add one to start tracking work on this farm.
         </p>
-        <v-btn color="primary" to="/tasks/new">New task</v-btn>
+        <v-btn color="primary" size="large" to="/tasks/new">New task</v-btn>
       </div>
 
       <div

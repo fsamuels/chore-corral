@@ -233,10 +233,11 @@ async function submit() {
         </v-alert>
 
         <div class="d-flex justify-end ga-2 mt-6">
-          <v-btn :disabled="creating" to="/tasks">Cancel</v-btn>
+          <v-btn size="large" :disabled="creating" to="/tasks">Cancel</v-btn>
           <v-btn
             type="submit"
             color="primary"
+            size="large"
             :loading="creating"
             :disabled="!title.trim()"
           >

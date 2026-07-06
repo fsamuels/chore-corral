@@ -79,6 +79,13 @@ async function signOut() {
         />
         <v-divider class="my-1" />
         <v-list-item
+          title="UI components demo"
+          prepend-icon="mdi-view-grid-outline"
+          to="/components-demo"
+          @click="drawer = false"
+        />
+        <v-divider class="my-1" />
+        <v-list-item
           title="Sign out"
           prepend-icon="mdi-logout"
           @click="signOut"
@@ -100,7 +107,5 @@ async function signOut() {
         Map
       </v-btn>
     </v-bottom-navigation>
-
-    <AppFooter />
   </v-app>
 </template>
