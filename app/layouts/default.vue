@@ -1,9 +1,17 @@
 <script setup lang="ts">
 const user = useSupabaseUser()
 const supabase = useSupabaseClient()
-const { resetFarms } = useFarms()
+const { resetFarms, activeFarm } = useFarms()
 const { applyTheme } = useThemePreference()
 const { mobile } = useDisplay()
+
+// Pages already call `fetchFarms()` on load, and `useFarms`' state is shared
+// (`useState`), so the layout just reads `activeFarm` reactively rather than
+// fetching itself — fetching here too would be redundant, and awaiting a
+// fetch in the layout would block rendering the app bar when signed out.
+const appBarTitle = computed(() =>
+  activeFarm.value ? `Chore Corral - ${activeFarm.value.name}` : 'Chore Corral',
+)
 
 // Apply the saved theme during SSR and again when auth state changes (the
 // signed-in user's metadata may carry a different preference than the cookie).
@@ -28,7 +36,7 @@ async function signOut() {
       </template>
       <v-app-bar-title>
         <NuxtLink to="/" class="text-decoration-none" style="color: inherit">
-          Chore Corral
+          {{ appBarTitle }}
         </NuxtLink>
       </v-app-bar-title>
       <template v-if="user && !mobile" #append>

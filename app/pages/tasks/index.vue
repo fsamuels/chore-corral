@@ -148,10 +148,7 @@ function openTask(taskId: string) {
     </v-alert>
     <template v-else-if="activeFarm">
       <div class="d-flex align-start justify-space-between mb-1">
-        <div>
-          <h1 class="text-h4 mb-1">Tasks</h1>
-          <p class="text-body-2 text-medium-emphasis">{{ activeFarm.name }}</p>
-        </div>
+        <h1 class="text-h4 mb-1">Tasks</h1>
         <v-btn color="primary" to="/tasks/new">New task</v-btn>
       </div>
 
