@@ -57,6 +57,7 @@ The core unit of work.
 | Tags           | No                       | Freeform text, multiple per task, autocomplete against existing tags on that farm |
 | Location       | No                       | Single pin, optional (see Location section)                                       |
 | Photos         | No                       | Zero or more (see Photos section)                                                 |
+| Shopping list  | No                       | Zero or more items to buy (see Shopping list section)                             |
 | Created date   | Auto                     |                                                                                   |
 | Completed date | Auto                     | Set when status moves to Done; **cleared** if status moves out of Done            |
 | Farm           | Auto                     | Inherited from the active farm context; not user-editable                         |
@@ -144,6 +145,15 @@ Zero or more per task (data model supports many; typical usage expected to be 0�
 - **Client-side compression before storage:** resize to a maximum of 1600px on the longest edge, convert to WebP. Target compressed size: roughly 500 KB–1 MB per photo.
 - No auto-delete on task completion for MVP — photos persist regardless of task status. Storage-management strategy (deletion, archival) may be revisited later if usage grows well beyond current projections (see DECISIONS.md).
 
+### Shopping list
+
+Optional, per-task list of items to buy for the task (e.g. parts, supplies). Post-MVP feature, from ROADMAP.md's near-term list.
+
+- Zero or more items per task; each has a free-text name and a checked ("bought") state.
+- Items are checked off **independently of the task's own status** — checking off every item doesn't complete the task, and completing the task doesn't touch the list.
+- Managed from the task Edit page (an item row needs a real task id, same constraint as photos); shown read-only on the task View page.
+- Deliberately a separate concept from the planned tool list (see ROADMAP.md) — the two are not unified, in case they diverge later.
+
 ### Activity Log
 
 Records **major events only** — not a field-by-field audit trail. Intended for historical progress tracking, not compliance/audit purposes.
@@ -176,7 +186,7 @@ Each task's activity history is shown in-app, on that task's View page (see belo
 
 ### Task View page
 
-- Read-only, more detailed presentation of a single task than the list or edit form show: full field values, tags, location, photos, and the task's Activity Log history (see above).
+- Read-only, more detailed presentation of a single task than the list or edit form show: full field values, tags, location, photos, shopping list, and the task's Activity Log history (see above).
 - Reachable from the task list, the Map view, and the dashboard's outstanding-tasks list.
 - Includes a quick status-change control (no need to open Edit just to mark a task In Progress or Done) and a link to the Edit page.
 

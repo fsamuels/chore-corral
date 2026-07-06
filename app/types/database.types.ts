@@ -256,6 +256,38 @@ export interface Database {
           },
         ]
       }
+      task_shopping_items: {
+        Row: {
+          id: string
+          task_id: string
+          name: string
+          checked: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          task_id: string
+          name: string
+          checked?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          task_id?: string
+          name?: string
+          checked?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'task_shopping_items_task_id_fkey'
+            columns: ['task_id']
+            isOneToOne: false
+            referencedRelation: 'tasks'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       activity_log: {
         Row: {
           id: string
