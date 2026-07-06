@@ -23,10 +23,17 @@ export interface TaskSummary {
   created_at: string
   completed_at: string | null
   tags: TagSummary[]
+  photo_count: number
 }
 
 const TASK_COLUMNS =
   'id, title, category_id, priority, status, due_date, notes, lat, lng, created_at, completed_at'
+
+// listTasks alone embeds the photo count (a `task_photos(count)` relation),
+// since it's the only read path that needs it for the home-screen list;
+// getTask/create/update return photo_count from the plain row mapping below
+// instead of paying for the embed on every call.
+const TASK_COLUMNS_WITH_PHOTO_COUNT = `${TASK_COLUMNS}, task_photos(count)`
 
 type Client = SupabaseClient<Database>
 
@@ -65,11 +72,150 @@ export function isTaskOverdue(
   return task.due_date < toLocalDateString(now)
 }
 
-function toLocalDateString(date: Date): string {
+export function toLocalDateString(date: Date): string {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')
   const d = String(date.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
+}
+
+/**
+ * Parse a local-calendar-date string ("YYYY-MM-DD") into a local midnight
+ * `Date` — the inverse of `toLocalDateString`. Using explicit Y/M/D
+ * components (not `new Date(dateString)`, which parses as UTC midnight)
+ * keeps date arithmetic in local calendar days.
+ */
+export function parseLocalDateString(dateString: string): Date {
+  const parts = dateString.split('-').map(Number)
+  const [y, m, d] = parts
+  if (
+    parts.length !== 3 ||
+    y === undefined ||
+    m === undefined ||
+    d === undefined
+  ) {
+    throw new Error(`Invalid local date string: ${dateString}`)
+  }
+  return new Date(y, m - 1, d)
+}
+
+// Status rank for the home-screen list's tiebreak: in_progress sorts before
+// not_started (done tasks never reach these sorts — the home page filters
+// to outstanding tasks first).
+const STATUS_RANK: Record<TaskStatus, number> = {
+  in_progress: 1,
+  not_started: 0,
+  done: -1,
+}
+
+/**
+ * `today + 7 days` as a local-calendar-date string, matching `due_date`'s
+ * plain-date format so string comparison ("<=") works the same way
+ * `isTaskOverdue` compares against "today".
+ */
+function todayPlusDaysString(today: string, days: number): string {
+  const base = parseLocalDateString(today)
+  const date = new Date(
+    base.getFullYear(),
+    base.getMonth(),
+    base.getDate() + days,
+  )
+  return toLocalDateString(date)
+}
+
+/**
+ * Home-screen partition of outstanding (non-done) tasks: "Up next" is due
+ * within the next 7 days inclusive (overdue tasks included — their due_date
+ * is necessarily <= today), "Backlog" is everything else (due further out,
+ * or no due date at all).
+ */
+export function isUpNext(
+  task: Pick<TaskSummary, 'due_date'>,
+  today: string,
+): boolean {
+  if (!task.due_date) return false
+  return task.due_date <= todayPlusDaysString(today, 7)
+}
+
+export function partitionHomeTasks(
+  tasks: TaskSummary[],
+  today: string,
+): { upNext: TaskSummary[]; backlog: TaskSummary[] } {
+  const upNext: TaskSummary[] = []
+  const backlog: TaskSummary[] = []
+  for (const task of tasks) {
+    ;(isUpNext(task, today) ? upNext : backlog).push(task)
+  }
+  return { upNext, backlog }
+}
+
+/**
+ * "Up next" order: soonest due date first, then urgent-first, then
+ * in_progress-before-not_started, then oldest-created, then id — a stable
+ * tiebreak chain so equal tasks always render in the same order.
+ */
+export function compareUpNext(
+  a: Pick<
+    TaskSummary,
+    'due_date' | 'priority' | 'status' | 'created_at' | 'id'
+  >,
+  b: Pick<
+    TaskSummary,
+    'due_date' | 'priority' | 'status' | 'created_at' | 'id'
+  >,
+): number {
+  const byDueDate = (a.due_date ?? '').localeCompare(b.due_date ?? '')
+  if (byDueDate !== 0) return byDueDate
+  const byPriority = PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority]
+  if (byPriority !== 0) return byPriority
+  const byStatus = STATUS_RANK[b.status] - STATUS_RANK[a.status]
+  if (byStatus !== 0) return byStatus
+  const byCreated = a.created_at.localeCompare(b.created_at)
+  if (byCreated !== 0) return byCreated
+  return a.id.localeCompare(b.id)
+}
+
+/**
+ * "Backlog" order: urgent-first, then soonest-due-first with no-due-date
+ * tasks sorted last, then in_progress-before-not_started, then
+ * oldest-created, then id.
+ */
+export function compareBacklog(
+  a: Pick<
+    TaskSummary,
+    'due_date' | 'priority' | 'status' | 'created_at' | 'id'
+  >,
+  b: Pick<
+    TaskSummary,
+    'due_date' | 'priority' | 'status' | 'created_at' | 'id'
+  >,
+): number {
+  const byPriority = PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority]
+  if (byPriority !== 0) return byPriority
+  const byDueDate = compareNullsLast(a.due_date, b.due_date)
+  if (byDueDate !== 0) return byDueDate
+  const byStatus = STATUS_RANK[b.status] - STATUS_RANK[a.status]
+  if (byStatus !== 0) return byStatus
+  const byCreated = a.created_at.localeCompare(b.created_at)
+  if (byCreated !== 0) return byCreated
+  return a.id.localeCompare(b.id)
+}
+
+function compareNullsLast(a: string | null, b: string | null): number {
+  if (a === null && b === null) return 0
+  if (a === null) return 1
+  if (b === null) return -1
+  return a.localeCompare(b)
+}
+
+/**
+ * Whether a backlog task is eligible for the "Show N more" tail collapse:
+ * lowest priority and no due date, i.e. nothing about it demands attention.
+ */
+export function isCollapsibleBacklogTask(
+  task: Pick<TaskSummary, 'priority' | 'due_date'>,
+): boolean {
+  return task.priority === 'whenever' && task.due_date === null
 }
 
 /**
@@ -101,6 +247,13 @@ function sortTagsByName(tags: TagSummary[]): TagSummary[] {
   return [...tags].sort((a, b) => a.name.localeCompare(b.name))
 }
 
+// The `task_photos(count)` embed comes back as `[{ count: number }]` (or `[]`
+// when the relation has no rows) rather than a plain number — this pulls it
+// out for TaskSummary's flat `photo_count` field.
+function extractPhotoCount(row: { task_photos?: { count: number }[] }): number {
+  return row.task_photos?.[0]?.count ?? 0
+}
+
 /** All tasks for one farm (Done included, per SPEC), urgent-first. */
 export async function listTasks(
   supabase: Client,
@@ -108,7 +261,7 @@ export async function listTasks(
 ): Promise<TaskSummary[]> {
   const { data, error } = await supabase
     .from('tasks')
-    .select(TASK_COLUMNS)
+    .select(TASK_COLUMNS_WITH_PHOTO_COUNT)
     .eq('farm_id', farmId)
   if (error) throw new Error(error.message)
   const sorted = data.sort(compareTasks)
@@ -120,6 +273,7 @@ export async function listTasks(
   return sorted.map((task) => ({
     ...task,
     tags: tagsByTaskId.get(task.id) ?? [],
+    photo_count: extractPhotoCount(task),
   }))
 }
 
@@ -134,7 +288,7 @@ export async function getTask(
 ): Promise<TaskSummary | null> {
   const { data, error } = await supabase
     .from('tasks')
-    .select(TASK_COLUMNS)
+    .select(TASK_COLUMNS_WITH_PHOTO_COUNT)
     .eq('id', opts.taskId)
     .eq('farm_id', opts.farmId)
   if (error) throw new Error(error.message)
@@ -142,7 +296,11 @@ export async function getTask(
   if (!task) return null
 
   const tagsByTaskId = await listTagsForTasks(supabase, [task.id])
-  return { ...task, tags: tagsByTaskId.get(task.id) ?? [] }
+  return {
+    ...task,
+    tags: tagsByTaskId.get(task.id) ?? [],
+    photo_count: extractPhotoCount(task),
+  }
 }
 
 export interface CreateTaskInput {
@@ -205,7 +363,9 @@ export async function createTask(
     tagIds: tags.map((tag) => tag.id),
   })
 
-  return { ...data, tags: sortTagsByName(tags) }
+  // A just-created task has no task_photos rows yet, so 0 is exact, not a
+  // placeholder — no need to query the embed for a fresh insert.
+  return { ...data, tags: sortTagsByName(tags), photo_count: 0 }
 }
 
 export interface UpdateTaskInput {
@@ -242,12 +402,15 @@ export async function updateTask(
 
   const { data: current, error: readError } = await supabase
     .from('tasks')
-    .select(TASK_COLUMNS)
+    .select(TASK_COLUMNS_WITH_PHOTO_COUNT)
     .eq('id', input.taskId)
     .eq('farm_id', input.farmId)
   if (readError) throw new Error(readError.message)
   const before = current[0]
   if (!before) throw new Error('Task not found')
+  // Field edits never touch task_photos — carry the pre-update count through
+  // rather than re-querying the embed after the update below.
+  const photoCount = extractPhotoCount(before)
 
   const { data, error } = await supabase
     .from('tasks')
@@ -289,7 +452,7 @@ export async function updateTask(
     tagIds: tags.map((tag) => tag.id),
   })
 
-  return { ...task, tags: sortTagsByName(tags) }
+  return { ...task, tags: sortTagsByName(tags), photo_count: photoCount }
 }
 
 /**
@@ -310,19 +473,23 @@ export async function changeTaskStatus(
 ): Promise<TaskSummary> {
   const { data: current, error: readError } = await supabase
     .from('tasks')
-    .select(TASK_COLUMNS)
+    .select(TASK_COLUMNS_WITH_PHOTO_COUNT)
     .eq('id', opts.taskId)
     .eq('farm_id', opts.farmId)
   if (readError) throw new Error(readError.message)
   const before = current[0]
   if (!before) throw new Error('Task not found')
+  // Status changes don't touch task_photos — carry the count through as-is.
+  const photoCount = extractPhotoCount(before)
 
   // Status changes don't touch tags, but the return type does carry them —
   // fetch once and reuse for both the no-op and updated-row branches below.
   const tags =
     (await listTagsForTasks(supabase, [opts.taskId])).get(opts.taskId) ?? []
 
-  if (before.status === opts.status) return { ...before, tags }
+  if (before.status === opts.status) {
+    return { ...before, tags, photo_count: photoCount }
+  }
 
   const { data, error } = await supabase
     .from('tasks')
@@ -341,7 +508,7 @@ export async function changeTaskStatus(
     old_status: before.status,
     new_status: task.status,
   })
-  return { ...task, tags }
+  return { ...task, tags, photo_count: photoCount }
 }
 
 /**
