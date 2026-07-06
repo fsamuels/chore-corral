@@ -18,6 +18,7 @@ import {
 const { fetchFarms, activeFarm, farmsError } = useFarms()
 const { tasks, tasksError, loading, fetchTasks, setStatus } = useTasks()
 const { categories, fetchCategories } = useCategories()
+const { mobile } = useDisplay()
 
 await fetchFarms()
 await fetchTasks()
@@ -178,7 +179,7 @@ async function advanceStatus(task: TaskSummary) {
           <p class="text-body-1 mb-4">
             No tasks yet. Add one to start tracking work on this farm.
           </p>
-          <v-btn color="primary" variant="tonal" to="/tasks/new"
+          <v-btn color="primary" variant="tonal" size="large" to="/tasks/new"
             >New task</v-btn
           >
         </div>
@@ -208,7 +209,6 @@ async function advanceStatus(task: TaskSummary) {
                 <v-btn
                   v-if="nextStatus(task.status)"
                   variant="text"
-                  size="small"
                   :icon="statusActionIcon(task.status)"
                   :aria-label="statusActionLabel(task.status)"
                   :title="statusActionLabel(task.status)"
@@ -219,6 +219,8 @@ async function advanceStatus(task: TaskSummary) {
                 <v-icon
                   v-else
                   :icon="STATUS_DISPLAY[task.status].icon"
+                  :aria-label="STATUS_DISPLAY[task.status].label"
+                  :title="STATUS_DISPLAY[task.status].label"
                   class="mr-2"
                 />
               </template>
@@ -240,12 +242,19 @@ async function advanceStatus(task: TaskSummary) {
                     v-if="task.lat !== null && task.lng !== null"
                     icon="mdi-map-marker-outline"
                     size="small"
+                    aria-label="Has location"
+                    title="Has location"
                   />
                   <span
                     v-if="task.photo_count > 0"
                     class="d-flex align-center ga-1"
                   >
-                    <v-icon icon="mdi-image-outline" size="small" />
+                    <v-icon
+                      icon="mdi-image-outline"
+                      size="small"
+                      aria-label="Has photos"
+                      title="Has photos"
+                    />
                     <span v-if="task.photo_count > 1" class="text-caption">
                       {{ task.photo_count }}
                     </span>
@@ -253,6 +262,8 @@ async function advanceStatus(task: TaskSummary) {
                   <v-icon
                     :icon="PRIORITY_DISPLAY[task.priority].icon"
                     size="small"
+                    :aria-label="`${PRIORITY_DISPLAY[task.priority].label} priority`"
+                    :title="`${PRIORITY_DISPLAY[task.priority].label} priority`"
                   />
                 </div>
               </template>
@@ -275,7 +286,6 @@ async function advanceStatus(task: TaskSummary) {
                 <v-btn
                   v-if="nextStatus(task.status)"
                   variant="text"
-                  size="small"
                   :icon="statusActionIcon(task.status)"
                   :aria-label="statusActionLabel(task.status)"
                   :title="statusActionLabel(task.status)"
@@ -286,6 +296,8 @@ async function advanceStatus(task: TaskSummary) {
                 <v-icon
                   v-else
                   :icon="STATUS_DISPLAY[task.status].icon"
+                  :aria-label="STATUS_DISPLAY[task.status].label"
+                  :title="STATUS_DISPLAY[task.status].label"
                   class="mr-2"
                 />
               </template>
@@ -307,12 +319,19 @@ async function advanceStatus(task: TaskSummary) {
                     v-if="task.lat !== null && task.lng !== null"
                     icon="mdi-map-marker-outline"
                     size="small"
+                    aria-label="Has location"
+                    title="Has location"
                   />
                   <span
                     v-if="task.photo_count > 0"
                     class="d-flex align-center ga-1"
                   >
-                    <v-icon icon="mdi-image-outline" size="small" />
+                    <v-icon
+                      icon="mdi-image-outline"
+                      size="small"
+                      aria-label="Has photos"
+                      title="Has photos"
+                    />
                     <span v-if="task.photo_count > 1" class="text-caption">
                       {{ task.photo_count }}
                     </span>
@@ -320,6 +339,8 @@ async function advanceStatus(task: TaskSummary) {
                   <v-icon
                     :icon="PRIORITY_DISPLAY[task.priority].icon"
                     size="small"
+                    :aria-label="`${PRIORITY_DISPLAY[task.priority].label} priority`"
+                    :title="`${PRIORITY_DISPLAY[task.priority].label} priority`"
                   />
                 </div>
               </template>
@@ -343,6 +364,18 @@ async function advanceStatus(task: TaskSummary) {
       </template>
     </template>
 
+    <v-btn
+      icon="mdi-plus"
+      color="primary"
+      size="large"
+      elevation="6"
+      class="home-fab"
+      :class="{ 'home-fab--above-bottom-nav': mobile }"
+      aria-label="Add task"
+      title="Add task"
+      to="/tasks/new"
+    />
+
     <v-snackbar v-model="showSnackbar" color="error" :timeout="6000">
       {{ snackbarMessage }}
     </v-snackbar>
@@ -360,5 +393,18 @@ async function advanceStatus(task: TaskSummary) {
 
 .task-row--soon {
   border-left-color: rgb(var(--v-theme-warning));
+}
+
+/* Material Design FAB: fixed bottom-right, above the mobile bottom nav
+   (56px tall) when it's present so the two don't overlap. */
+.home-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 10;
+}
+
+.home-fab--above-bottom-nav {
+  bottom: 80px;
 }
 </style>

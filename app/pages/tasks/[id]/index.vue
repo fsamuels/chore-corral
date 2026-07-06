@@ -200,6 +200,7 @@ const hasLocation = computed(
           <v-btn
             color="primary"
             variant="tonal"
+            size="large"
             prepend-icon="mdi-pencil-outline"
             :to="`/tasks/${task.id}/edit`"
           >
