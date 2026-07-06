@@ -70,6 +70,46 @@ function formatTaken(takenAt: string): string {
   const date = new Date(takenAt)
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString()
 }
+
+// Fullscreen gallery: opened from a thumbnail, `activeIndex` tracks which
+// photo the carousel is showing so the counter and keyboard nav stay in sync.
+const lightboxOpen = ref(false)
+const activeIndex = ref(0)
+
+function openLightbox(index: number): void {
+  activeIndex.value = index
+  lightboxOpen.value = true
+}
+
+function onLightboxKeydown(event: KeyboardEvent): void {
+  if (!photos.value || photos.value.length === 0) return
+  if (event.key === 'ArrowRight') {
+    activeIndex.value = (activeIndex.value + 1) % photos.value.length
+  } else if (event.key === 'ArrowLeft') {
+    activeIndex.value =
+      (activeIndex.value - 1 + photos.value.length) % photos.value.length
+  }
+}
+
+// v-dialog teleports its content, so a @keydown on the component itself
+// won't reliably catch key events — listen on window instead, scoped to
+// while the gallery is actually open.
+watch(lightboxOpen, (open) => {
+  if (open) window.addEventListener('keydown', onLightboxKeydown)
+  else window.removeEventListener('keydown', onLightboxKeydown)
+})
+onUnmounted(() => window.removeEventListener('keydown', onLightboxKeydown))
+
+// A photo deleted while the gallery is open (its own delete button is still
+// reachable behind the dialog on some layouts) shouldn't leave the carousel
+// pointed past the end, or open with nothing left to show.
+watch(photos, (list) => {
+  if (!list || list.length === 0) {
+    lightboxOpen.value = false
+    return
+  }
+  if (activeIndex.value > list.length - 1) activeIndex.value = list.length - 1
+})
 </script>
 
 <template>
@@ -147,14 +187,19 @@ function formatTaken(takenAt: string): string {
     </p>
 
     <div v-else-if="photos" class="d-flex flex-wrap ga-3">
-      <div v-for="photo in photos" :key="photo.id" style="width: 140px">
+      <div
+        v-for="(photo, index) in photos"
+        :key="photo.id"
+        style="width: 140px"
+      >
         <div class="position-relative">
           <v-img
             :src="photoUrls.get(photo.id)"
             width="140"
             height="140"
             cover
-            class="rounded"
+            class="rounded cursor-pointer"
+            @click="openLightbox(index)"
           />
           <v-btn
             icon="mdi-close"
@@ -184,5 +229,55 @@ function formatTaken(takenAt: string): string {
         </p>
       </div>
     </div>
+
+    <v-dialog
+      v-model="lightboxOpen"
+      fullscreen
+      transition="dialog-bottom-transition"
+    >
+      <v-card v-if="photos && photos.length > 0" color="black">
+        <v-toolbar color="black" density="compact">
+          <v-toolbar-title class="text-white text-body-2">
+            {{ activeIndex + 1 }} / {{ photos.length }}
+          </v-toolbar-title>
+          <v-spacer />
+          <v-btn
+            icon="mdi-close"
+            color="white"
+            aria-label="Close gallery"
+            @click="lightboxOpen = false"
+          />
+        </v-toolbar>
+        <v-carousel
+          v-model="activeIndex"
+          height="calc(100vh - 48px)"
+          hide-delimiters
+          show-arrows="hover"
+          color="white"
+        >
+          <v-carousel-item v-for="photo in photos" :key="photo.id">
+            <div
+              class="d-flex flex-column align-center justify-center fill-height pa-4"
+            >
+              <v-img
+                :src="photoUrls.get(photo.id)"
+                max-height="85%"
+                max-width="100%"
+                contain
+              />
+              <p
+                v-if="photo.caption"
+                class="text-white text-body-1 mt-3 text-center"
+              >
+                {{ photo.caption }}
+              </p>
+              <p class="text-white text-caption text-medium-emphasis mb-0">
+                {{ formatTaken(photo.taken_at) }}
+              </p>
+            </div>
+          </v-carousel-item>
+        </v-carousel>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
