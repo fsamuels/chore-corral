@@ -160,6 +160,12 @@ Resolved 2026-07-06, implementing ROADMAP.md's "Optional shopping list per task"
 
 One small mechanical note: items list in insertion order via `ORDER BY created_at ASC, id ASC`. The `id` tiebreaker — which `task_photos`' `taken_at` ordering doesn't have — is deliberate: `now()` is transaction-time, so bulk-inserted rows would share a `created_at` and have undefined relative order without it.
 
+## Photo gallery: Vuetify's built-in `v-carousel`, not a new lightbox dependency
+
+Resolved 2026-07-06, implementing the task-page photo gallery/lightbox. No lightbox or carousel library (e.g. PhotoSwipe, Swiper, embla) was already installed, and none was added. Vuetify — already the app's only UI library — ships `v-carousel`/`v-carousel-item` with swipe support, transition animation, and slide state (`v-model`) built in, and `v-dialog fullscreen` already covers the modal-overlay chrome the way `v-dialog` does everywhere else in this app (e.g. the delete-confirm dialog on the task edit page). Combining the two gets a fullscreen, swipeable, arrow-navigable gallery with zero new dependencies to audit/update, at the cost of a plainer look than a purpose-built lightbox library (no pinch-zoom, no thumbnail strip) — acceptable for what SPEC.md asks for here (moving through a task's photos one at a time), and revisitable if richer gallery behavior is wanted later.
+
+Left/right arrow-key navigation needed its own small workaround: `v-dialog` teleports its content to the document body, so a `@keydown` listener bound to the dialog component in the template doesn't reliably receive key events. Instead, a `window`-level `keydown` listener is added/removed via a `watch` on the dialog's open state, scoped to only exist while the gallery is actually open.
+
 ## Task estimated time: integer minutes, not an interval, and unlogged edits
 
 Resolved 2026-07-06, implementing ROADMAP.md's "Task estimated time" item. Two calls rode along:
