@@ -261,8 +261,8 @@ watch(photos, (list) => {
             >
               <v-img
                 :src="photoUrls.get(photo.id)"
-                max-height="85%"
-                max-width="100%"
+                height="85%"
+                width="100%"
                 contain
               />
               <p
