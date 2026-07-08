@@ -2,7 +2,9 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-07-08 (Map default zoom levels corrected)
+**Last updated:** 2026-07-08 (Farm switch now redirects home)
+
+**Farm switch now redirects home (2026-07-08).** Selecting a different farm on `/farm` previously only updated the active-farm cookie via `setActiveFarm` and left the user sitting on `/farm` — they had to navigate home manually to see the new farm's data. `app/pages/farm.vue` now wraps that in a `selectFarm` handler that sets the cookie and then `navigateTo('/')`, matching the `navigateTo` pattern already used elsewhere (`confirm.vue`, `login.vue`). Clicking the already-active farm is a no-op (no redirect). No schema or service-layer changes.
 
 **Map default zoom levels corrected (2026-07-08).** The 2026-07-06 "map view zoomed out" pass (below) over-corrected: it dropped `/map`'s default zoom by 2 levels per the original report, but a subsequent report said the fix went the wrong direction. `TaskMap.client.vue` (`/map`'s view) now zooms in 4 levels from those values — the pre-fit fallback zoom goes from 13 to 17, and the `fitBounds` cap from 15 to 19. Individual-task maps zoom in 2 levels: `LocationPicker.client.vue`'s fallback/pin zoom go from 15/17 to 17/19, and `TaskLocationPreview.client.vue`'s detail-page preview goes from 16 to 18 — these two weren't touched by the 2026-07-06 pass, but are adjusted now per this report. All new values stay within the OSM tile layer's `maxZoom: 19` (Mapbox's is higher, at 22). No schema or service-layer changes; `nuxt typecheck`, `eslint`, `prettier --check`, `vitest`, and `pnpm build` are all clean. As with the 2026-07-06 change, this is verified by reading the code and constants, not by loading `/map` or a task page with real farm/task data in a real browser session (same invite-only-OAuth sandbox limitation as M4–M8).
 
