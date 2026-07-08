@@ -160,6 +160,10 @@ Resolved 2026-07-06, implementing ROADMAP.md's "Optional shopping list per task"
 
 One small mechanical note: items list in insertion order via `ORDER BY created_at ASC, id ASC`. The `id` tiebreaker — which `task_photos`' `taken_at` ordering doesn't have — is deliberate: `now()` is transaction-time, so bulk-inserted rows would share a `created_at` and have undefined relative order without it.
 
+## Tool list: mirrors the shopping list precedent exactly, no new calls
+
+Resolved 2026-07-08, implementing ROADMAP.md's "Optional tool list per task" item. This reaffirms rather than revisits the shopping-list decision above: `task_tools` is its own table (not a reuse of `task_shopping_items`, tags, or notes), remains unmerged with the shopping list per the explicit ROADMAP call, and writes no `activity_log` events for the same reason (descriptive task context, not a lifecycle event). No genuinely new judgment call arose in building it — the service layer, composable, and component are structural copies of the shopping-list ones with `tool`/`chainsaw`-flavored naming, down to the `ORDER BY created_at ASC, id ASC` tiebreaker and the allow-duplicates behavior on `name`.
+
 ## Photo gallery: Vuetify's built-in `v-carousel`, not a new lightbox dependency
 
 Resolved 2026-07-06, implementing the task-page photo gallery/lightbox. No lightbox or carousel library (e.g. PhotoSwipe, Swiper, embla) was already installed, and none was added. Vuetify — already the app's only UI library — ships `v-carousel`/`v-carousel-item` with swipe support, transition animation, and slide state (`v-model`) built in, and `v-dialog fullscreen` already covers the modal-overlay chrome the way `v-dialog` does everywhere else in this app (e.g. the delete-confirm dialog on the task edit page). Combining the two gets a fullscreen, swipeable, arrow-navigable gallery with zero new dependencies to audit/update, at the cost of a plainer look than a purpose-built lightbox library (no pinch-zoom, no thumbnail strip) — acceptable for what SPEC.md asks for here (moving through a task's photos one at a time), and revisitable if richer gallery behavior is wanted later.

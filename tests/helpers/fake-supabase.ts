@@ -28,6 +28,10 @@ import type { Database } from '../../app/types/database.types'
 //   from('task_shopping_items').insert(row).select(...).single()
 //   from('task_shopping_items').update(row).eq('id', ...).select(...)
 //   from('task_shopping_items').delete().eq('id', ...)
+//   from('task_tools').select(...).eq('task_id', ...).order(...).order(...)
+//   from('task_tools').insert(row).select(...).single()
+//   from('task_tools').update(row).eq('id', ...).select(...)
+//   from('task_tools').delete().eq('id', ...)
 //   from('activity_log').select(...).eq('farm_id',...).eq('task_id',...).order('created_at',{ascending:false})
 //   from('farm_member_profiles').select(...).eq('farm_id',...).in('user_id',[...])
 //
@@ -49,6 +53,7 @@ type TableName =
   | 'task_tags'
   | 'task_photos'
   | 'task_shopping_items'
+  | 'task_tools'
   | 'farm_member_profiles'
 type Row = Record<string, unknown>
 
@@ -60,6 +65,7 @@ export interface FakeSupabaseSeed {
   task_tags?: Database['public']['Tables']['task_tags']['Row'][]
   task_photos?: Database['public']['Tables']['task_photos']['Row'][]
   task_shopping_items?: Database['public']['Tables']['task_shopping_items']['Row'][]
+  task_tools?: Database['public']['Tables']['task_tools']['Row'][]
   // Not a real table (it's a view), but the fake doesn't need to model that
   // distinction — it just needs queryable rows.
   farm_member_profiles?: Database['public']['Views']['farm_member_profiles']['Row'][]
@@ -260,6 +266,7 @@ export class FakeSupabaseClient {
     task_tags: 0,
     task_photos: 0,
     task_shopping_items: 0,
+    task_tools: 0,
     farm_member_profiles: 0,
   }
 
@@ -280,6 +287,7 @@ export class FakeSupabaseClient {
       task_shopping_items: cloneRows(
         seed.task_shopping_items as unknown as Row[] | undefined,
       ),
+      task_tools: cloneRows(seed.task_tools as unknown as Row[] | undefined),
       farm_member_profiles: cloneRows(
         seed.farm_member_profiles as unknown as Row[] | undefined,
       ),
