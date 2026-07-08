@@ -3,6 +3,12 @@ const { farms, farmsError, fetchFarms, activeFarmId, setActiveFarm } =
   useFarms()
 
 await fetchFarms()
+
+async function selectFarm(farmId: string) {
+  if (farmId === activeFarmId.value) return
+  setActiveFarm(farmId)
+  await navigateTo('/')
+}
 </script>
 
 <template>
@@ -31,7 +37,7 @@ await fetchFarms()
           :title="farm.name"
           :active="farm.id === activeFarmId"
           prepend-icon="mdi-barn"
-          @click="setActiveFarm(farm.id)"
+          @click="selectFarm(farm.id)"
         >
           <template #append>
             <v-icon
