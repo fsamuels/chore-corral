@@ -75,13 +75,13 @@ Not part of MVP. When built, this will use Leaflet.draw for polygon drawing and 
 
 ## Testing Strategy
 
-Moderate rigor for MVP: **unit and component tests only, no E2E** (Playwright deferred). Test coverage priorities:
+Two layers: unit/component tests (Vitest) plus a small Playwright E2E suite. Unit test coverage priorities:
 
 - Form validation logic (VeeValidate + Zod schemas)
 - Supabase query/data functions (mockable business logic)
 - Task lifecycle logic (e.g. status transitions clearing `completed_at`, category deletion's active-task check)
 
-E2E (Playwright) is a reasonable addition once core flows stabilize post-MVP, given this app has more end-to-end-worthy flows (photo upload, map interaction, GPS capture) than Durak Tracker did.
+**E2E (Playwright, `tests/e2e/`)**: real Google OAuth can't be scripted in CI, so tests authenticate by minting a real Supabase session out-of-band instead of adding any auth-bypass code path to the app. `tests/e2e/global-setup.ts` uses the Supabase **service-role key** (server/CLI-only, never shipped to the client) to seed a fixed test user + farm membership via the Admin API, signs in as that user with `signInWithPassword` to get a genuine access/refresh token pair, and writes it into Playwright's storage state using the same cookie format `@nuxtjs/supabase`/`@supabase/ssr` expect (`sb-<project-ref>-auth-token`, chunked and base64url-encoded). Every spec then starts already signed in, exercising real RLS as any user would. Requires `SUPABASE_SERVICE_ROLE_KEY` (and optional `E2E_TEST_USER_EMAIL`/`E2E_TEST_USER_PASSWORD`/`E2E_TEST_FARM_NAME`) — see `.env.example`. Run with `pnpm test:e2e`.
 
 ## CI/CD
 
