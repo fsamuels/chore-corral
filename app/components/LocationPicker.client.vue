@@ -40,8 +40,8 @@ const showMap = computed(() => pin.value !== null || placing.value)
 // The map center is deliberately plain state, not computed from the pin:
 // recentering on every drag tick would yank the map around mid-drag. It
 // moves only on mount and on a GPS fix.
-const FALLBACK_ZOOM = 15
-const PIN_ZOOM = 17
+const FALLBACK_ZOOM = 17
+const PIN_ZOOM = 19
 const center = ref<[number, number]>([20, 0])
 const zoom = ref(3)
 

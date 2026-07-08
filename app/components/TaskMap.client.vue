@@ -35,9 +35,9 @@ const statusDisplay: Record<TaskStatus, string> = {
 // Map center/zoom before pins load or fit — the farm's default center when
 // known, otherwise a world view. Once the map is ready, fitBounds (below)
 // takes over whenever there are pins to fit. Both this and fitBounds's
-// maxZoom below are set 2 levels lower/wider than their original values
-// (17/15) per user feedback that the map view was too zoomed in by default.
-const FALLBACK_ZOOM = 13
+// maxZoom below are set 4 levels higher/tighter than the previous values
+// (13/15) — the prior pass zoomed out in the wrong direction.
+const FALLBACK_ZOOM = 17
 const center = computed<[number, number]>(() =>
   props.fallbackCenter
     ? [props.fallbackCenter.lat, props.fallbackCenter.lng]
@@ -61,7 +61,7 @@ function onReady(map: LeafletMap) {
   const bounds = latLngBounds(
     pins.value.map((task) => [task.lat, task.lng] as [number, number]),
   )
-  map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 })
+  map.fitBounds(bounds, { padding: [40, 40], maxZoom: 19 })
 }
 
 function openTask(taskId: string) {
