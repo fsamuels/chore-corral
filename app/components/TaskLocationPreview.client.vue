@@ -10,7 +10,7 @@ const center = computed<[number, number]>(() => [props.lat, props.lng])
 </script>
 
 <template>
-  <FarmMap :center="center" :zoom="16" height="240px">
+  <FarmMap :center="center" :zoom="18" height="240px">
     <LMarker :lat-lng="center" />
   </FarmMap>
 </template>
