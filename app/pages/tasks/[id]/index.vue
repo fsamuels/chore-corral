@@ -307,6 +307,10 @@ const hasLocation = computed(
           <TaskShoppingList :task-id="task.id" readonly />
         </div>
 
+        <div class="mb-6">
+          <TaskTools :task-id="task.id" readonly />
+        </div>
+
         <v-divider class="my-6" />
 
         <div>

@@ -59,11 +59,12 @@ The core unit of work.
 | Location       | No                       | Single pin, optional (see Location section)                                                                                                                                                                     |
 | Photos         | No                       | Zero or more (see Photos section)                                                                                                                                                                               |
 | Shopping list  | No                       | Zero or more items to buy (see Shopping list section)                                                                                                                                                           |
+| Tool list      | No                       | Zero or more tools needed (see Tool list section)                                                                                                                                                               |
 | Created date   | Auto                     |                                                                                                                                                                                                                 |
 | Completed date | Auto                     | Set when status moves to Done; **cleared** if status moves out of Done                                                                                                                                          |
 | Farm           | Auto                     | Inherited from the active farm context; not user-editable                                                                                                                                                       |
 
-**Task creation form**: shows required fields only (Title, Category, Priority) with a "More details" expand/link to reveal all other fields (Notes, Tags, Location, Photos, Due date, Estimated time) at creation time.
+**Task creation form**: shows required fields only (Title, Category, Priority) with a "More details" expand/link to reveal all other fields (Notes, Tags, Location, Photos, Due date, Estimated time) at creation time. Shopping list and Tool list are edit-only (see their sections below) and don't appear on the creation form at all.
 
 **Task editing**: opens with all fields expanded by default (no collapsed state when editing an existing task).
 
@@ -153,7 +154,16 @@ Optional, per-task list of items to buy for the task (e.g. parts, supplies). Pos
 - Zero or more items per task; each has a free-text name and a checked ("bought") state.
 - Items are checked off **independently of the task's own status** — checking off every item doesn't complete the task, and completing the task doesn't touch the list.
 - Managed from the task Edit page (an item row needs a real task id, same constraint as photos); shown read-only on the task View page.
-- Deliberately a separate concept from the planned tool list (see ROADMAP.md) — the two are not unified, in case they diverge later.
+- Deliberately a separate concept from the tool list below — the two are not unified, in case they diverge later.
+
+### Tool list
+
+Optional, per-task list of tools needed to do the task (e.g. chainsaw, post driver). Post-MVP feature, from ROADMAP.md's near-term list.
+
+- Zero or more items per task; each has a free-text name and a checked ("ready"/"have it") state.
+- Items are checked off **independently of the task's own status** — checking off every item doesn't complete the task, and completing the task doesn't touch the list.
+- Managed from the task Edit page (an item row needs a real task id, same constraint as photos and the shopping list); shown read-only on the task View page.
+- Deliberately a separate concept from the shopping list above — the two are not unified, in case they diverge later (e.g. a shopping list wanting price/store fields a tool list wouldn't need).
 
 ### Activity Log
 
@@ -187,7 +197,7 @@ Each task's activity history is shown in-app, on that task's View page (see belo
 
 ### Task View page
 
-- Read-only, more detailed presentation of a single task than the list or edit form show: full field values, tags, location, photos, shopping list, and the task's Activity Log history (see above).
+- Read-only, more detailed presentation of a single task than the list or edit form show: full field values, tags, location, photos, shopping list, tool list, and the task's Activity Log history (see above).
 - Reachable from the task list, the Map view, and the dashboard's outstanding-tasks list.
 - Includes a quick status-change control (no need to open Edit just to mark a task In Progress or Done) and a link to the Edit page.
 
