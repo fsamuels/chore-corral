@@ -14,7 +14,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "nuxt typecheck",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "lint-staged": {
     "*.{js,mjs,ts,vue}": [
@@ -34,6 +35,7 @@
   "devDependencies": {
     "@nuxt/eslint": "^1.16.0",
     "@nuxtjs/supabase": "^2.0.9",
+    "@playwright/test": "^1.61.1",
     "@supabase/supabase-js": "2.110.0",
     "@types/leaflet": "^1.9.21",
     "@vue-leaflet/vue-leaflet": "^0.10.1",
