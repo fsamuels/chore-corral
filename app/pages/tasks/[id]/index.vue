@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import {
   isTaskOverdue,
+  parseLocalDateString,
+  toLocalDateString,
   type TaskPriority,
   type TaskStatus,
 } from '~/services/tasks'
@@ -12,7 +14,7 @@ const taskId = computed(() => route.params.id as string)
 
 const { fetchFarms, activeFarm, activeFarmId, farmsError } = useFarms()
 const { task, taskError, loading, fetchTask } = useTask(taskId)
-const { setStatus } = useTasks()
+const { setStatus, update } = useTasks()
 const { categories, fetchCategories } = useCategories()
 
 await fetchFarms()
@@ -68,6 +70,117 @@ async function onStatusChange(status: TaskStatus) {
   } finally {
     statusChanging.value = false
   }
+}
+
+// --- In-place field editing (immediate save per field; see DECISIONS.md) ---
+// Each chip edits one field via `updateTask`'s full-field write, carrying
+// the unchanged fields from the freshly loaded task.
+
+const priorityItems: { title: string; value: TaskPriority }[] = [
+  { title: 'Urgent', value: 'urgent' },
+  { title: 'Soon', value: 'soon' },
+  { title: 'Whenever', value: 'whenever' },
+]
+
+const categoryItems = computed(() => [
+  { title: 'Uncategorized', value: null as string | null },
+  ...(categories.value ?? []).map((category) => ({
+    title: category.name,
+    value: category.id as string | null,
+  })),
+])
+
+type EditableField = 'priority' | 'category' | 'dueDate' | 'estimate'
+const fieldSaving = ref<EditableField | null>(null)
+const fieldSaveError = ref<string | null>(null)
+
+async function saveTaskField(
+  field: EditableField,
+  patch: Partial<{
+    categoryId: string | null
+    priority: TaskPriority
+    dueDate: string | null
+    estimatedMinutes: number | null
+  }>,
+): Promise<boolean> {
+  const current = task.value
+  if (!current) return false
+  fieldSaving.value = field
+  fieldSaveError.value = null
+  try {
+    await update({
+      taskId: current.id,
+      title: current.title,
+      categoryId: current.category_id,
+      priority: current.priority,
+      dueDate: current.due_date,
+      estimatedMinutes: current.estimated_minutes,
+      notes: current.notes,
+      lat: current.lat,
+      lng: current.lng,
+      tagNames: current.tags.map((tag) => tag.name),
+      ...patch,
+    })
+    await fetchTask()
+    return true
+  } catch (error) {
+    fieldSaveError.value =
+      error instanceof Error ? error.message : 'Failed to save change'
+    return false
+  } finally {
+    fieldSaving.value = null
+  }
+}
+
+function onPrioritySelect(priority: TaskPriority) {
+  if (task.value?.priority === priority) return
+  saveTaskField('priority', { priority })
+}
+
+function onCategorySelect(categoryId: string | null) {
+  if ((task.value?.category_id ?? null) === categoryId) return
+  saveTaskField('category', { categoryId })
+}
+
+const dueDateMenu = ref(false)
+const dueDatePickerValue = computed(() =>
+  task.value?.due_date ? parseLocalDateString(task.value.due_date) : null,
+)
+
+async function onDueDatePick(value: unknown) {
+  if (!(value instanceof Date)) return
+  const dueDate = toLocalDateString(value)
+  if (task.value?.due_date === dueDate) {
+    dueDateMenu.value = false
+    return
+  }
+  if (await saveTaskField('dueDate', { dueDate })) dueDateMenu.value = false
+}
+
+async function onDueDateClear() {
+  if (await saveTaskField('dueDate', { dueDate: null }))
+    dueDateMenu.value = false
+}
+
+const estimateMenu = ref(false)
+const estimateInput = ref('')
+watch(estimateMenu, (open) => {
+  if (open) {
+    estimateInput.value =
+      task.value?.estimated_minutes != null
+        ? String(task.value.estimated_minutes)
+        : ''
+  }
+})
+
+async function onEstimateSave() {
+  const estimatedMinutes = parseEstimatedMinutesInput(estimateInput.value)
+  if (task.value?.estimated_minutes === estimatedMinutes) {
+    estimateMenu.value = false
+    return
+  }
+  if (await saveTaskField('estimate', { estimatedMinutes }))
+    estimateMenu.value = false
 }
 
 // One-time warning from the create page when a staged photo failed to
@@ -209,12 +322,32 @@ const hasLocation = computed(
         </div>
 
         <div class="d-flex flex-wrap ga-2 mb-6">
-          <v-chip
-            :prepend-icon="PRIORITY_DISPLAY[task.priority].icon"
-            :color="PRIORITY_DISPLAY[task.priority].color || undefined"
-          >
-            {{ PRIORITY_DISPLAY[task.priority].label }}
-          </v-chip>
+          <v-menu>
+            <template #activator="{ props: activatorProps }">
+              <v-chip
+                v-bind="activatorProps"
+                link
+                :prepend-icon="PRIORITY_DISPLAY[task.priority].icon"
+                :color="PRIORITY_DISPLAY[task.priority].color || undefined"
+                append-icon="mdi-menu-down"
+                :disabled="fieldSaving !== null"
+              >
+                {{ PRIORITY_DISPLAY[task.priority].label }}
+              </v-chip>
+            </template>
+            <v-list density="compact">
+              <v-list-item
+                v-for="item in priorityItems"
+                :key="item.value"
+                :prepend-icon="PRIORITY_DISPLAY[item.value].icon"
+                :active="item.value === task.priority"
+                @click="onPrioritySelect(item.value)"
+              >
+                <v-list-item-title>{{ item.title }}</v-list-item-title>
+              </v-list-item>
+            </v-list>
+          </v-menu>
+
           <v-chip
             v-if="isTaskOverdue(task)"
             color="error"
@@ -222,23 +355,127 @@ const hasLocation = computed(
           >
             Overdue
           </v-chip>
-          <v-chip
-            :class="{
-              'text-medium-emphasis font-italic': categoryDisplay(
-                task.category_id,
-              ).deleted,
-            }"
-          >
-            {{ categoryDisplay(task.category_id).text }}
-          </v-chip>
-          <v-chip v-if="task.due_date"> Due {{ task.due_date }} </v-chip>
-          <v-chip
-            v-if="task.estimated_minutes !== null"
-            prepend-icon="mdi-timer-outline"
-          >
-            Est. {{ formatEstimatedMinutes(task.estimated_minutes) }}
-          </v-chip>
+
+          <v-menu>
+            <template #activator="{ props: activatorProps }">
+              <v-chip
+                v-bind="activatorProps"
+                link
+                append-icon="mdi-menu-down"
+                :disabled="fieldSaving !== null"
+                :class="{
+                  'text-medium-emphasis font-italic': categoryDisplay(
+                    task.category_id,
+                  ).deleted,
+                }"
+              >
+                {{ categoryDisplay(task.category_id).text }}
+              </v-chip>
+            </template>
+            <v-list density="compact">
+              <v-list-item
+                v-for="item in categoryItems"
+                :key="item.value ?? 'uncategorized'"
+                :active="item.value === (task.category_id ?? null)"
+                @click="onCategorySelect(item.value)"
+              >
+                <v-list-item-title>{{ item.title }}</v-list-item-title>
+              </v-list-item>
+            </v-list>
+          </v-menu>
+
+          <v-menu v-model="dueDateMenu" :close-on-content-click="false">
+            <template #activator="{ props: activatorProps }">
+              <v-chip
+                v-bind="activatorProps"
+                link
+                :variant="task.due_date ? undefined : 'outlined'"
+                :prepend-icon="task.due_date ? undefined : 'mdi-calendar-plus'"
+                append-icon="mdi-menu-down"
+                :disabled="fieldSaving !== null"
+              >
+                {{ task.due_date ? `Due ${task.due_date}` : 'Add due date' }}
+              </v-chip>
+            </template>
+            <v-card>
+              <v-date-picker
+                :model-value="dueDatePickerValue"
+                hide-header
+                show-adjacent-months
+                @update:model-value="onDueDatePick"
+              />
+              <v-card-actions v-if="task.due_date">
+                <v-spacer />
+                <v-btn
+                  color="error"
+                  variant="text"
+                  :loading="fieldSaving === 'dueDate'"
+                  @click="onDueDateClear"
+                >
+                  Clear due date
+                </v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-menu>
+
+          <v-menu v-model="estimateMenu" :close-on-content-click="false">
+            <template #activator="{ props: activatorProps }">
+              <v-chip
+                v-bind="activatorProps"
+                link
+                :variant="
+                  task.estimated_minutes !== null ? undefined : 'outlined'
+                "
+                prepend-icon="mdi-timer-outline"
+                append-icon="mdi-menu-down"
+                :disabled="fieldSaving !== null"
+              >
+                {{
+                  task.estimated_minutes !== null
+                    ? `Est. ${formatEstimatedMinutes(task.estimated_minutes)}`
+                    : 'Add estimate'
+                }}
+              </v-chip>
+            </template>
+            <v-card min-width="280">
+              <v-card-text>
+                <v-text-field
+                  v-model="estimateInput"
+                  label="Estimated time (minutes)"
+                  type="number"
+                  min="1"
+                  step="1"
+                  density="comfortable"
+                  variant="outlined"
+                  hide-details
+                  autofocus
+                  @keydown.enter="onEstimateSave"
+                />
+              </v-card-text>
+              <v-card-actions>
+                <v-spacer />
+                <v-btn @click="estimateMenu = false">Cancel</v-btn>
+                <v-btn
+                  color="primary"
+                  :loading="fieldSaving === 'estimate'"
+                  @click="onEstimateSave"
+                >
+                  Save
+                </v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-menu>
         </div>
+
+        <v-alert
+          v-if="fieldSaveError"
+          type="error"
+          variant="tonal"
+          density="compact"
+          class="mb-6"
+        >
+          {{ fieldSaveError }}
+        </v-alert>
 
         <v-select
           :model-value="task.status"
