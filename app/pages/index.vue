@@ -6,14 +6,8 @@ import {
   compareBacklog,
   isCollapsibleBacklogTask,
   toLocalDateString,
-  type TaskStatus,
   type TaskSummary,
 } from '~/services/tasks'
-import {
-  PRIORITY_DISPLAY,
-  STATUS_DISPLAY,
-  formatDueDate,
-} from '~/utils/task-display'
 
 const { fetchFarms, activeFarm, farmsError } = useFarms()
 const { tasks, tasksError, loading, fetchTasks, setStatus } = useTasks()
@@ -33,7 +27,7 @@ const outstandingTasks = computed(
   () => tasks.value?.filter((task) => task.status !== 'done') ?? [],
 )
 
-// Stat chips always summarize *all* outstanding tasks, unfiltered.
+// Stat pills always summarize *all* outstanding tasks, unfiltered.
 const overdueCount = computed(
   () => outstandingTasks.value.filter((task) => isTaskOverdue(task)).length,
 )
@@ -88,28 +82,10 @@ const updatingTaskId = ref<string | null>(null)
 const snackbarMessage = ref<string | null>(null)
 const showSnackbar = ref(false)
 
-function nextStatus(status: TaskStatus): TaskStatus | null {
-  if (status === 'not_started') return 'in_progress'
-  if (status === 'in_progress') return 'done'
-  return null
-}
-
-function statusActionIcon(status: TaskStatus): string {
-  return status === 'in_progress'
-    ? 'mdi-check-circle-outline'
-    : 'mdi-play-circle-outline'
-}
-
-function statusActionLabel(status: TaskStatus): string {
-  return status === 'in_progress' ? 'Mark done' : 'Start'
-}
-
-async function advanceStatus(task: TaskSummary) {
-  const next = nextStatus(task.status)
-  if (!next) return
+async function completeTask(task: TaskSummary) {
   updatingTaskId.value = task.id
   try {
-    await setStatus(task.id, next)
+    await setStatus(task.id, 'done')
   } catch (error) {
     snackbarMessage.value =
       error instanceof Error ? error.message : 'Failed to update status'
@@ -123,7 +99,7 @@ async function advanceStatus(task: TaskSummary) {
 </script>
 
 <template>
-  <v-container>
+  <v-container class="home">
     <v-alert
       v-if="farmsError"
       type="error"
@@ -151,24 +127,22 @@ async function advanceStatus(task: TaskSummary) {
       </div>
 
       <template v-else>
-        <div class="d-flex flex-wrap ga-2 mb-6">
-          <v-chip size="small" variant="tonal">
-            {{ outstandingTasks.length }} outstanding
-          </v-chip>
-          <v-chip
-            size="small"
-            variant="tonal"
-            :color="urgentCount > 0 ? 'warning' : undefined"
+        <div class="home__stats">
+          <span class="cc-pill cc-pill--surface">
+            {{ outstandingTasks.length }} open
+          </span>
+          <span
+            class="cc-pill"
+            :class="urgentCount > 0 ? 'cc-pill--urgent' : 'cc-pill--muted'"
           >
             {{ urgentCount }} urgent
-          </v-chip>
-          <v-chip
-            size="small"
-            variant="tonal"
-            :color="overdueCount > 0 ? 'error' : undefined"
+          </span>
+          <span
+            class="cc-pill"
+            :class="overdueCount > 0 ? 'cc-pill--error' : 'cc-pill--muted'"
           >
             {{ overdueCount }} overdue
-          </v-chip>
+          </span>
         </div>
 
         <div
@@ -193,188 +167,71 @@ async function advanceStatus(task: TaskSummary) {
         </div>
 
         <template v-else>
-          <v-list v-if="upNext.length > 0" lines="two" class="mb-2">
-            <v-list-subheader>Up next</v-list-subheader>
-            <v-list-item
-              v-for="task in upNext"
-              :key="task.id"
-              :to="`/tasks/${task.id}`"
-              border
-              rounded
-              elevation="1"
-              class="mb-2 task-row"
-              :class="`task-row--${task.priority}`"
-            >
-              <template #prepend>
-                <v-btn
-                  v-if="nextStatus(task.status)"
-                  variant="text"
-                  :icon="statusActionIcon(task.status)"
-                  :aria-label="statusActionLabel(task.status)"
-                  :title="statusActionLabel(task.status)"
-                  :loading="updatingTaskId === task.id"
-                  class="mr-2"
-                  @click.stop.prevent="advanceStatus(task)"
-                />
-                <v-icon
-                  v-else
-                  :icon="STATUS_DISPLAY[task.status].icon"
-                  :aria-label="STATUS_DISPLAY[task.status].label"
-                  :title="STATUS_DISPLAY[task.status].label"
-                  class="mr-2"
-                />
-              </template>
-              <v-list-item-title :class="{ 'text-error': isTaskOverdue(task) }">
-                {{ task.title }}
-              </v-list-item-title>
-              <v-list-item-subtitle>
-                {{ categoryName(task) }}
-                <template v-if="task.due_date">
-                  ·
-                  <span :class="{ 'text-error': isTaskOverdue(task) }">
-                    {{ formatDueDate(task.due_date, today) }}
-                  </span>
-                </template>
-              </v-list-item-subtitle>
-              <template #append>
-                <div class="d-flex align-center ga-2 text-medium-emphasis">
-                  <v-icon
-                    v-if="task.lat !== null && task.lng !== null"
-                    icon="mdi-map-marker-outline"
-                    size="small"
-                    aria-label="Has location"
-                    title="Has location"
-                  />
-                  <span
-                    v-if="task.photo_count > 0"
-                    class="d-flex align-center ga-1"
-                  >
-                    <v-icon
-                      icon="mdi-image-outline"
-                      size="small"
-                      aria-label="Has photos"
-                      title="Has photos"
-                    />
-                    <span v-if="task.photo_count > 1" class="text-caption">
-                      {{ task.photo_count }}
-                    </span>
-                  </span>
-                  <v-icon
-                    :icon="PRIORITY_DISPLAY[task.priority].icon"
-                    size="small"
-                    :aria-label="`${PRIORITY_DISPLAY[task.priority].label} priority`"
-                    :title="`${PRIORITY_DISPLAY[task.priority].label} priority`"
-                  />
-                </div>
-              </template>
-            </v-list-item>
-          </v-list>
+          <section v-if="upNext.length > 0" class="home__section">
+            <h2 class="cc-section-title home__section-heading">Up next</h2>
+            <div class="home__cards">
+              <TaskCard
+                v-for="task in upNext"
+                :key="task.id"
+                :task="task"
+                :category-name="categoryName(task)"
+                :today="today"
+                :updating="updatingTaskId === task.id"
+                @complete="completeTask"
+              />
+            </div>
+          </section>
 
-          <v-list v-if="backlogDisplayed.length > 0" lines="two" class="mb-2">
-            <v-list-subheader>Backlog</v-list-subheader>
-            <v-list-item
-              v-for="task in backlogDisplayed"
-              :key="task.id"
-              :to="`/tasks/${task.id}`"
-              border
-              rounded
-              elevation="1"
-              class="mb-2 task-row"
-              :class="`task-row--${task.priority}`"
-            >
-              <template #prepend>
-                <v-btn
-                  v-if="nextStatus(task.status)"
-                  variant="text"
-                  :icon="statusActionIcon(task.status)"
-                  :aria-label="statusActionLabel(task.status)"
-                  :title="statusActionLabel(task.status)"
-                  :loading="updatingTaskId === task.id"
-                  class="mr-2"
-                  @click.stop.prevent="advanceStatus(task)"
-                />
-                <v-icon
-                  v-else
-                  :icon="STATUS_DISPLAY[task.status].icon"
-                  :aria-label="STATUS_DISPLAY[task.status].label"
-                  :title="STATUS_DISPLAY[task.status].label"
-                  class="mr-2"
-                />
-              </template>
-              <v-list-item-title :class="{ 'text-error': isTaskOverdue(task) }">
-                {{ task.title }}
-              </v-list-item-title>
-              <v-list-item-subtitle>
-                {{ categoryName(task) }}
-                <template v-if="task.due_date">
-                  ·
-                  <span :class="{ 'text-error': isTaskOverdue(task) }">
-                    {{ formatDueDate(task.due_date, today) }}
-                  </span>
-                </template>
-              </v-list-item-subtitle>
-              <template #append>
-                <div class="d-flex align-center ga-2 text-medium-emphasis">
-                  <v-icon
-                    v-if="task.lat !== null && task.lng !== null"
-                    icon="mdi-map-marker-outline"
-                    size="small"
-                    aria-label="Has location"
-                    title="Has location"
-                  />
-                  <span
-                    v-if="task.photo_count > 0"
-                    class="d-flex align-center ga-1"
-                  >
-                    <v-icon
-                      icon="mdi-image-outline"
-                      size="small"
-                      aria-label="Has photos"
-                      title="Has photos"
-                    />
-                    <span v-if="task.photo_count > 1" class="text-caption">
-                      {{ task.photo_count }}
-                    </span>
-                  </span>
-                  <v-icon
-                    :icon="PRIORITY_DISPLAY[task.priority].icon"
-                    size="small"
-                    :aria-label="`${PRIORITY_DISPLAY[task.priority].label} priority`"
-                    :title="`${PRIORITY_DISPLAY[task.priority].label} priority`"
-                  />
-                </div>
-              </template>
-            </v-list-item>
-          </v-list>
+          <section v-if="backlogDisplayed.length > 0" class="home__section">
+            <div class="home__section-heading home__section-heading--row">
+              <h2 class="cc-section-title">Backlog</h2>
+              <span class="home__section-count">
+                {{ backlog.length }}
+                {{ backlog.length === 1 ? 'chore' : 'chores' }}
+              </span>
+            </div>
+            <div class="home__cards">
+              <TaskCard
+                v-for="task in backlogDisplayed"
+                :key="task.id"
+                :task="task"
+                :category-name="categoryName(task)"
+                :today="today"
+                :updating="updatingTaskId === task.id"
+                @complete="completeTask"
+              />
+            </div>
+          </section>
 
           <div v-if="collapsedCount > 0" class="mb-4">
-            <v-btn
-              variant="text"
-              density="comfortable"
+            <button
+              type="button"
+              class="cc-text-link"
               @click="tailExpanded = !tailExpanded"
             >
               {{ tailExpanded ? 'Show less' : `Show ${collapsedCount} more` }}
-            </v-btn>
+            </button>
           </div>
 
-          <div class="text-center mt-2">
-            <v-btn variant="text" to="/tasks">View all tasks</v-btn>
+          <div class="text-center mt-4">
+            <NuxtLink to="/tasks" class="cc-text-link cc-text-link--muted">
+              View all tasks
+            </NuxtLink>
           </div>
         </template>
       </template>
     </template>
 
-    <v-btn
-      icon="mdi-plus"
-      color="primary"
-      size="large"
-      elevation="6"
+    <NuxtLink
+      to="/tasks/new"
       class="home-fab"
       :class="{ 'home-fab--above-bottom-nav': mobile }"
-      aria-label="Add task"
-      title="Add task"
-      to="/tasks/new"
-    />
+      aria-label="New chore"
+      title="New chore"
+    >
+      <v-icon icon="mdi-plus" size="20" />
+      <span>New chore</span>
+    </NuxtLink>
 
     <v-snackbar v-model="showSnackbar" color="error" :timeout="6000">
       {{ snackbarMessage }}
@@ -383,25 +240,61 @@ async function advanceStatus(task: TaskSummary) {
 </template>
 
 <style scoped>
-.task-row {
-  border-left: 4px solid transparent;
+.home {
+  max-width: 900px;
 }
 
-.task-row--urgent {
-  border-left-color: rgb(var(--v-theme-error));
+.home__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
 }
 
-.task-row--soon {
-  border-left-color: rgb(var(--v-theme-warning));
+.home__section {
+  margin-bottom: 24px;
 }
 
-/* Material Design FAB: fixed bottom-right, above the mobile bottom nav
-   (56px tall) when it's present so the two don't overlap. */
+.home__section-heading {
+  margin-bottom: 12px;
+}
+
+.home__section-heading--row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.home__section-count {
+  color: var(--cc-ink-muted);
+  font-size: 0.8125rem;
+}
+
+.home__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Floating pill "+ New chore" button: fixed bottom-right, above the mobile
+   bottom nav (56px tall) when it's present so the two don't overlap. */
 .home-fab {
   position: fixed;
   right: 24px;
   bottom: 24px;
   z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--cc-accent);
+  color: var(--cc-accent-contrast);
+  border-radius: 999px;
+  padding: 12px 20px;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(43, 33, 24, 0.25);
 }
 
 .home-fab--above-bottom-nav {

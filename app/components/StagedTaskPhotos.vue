@@ -60,7 +60,7 @@ onUnmounted(() => {
 
 <template>
   <div>
-    <p class="text-body-2 mb-2">Photos</p>
+    <p class="cc-eyebrow mb-2">Photos</p>
 
     <input
       ref="cameraInput"

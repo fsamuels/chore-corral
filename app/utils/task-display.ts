@@ -5,18 +5,38 @@ import {
 } from '../services/tasks'
 import type { CategorySummary } from '../services/categories'
 
-// Shared between /tasks and / (home) so the two task views agree on how a
-// priority or a soft-deleted category renders.
-export const PRIORITY_DISPLAY: Record<
+/**
+ * The ranch-design priority color system (design tokens). The same values
+ * exist as CSS custom properties in app/assets/css/main.css
+ * (--cc-<priority>-ring/-fill/-text/-pill-bg); this constant is for code
+ * that needs the hex values in script (e.g. TaskCard inline styles).
+ *
+ * - ring:   3px circle ring on the TaskCard complete-checkbox
+ * - fill:   soft interior fill of that circle
+ * - text:   pill/label text color for the priority
+ * - pillBg: background of the priority pill in card meta rows & stat pills
+ */
+export const PRIORITY_COLORS: Record<
   TaskPriority,
-  { color: string; label: string; icon: string }
+  { ring: string; fill: string; text: string; pillBg: string }
 > = {
-  urgent: { color: 'error', label: 'Urgent', icon: 'mdi-fire' },
-  soon: { color: 'warning', label: 'Soon', icon: 'mdi-clock-alert-outline' },
+  urgent: {
+    ring: '#c0391f',
+    fill: '#f6ddd5',
+    text: '#993d1f',
+    pillBg: '#efd4c8',
+  },
+  soon: {
+    ring: '#d98a1a',
+    fill: '#f7e8c9',
+    text: '#8a5a00',
+    pillBg: '#f7e8c9',
+  },
   whenever: {
-    color: '',
-    label: 'Whenever',
-    icon: 'mdi-calendar-blank-outline',
+    ring: '#8ba06b',
+    fill: '#e7ecdb',
+    text: '#5d6e3a',
+    pillBg: '#e7ecdb',
   },
 }
 

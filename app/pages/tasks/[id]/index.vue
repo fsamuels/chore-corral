@@ -86,6 +86,21 @@ const priorityItems: { title: string; value: TaskPriority }[] = [
   { title: 'Whenever', value: 'whenever' },
 ]
 
+// Pill icon/label for the priority system (mdi-fire for urgent, clock for
+// soon, no icon for whenever) — shared by the priority menu and the
+// activity feed's "Priority changed" entries.
+function priorityIcon(priority: TaskPriority): string | null {
+  if (priority === 'urgent') return 'mdi-fire'
+  if (priority === 'soon') return 'mdi-clock-outline'
+  return null
+}
+
+function priorityLabel(priority: TaskPriority): string {
+  if (priority === 'urgent') return 'Urgent'
+  if (priority === 'soon') return 'Soon'
+  return 'Whenever'
+}
+
 const categoryItems = computed(() => [
   { title: 'Uncategorized', value: null as string | null },
   ...(categories.value ?? []).map((category) => ({
@@ -382,7 +397,7 @@ function eventLabel(entry: ActivityEntry): string {
     return `Status changed: ${label(oldStatus)} → ${label(newStatus)}`
   }
   if (entry.event_type === 'task_priority_changed') {
-    const label = (p: string) => PRIORITY_DISPLAY[p as TaskPriority]?.label ?? p
+    const label = (p: string) => priorityLabel(p as TaskPriority)
     const oldPriority = String(entry.event_detail.old_priority ?? '')
     const newPriority = String(entry.event_detail.new_priority ?? '')
     return `Priority changed: ${label(oldPriority)} → ${label(newPriority)}`
@@ -505,22 +520,27 @@ const hasLocation = computed(
         <div class="d-flex flex-wrap ga-2 mb-6">
           <v-menu>
             <template #activator="{ props: activatorProps }">
-              <v-chip
+              <button
+                type="button"
                 v-bind="activatorProps"
-                link
-                :prepend-icon="PRIORITY_DISPLAY[task.priority].icon"
-                :color="PRIORITY_DISPLAY[task.priority].color || undefined"
-                append-icon="mdi-menu-down"
+                class="cc-pill cc-pill--pick"
+                :class="`cc-pill--${task.priority}`"
                 :disabled="fieldSaving !== null"
               >
-                {{ PRIORITY_DISPLAY[task.priority].label }}
-              </v-chip>
+                <v-icon
+                  v-if="priorityIcon(task.priority)"
+                  :icon="priorityIcon(task.priority)!"
+                  size="14"
+                />
+                {{ priorityLabel(task.priority) }}
+                <v-icon icon="mdi-menu-down" size="16" />
+              </button>
             </template>
             <v-list density="compact">
               <v-list-item
                 v-for="item in priorityItems"
                 :key="item.value"
-                :prepend-icon="PRIORITY_DISPLAY[item.value].icon"
+                :prepend-icon="priorityIcon(item.value) ?? undefined"
                 :active="item.value === task.priority"
                 @click="onPrioritySelect(item.value)"
               >
@@ -529,13 +549,10 @@ const hasLocation = computed(
             </v-list>
           </v-menu>
 
-          <v-chip
-            v-if="isTaskOverdue(task)"
-            color="error"
-            :prepend-icon="OVERDUE_ICON"
-          >
+          <span v-if="isTaskOverdue(task)" class="cc-pill cc-pill--error">
+            <v-icon :icon="OVERDUE_ICON" size="14" />
             Overdue
-          </v-chip>
+          </span>
 
           <v-menu>
             <template #activator="{ props: activatorProps }">
@@ -696,7 +713,7 @@ const hasLocation = computed(
           {{ statusChangeError }}
         </v-alert>
 
-        <div class="mb-6">
+        <div class="cc-card mb-6">
           <TaskTimer
             :task-id="task.id"
             :estimated-minutes="task.estimated_minutes"
@@ -704,8 +721,8 @@ const hasLocation = computed(
           />
         </div>
 
-        <div class="mb-6">
-          <p class="text-body-2 text-medium-emphasis mb-2">Tags</p>
+        <div class="cc-card mb-6">
+          <p class="cc-eyebrow mb-2">Tags</p>
           <template v-if="editingTags">
             <v-combobox
               v-model="tagsDraft"
@@ -765,8 +782,8 @@ const hasLocation = computed(
           </div>
         </div>
 
-        <div class="mb-6">
-          <p class="text-body-2 text-medium-emphasis mb-2">Notes</p>
+        <div class="cc-card mb-6">
+          <p class="cc-eyebrow mb-2">Notes</p>
           <v-textarea
             v-if="editingNotes"
             v-model="notesDraft"
@@ -793,8 +810,8 @@ const hasLocation = computed(
           </p>
         </div>
 
-        <div class="mb-6">
-          <p class="text-body-2 text-medium-emphasis mb-2">Location</p>
+        <div class="cc-card mb-6">
+          <p class="cc-eyebrow mb-2">Location</p>
           <template v-if="editingLocation">
             <LocationPicker
               v-model="locationDraft"
@@ -844,22 +861,20 @@ const hasLocation = computed(
           </p>
         </div>
 
-        <div class="mb-6">
+        <div class="cc-card mb-6">
           <TaskPhotos :task-id="task.id" />
         </div>
 
-        <div class="mb-6">
+        <div class="cc-card mb-6">
           <TaskShoppingList :task-id="task.id" />
         </div>
 
-        <div class="mb-6">
+        <div class="cc-card mb-6">
           <TaskTools :task-id="task.id" />
         </div>
 
-        <v-divider class="my-6" />
-
-        <div>
-          <h2 class="text-h6 mb-3">Activity</h2>
+        <div class="cc-card mb-6">
+          <h2 class="cc-section-title mb-3">Activity</h2>
           <v-alert
             v-if="activityError"
             type="error"
@@ -892,8 +907,6 @@ const hasLocation = computed(
             </v-timeline-item>
           </v-timeline>
         </div>
-
-        <v-divider class="my-6" />
 
         <div class="d-flex justify-end">
           <v-btn
@@ -946,3 +959,18 @@ const hasLocation = computed(
     </template>
   </v-container>
 </template>
+
+<style scoped>
+/* Clickable priority pill (menu activator) — reset button chrome, keep the
+   cc-pill look, add a disabled state to match the surrounding v-chips. */
+.cc-pill--pick {
+  border: none;
+  cursor: pointer;
+  font-family: var(--cc-font-sans);
+}
+
+.cc-pill--pick:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+</style>

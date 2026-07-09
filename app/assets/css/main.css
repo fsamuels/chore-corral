@@ -1,0 +1,167 @@
+/*
+ * Chore Corral design tokens — the "ranch" look.
+ *
+ * Single source of truth for the palette and priority colors as CSS custom
+ * properties, shared by the app shell, TaskCard, and every page. The same
+ * priority values exist as a TS constant (PRIORITY_COLORS in
+ * app/utils/task-display.ts) for places that need them in script.
+ */
+
+:root {
+  /* Surfaces */
+  --cc-bg: #f7f3ea; /* warm cream page background */
+  --cc-surface: #fdfcf9; /* near-white warm card background */
+  --cc-border: #ece5d6; /* faint neutral card border */
+  --cc-border-urgent: #e9c9a8; /* urgent card border */
+
+  /* Ink */
+  --cc-ink: #2b2118; /* deep warm brown, headings/body */
+  --cc-ink-muted: #8a7d6d; /* muted warm gray-brown, secondary text */
+
+  /* Accent */
+  --cc-accent: #b5541e; /* burnt orange: FAB, links, active nav */
+  --cc-accent-contrast: #ffffff;
+
+  /* Priority: urgent */
+  --cc-urgent-ring: #c0391f;
+  --cc-urgent-fill: #f6ddd5;
+  --cc-urgent-text: #993d1f;
+  --cc-urgent-pill-bg: #efd4c8;
+
+  /* Priority: soon */
+  --cc-soon-ring: #d98a1a;
+  --cc-soon-fill: #f7e8c9;
+  --cc-soon-text: #8a5a00;
+  --cc-soon-pill-bg: #f7e8c9;
+
+  /* Priority: whenever */
+  --cc-whenever-ring: #8ba06b;
+  --cc-whenever-fill: #e7ecdb;
+  --cc-whenever-text: #5d6e3a;
+  --cc-whenever-pill-bg: #e7ecdb;
+
+  /* Neutral pill (e.g. "0 overdue") */
+  --cc-pill-muted-bg: #ede8dc;
+  --cc-pill-muted-text: #8a7d6d;
+
+  /* Type */
+  --cc-font-slab: 'Zilla Slab', 'Georgia', serif;
+  --cc-font-sans:
+    'Inter', -apple-system, 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+
+  /* Card shape */
+  --cc-radius: 16px;
+  --cc-shadow: 0 1px 3px rgba(43, 33, 24, 0.06);
+}
+
+/* Base typography: sans body, slab headings. */
+.v-application {
+  font-family: var(--cc-font-sans);
+  color: var(--cc-ink);
+}
+
+.v-application h1,
+.v-application h2,
+.v-application h3,
+.cc-slab {
+  font-family: var(--cc-font-slab);
+  color: var(--cc-ink);
+}
+
+/* Eyebrow label: 11px uppercase letterspaced sans. */
+.cc-eyebrow {
+  font-family: var(--cc-font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cc-ink-muted);
+}
+
+/* Slab-serif section heading ("Up next", "Backlog"). */
+.cc-section-title {
+  font-family: var(--cc-font-slab);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--cc-ink);
+  line-height: 1.2;
+}
+
+/* Stat / status pill base. */
+.cc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.cc-pill--surface {
+  background: var(--cc-surface);
+  color: var(--cc-ink);
+  box-shadow: var(--cc-shadow);
+  border: 1px solid var(--cc-border);
+}
+
+.cc-pill--muted {
+  background: var(--cc-pill-muted-bg);
+  color: var(--cc-pill-muted-text);
+}
+
+.cc-pill--urgent {
+  background: var(--cc-urgent-pill-bg);
+  color: var(--cc-urgent-text);
+}
+
+.cc-pill--soon {
+  background: var(--cc-soon-pill-bg);
+  color: var(--cc-soon-text);
+}
+
+.cc-pill--whenever {
+  background: var(--cc-whenever-pill-bg);
+  color: var(--cc-whenever-text);
+}
+
+.cc-pill--error {
+  background: var(--cc-urgent-pill-bg);
+  color: var(--cc-urgent-ring);
+}
+
+/* Quiet orange text link ("Show 3 more"). */
+.cc-text-link {
+  color: var(--cc-accent);
+  font-weight: 600;
+  text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--cc-font-sans);
+  font-size: 0.9375rem;
+}
+
+.cc-text-link:hover {
+  text-decoration: underline;
+}
+
+/* Muted variant ("View all tasks"). */
+.cc-text-link--muted {
+  color: var(--cc-ink-muted);
+  font-weight: 500;
+}
+
+/* Generic ranch card: surface background, soft shadow, rounded corners.
+   Shared wrapper for form pages, detail-page sections, and simple list
+   pages that don't need TaskCard's bespoke layout. */
+.cc-card {
+  background: var(--cc-surface);
+  border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius);
+  box-shadow: var(--cc-shadow);
+  padding: 20px;
+}

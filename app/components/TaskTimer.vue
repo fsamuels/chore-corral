@@ -74,7 +74,7 @@ async function onStart(): Promise<void> {
 
 <template>
   <div>
-    <p class="text-body-2 mb-2">Time tracked</p>
+    <p class="cc-eyebrow mb-2">Time tracked</p>
 
     <v-alert
       v-if="entriesError"
