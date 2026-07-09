@@ -29,7 +29,7 @@ async function selectFarm(farmId: string) {
       be reachable.
     </v-alert>
 
-    <v-card v-else>
+    <div v-else class="cc-card pa-0" style="overflow: hidden">
       <v-list>
         <v-list-item
           v-for="farm in farms ?? []"
@@ -48,12 +48,12 @@ async function selectFarm(farmId: string) {
           </template>
         </v-list-item>
       </v-list>
-      <v-card-text
+      <p
         v-if="(farms?.length ?? 0) === 1"
-        class="text-body-2 text-medium-emphasis pt-0"
+        class="text-body-2 text-medium-emphasis px-4 pb-4"
       >
         You belong to one farm, so there's nothing to switch — you're all set.
-      </v-card-text>
-    </v-card>
+      </p>
+    </div>
   </v-container>
 </template>

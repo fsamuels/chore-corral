@@ -151,6 +151,7 @@ function openTask(taskId: string) {
         <h1 class="text-h4 mb-1">Tasks</h1>
         <v-btn color="primary" size="large" to="/tasks/new">New task</v-btn>
       </div>
+      <p class="cc-eyebrow mb-4">{{ activeFarm.name }}</p>
 
       <v-text-field
         v-model="filters.search"
@@ -260,115 +261,125 @@ function openTask(taskId: string) {
         </v-btn>
       </div>
 
-      <v-data-table
-        v-else
-        :headers="headers"
-        :items="filteredTasks"
-        :items-per-page="-1"
-        hide-default-footer
-        density="comfortable"
-        elevation="1"
-      >
-        <template #item="{ item }">
-          <tr
-            style="cursor: pointer"
-            :aria-label="`Open ${item.title}`"
-            @click="openTask(item.id)"
-          >
-            <td>
-              <span
-                :class="{
-                  'text-medium-emphasis text-decoration-line-through':
-                    item.status === 'done',
-                }"
-              >
-                {{ item.title }}
-              </span>
-              <div
-                v-if="item.tags.length > 0"
-                class="d-flex flex-wrap ga-1 mt-1"
-              >
-                <v-chip
-                  v-for="tag in item.tags"
-                  :key="tag.id"
-                  size="x-small"
-                  variant="tonal"
+      <div class="cc-table-wrap">
+        <v-data-table
+          :headers="headers"
+          :items="filteredTasks"
+          :items-per-page="-1"
+          hide-default-footer
+          density="comfortable"
+        >
+          <template #item="{ item }">
+            <tr
+              style="cursor: pointer"
+              :aria-label="`Open ${item.title}`"
+              @click="openTask(item.id)"
+            >
+              <td>
+                <span
+                  class="cc-table-title"
+                  :class="{
+                    'text-medium-emphasis text-decoration-line-through':
+                      item.status === 'done',
+                  }"
                 >
-                  {{ tag.name }}
-                </v-chip>
-              </div>
-            </td>
+                  {{ item.title }}
+                </span>
+                <div
+                  v-if="item.tags.length > 0"
+                  class="d-flex flex-wrap ga-1 mt-1"
+                >
+                  <v-chip
+                    v-for="tag in item.tags"
+                    :key="tag.id"
+                    size="x-small"
+                    variant="tonal"
+                  >
+                    {{ tag.name }}
+                  </v-chip>
+                </div>
+              </td>
 
-            <td>
-              <span
-                :class="{
-                  'text-medium-emphasis font-italic': categoryDisplay(
-                    item.category_id,
-                  ).deleted,
-                }"
-              >
-                {{ categoryDisplay(item.category_id).text }}
-              </span>
-            </td>
+              <td>
+                <span
+                  class="cc-eyebrow"
+                  :class="{
+                    'font-italic': categoryDisplay(item.category_id).deleted,
+                  }"
+                >
+                  {{ categoryDisplay(item.category_id).text }}
+                </span>
+              </td>
 
-            <td>
-              <v-chip
-                size="small"
-                :prepend-icon="PRIORITY_DISPLAY[item.priority].icon"
-                :color="PRIORITY_DISPLAY[item.priority].color || undefined"
-              >
-                {{ PRIORITY_DISPLAY[item.priority].label }}
-              </v-chip>
-            </td>
-
-            <td @click.stop>
-              <v-select
-                :model-value="item.status"
-                :items="statusItems"
-                density="compact"
-                variant="outlined"
-                hide-details
-                style="width: 170px"
-                @update:model-value="
-                  (value: TaskStatus) => onStatusChange(item, value)
-                "
-              >
-                <template #selection="{ item: selected }">
+              <td>
+                <span class="cc-pill" :class="`cc-pill--${item.priority}`">
                   <v-icon
-                    :icon="STATUS_DISPLAY[selected.value as TaskStatus].icon"
-                    size="small"
-                    class="mr-1"
+                    v-if="item.priority === 'urgent'"
+                    icon="mdi-fire"
+                    size="14"
                   />
-                  {{ selected.title }}
-                </template>
-                <template #item="{ item: option, props: itemProps }">
-                  <v-list-item
-                    v-bind="itemProps"
-                    :prepend-icon="
-                      STATUS_DISPLAY[option.value as TaskStatus].icon
-                    "
+                  <v-icon
+                    v-else-if="item.priority === 'soon'"
+                    icon="mdi-clock-outline"
+                    size="14"
                   />
-                </template>
-              </v-select>
-            </td>
+                  {{
+                    item.priority === 'urgent'
+                      ? 'Urgent'
+                      : item.priority === 'soon'
+                        ? 'Soon'
+                        : 'Whenever'
+                  }}
+                </span>
+              </td>
 
-            <td>
-              <span :class="{ 'text-error': isTaskOverdue(item) }">
-                {{ item.due_date ?? '' }}
-              </span>
-              <v-chip
-                v-if="isTaskOverdue(item)"
-                size="x-small"
-                color="error"
-                :prepend-icon="OVERDUE_ICON"
-                class="ml-2"
-              >
-                Overdue
-              </v-chip>
-            </td>
-          </tr>
-        </template>
-      </v-data-table>
+              <td @click.stop>
+                <v-select
+                  :model-value="item.status"
+                  :items="statusItems"
+                  density="compact"
+                  variant="outlined"
+                  hide-details
+                  style="width: 170px"
+                  @update:model-value="
+                    (value: TaskStatus) => onStatusChange(item, value)
+                  "
+                >
+                  <template #selection="{ item: selected }">
+                    <v-icon
+                      :icon="STATUS_DISPLAY[selected.value as TaskStatus].icon"
+                      size="small"
+                      class="mr-1"
+                    />
+                    {{ selected.title }}
+                  </template>
+                  <template #item="{ item: option, props: itemProps }">
+                    <v-list-item
+                      v-bind="itemProps"
+                      :prepend-icon="
+                        STATUS_DISPLAY[option.value as TaskStatus].icon
+                      "
+                    />
+                  </template>
+                </v-select>
+              </td>
+
+              <td>
+                <span :class="{ 'text-error': isTaskOverdue(item) }">
+                  {{ item.due_date ?? '' }}
+                </span>
+                <span
+                  v-if="isTaskOverdue(item)"
+                  class="cc-pill cc-pill--error ml-2"
+                >
+                  <v-icon :icon="OVERDUE_ICON" size="14" />
+                  Overdue
+                </span>
+              </td>
+            </tr>
+          </template>
+        </v-data-table>
+      </div>
     </template>
 
     <v-snackbar v-model="showSnackbar" color="error" :timeout="6000">
@@ -376,3 +387,18 @@ function openTask(taskId: string) {
     </v-snackbar>
   </v-container>
 </template>
+
+<style scoped>
+.cc-table-wrap {
+  background: var(--cc-surface);
+  border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius);
+  box-shadow: var(--cc-shadow);
+  overflow: hidden;
+}
+
+.cc-table-title {
+  font-family: var(--cc-font-slab);
+  font-weight: 600;
+}
+</style>

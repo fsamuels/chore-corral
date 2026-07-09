@@ -134,7 +134,7 @@ async function submit() {
 
       <h1 class="text-h4 mb-4">New task</h1>
 
-      <v-form @submit.prevent="submit">
+      <v-form class="cc-card" @submit.prevent="submit">
         <v-text-field
           v-model="title"
           label="Title"
@@ -223,7 +223,7 @@ async function submit() {
             hide-details
             class="mb-4"
           />
-          <p class="text-body-2 mb-2">Location</p>
+          <p class="cc-eyebrow mb-2">Location</p>
           <LocationPicker
             v-model="location"
             auto-capture

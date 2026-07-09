@@ -88,7 +88,7 @@ function onRemove(item: ShoppingItemSummary): void {
 
 <template>
   <div>
-    <p class="text-body-2 mb-2">Shopping list</p>
+    <p class="cc-eyebrow mb-2">Shopping list</p>
 
     <v-alert
       v-if="itemsError"

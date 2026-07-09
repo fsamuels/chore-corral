@@ -22,7 +22,7 @@ await fetchTags()
     </v-alert>
     <template v-else-if="activeFarm">
       <h1 class="text-h4 mb-1">Tags</h1>
-      <p class="text-body-2 text-medium-emphasis mb-6">{{ activeFarm.name }}</p>
+      <p class="cc-eyebrow mb-6">{{ activeFarm.name }}</p>
 
       <v-alert
         v-if="tagsError"
@@ -49,20 +49,22 @@ await fetchTags()
         </p>
       </div>
 
-      <v-list v-else lines="one" elevation="1" rounded>
-        <v-list-item
-          v-for="tag in tags"
-          :key="tag.id"
-          :title="tag.name"
-          prepend-icon="mdi-tag-outline"
-        >
-          <template #append>
-            <v-chip size="small" variant="tonal">
-              {{ tag.taskCount }} task{{ tag.taskCount === 1 ? '' : 's' }}
-            </v-chip>
-          </template>
-        </v-list-item>
-      </v-list>
+      <div v-else class="cc-card pa-0" style="overflow: hidden">
+        <v-list lines="one">
+          <v-list-item
+            v-for="tag in tags"
+            :key="tag.id"
+            :title="tag.name"
+            prepend-icon="mdi-tag-outline"
+          >
+            <template #append>
+              <v-chip size="small" variant="tonal">
+                {{ tag.taskCount }} task{{ tag.taskCount === 1 ? '' : 's' }}
+              </v-chip>
+            </template>
+          </v-list-item>
+        </v-list>
+      </div>
     </template>
   </v-container>
 </template>

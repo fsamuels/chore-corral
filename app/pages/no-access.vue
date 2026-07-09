@@ -22,26 +22,23 @@ async function signOut() {
   <v-container class="fill-height">
     <v-row justify="center" align="center">
       <v-col cols="12" sm="8" md="6">
-        <v-card class="text-center pa-4">
-          <v-card-text>
-            <v-icon icon="mdi-account-off" size="64" color="warning" />
-            <h1 class="text-h5 mt-4 mb-2">No farm access</h1>
-            <p class="text-body-1 mb-2">
-              Your account isn't linked to any farm yet — contact the farm owner
-              to be added.
-            </p>
-            <p v-if="user?.email" class="text-body-2 text-medium-emphasis">
-              You're signed in as <strong>{{ user.email }}</strong
-              >. Share this address with the farm owner so they can add the
-              right account.
-            </p>
-          </v-card-text>
-          <v-card-actions class="justify-center">
-            <v-btn color="primary" variant="tonal" @click="signOut">
-              Sign out
-            </v-btn>
-          </v-card-actions>
-        </v-card>
+        <div class="cc-card text-center">
+          <p class="cc-eyebrow mb-4">Chore Corral</p>
+          <v-icon icon="mdi-account-off" size="64" color="warning" />
+          <h1 class="text-h5 mt-4 mb-2">No farm access</h1>
+          <p class="text-body-1 mb-2">
+            Your account isn't linked to any farm yet — contact the farm owner
+            to be added.
+          </p>
+          <p v-if="user?.email" class="text-body-2 text-medium-emphasis mb-4">
+            You're signed in as <strong>{{ user.email }}</strong
+            >. Share this address with the farm owner so they can add the right
+            account.
+          </p>
+          <v-btn color="primary" variant="tonal" @click="signOut">
+            Sign out
+          </v-btn>
+        </div>
       </v-col>
     </v-row>
   </v-container>

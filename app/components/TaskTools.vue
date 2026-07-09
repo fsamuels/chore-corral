@@ -88,7 +88,7 @@ function onRemove(item: ToolItemSummary): void {
 
 <template>
   <div>
-    <p class="text-body-2 mb-2">Tools</p>
+    <p class="cc-eyebrow mb-2">Tools</p>
 
     <v-alert
       v-if="itemsError"

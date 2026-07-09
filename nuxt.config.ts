@@ -2,47 +2,53 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-07-01',
   devtools: { enabled: true },
   modules: ['@nuxt/eslint', 'vuetify-nuxt-module', '@nuxtjs/supabase'],
+  css: ['~/assets/css/main.css'],
+  app: {
+    head: {
+      link: [
+        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+        {
+          rel: 'preconnect',
+          href: 'https://fonts.gstatic.com',
+          crossorigin: '',
+        },
+        {
+          rel: 'stylesheet',
+          href: 'https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap',
+        },
+      ],
+    },
+  },
   vuetify: {
     vuetifyOptions: {
       theme: {
-        defaultTheme: 'classic-light',
-        // Equipment-brand themes; selected per user via the account menu
-        // (see app/composables/useThemePreference.ts).
+        defaultTheme: 'ranch',
+        // Single warm "ranch" theme; palette tokens also live as CSS custom
+        // properties in app/assets/css/main.css.
         themes: {
-          'classic-light': {
+          ranch: {
             dark: false,
-            colors: { primary: '#1867C0', secondary: '#5CBBF6' },
-          },
-          'classic-dark': {
-            dark: true,
-            colors: { primary: '#2196F3', secondary: '#5CBBF6' },
-          },
-          'deere-light': {
-            dark: false,
-            colors: { primary: '#367C2B', secondary: '#FFDE00' },
-          },
-          'deere-dark': {
-            dark: true,
-            colors: { primary: '#4C9A41', secondary: '#FFDE00' },
-          },
-          'kubota-light': {
-            dark: false,
-            colors: { primary: '#DF5C2A', secondary: '#3A3A3A' },
-          },
-          'kubota-dark': {
-            dark: true,
-            colors: { primary: '#F36F21', secondary: '#B0B0B0' },
-          },
-          'massey-light': {
-            dark: false,
-            colors: { primary: '#A6192E', secondary: '#58595B' },
-          },
-          'massey-dark': {
-            dark: true,
-            colors: { primary: '#C93C50', secondary: '#9EA0A3' },
+            colors: {
+              primary: '#b5541e', // burnt orange accent
+              secondary: '#8ba06b', // sage green (whenever ring)
+              background: '#f7f3ea', // warm cream
+              surface: '#fdfcf9', // near-white warm card
+              error: '#c0391f', // urgent ring red
+              warning: '#d98a1a', // soon amber
+              'on-background': '#2b2118',
+              'on-surface': '#2b2118',
+            },
           },
         },
       },
+    },
+  },
+  vite: {
+    optimizeDeps: {
+      // cookie@1 is CJS-only but @supabase/ssr does a named ESM import from
+      // it; without pre-bundling, the client entry dies with "does not
+      // provide an export named 'parse'" and the app never hydrates in dev.
+      include: ['cookie'],
     },
   },
   runtimeConfig: {

@@ -96,9 +96,13 @@ async function performDelete() {
     </v-alert>
     <template v-else-if="activeFarm">
       <h1 class="text-h4 mb-1">Categories</h1>
-      <p class="text-body-2 text-medium-emphasis mb-6">{{ activeFarm.name }}</p>
+      <p class="cc-eyebrow mb-6">{{ activeFarm.name }}</p>
 
-      <v-form ref="createForm" class="mb-6" @submit.prevent="submitCreate">
+      <v-form
+        ref="createForm"
+        class="cc-card mb-6"
+        @submit.prevent="submitCreate"
+      >
         <div class="d-flex align-start ga-2">
           <v-text-field
             v-model="newName"
@@ -155,25 +159,26 @@ async function performDelete() {
         </p>
       </div>
 
-      <v-list v-else lines="one" elevation="1" rounded>
-        <v-list-item
-          v-for="category in categories"
-          :key="category.id"
-          :title="category.name"
-          prepend-icon="mdi-shape-outline"
-        >
-          <template #append>
-            <v-btn
-              icon="mdi-delete-outline"
-              variant="text"
-              density="comfortable"
-              :aria-label="`Delete ${category.name}`"
-              :title="`Delete ${category.name}`"
-              @click="confirmDelete(category)"
-            />
-          </template>
-        </v-list-item>
-      </v-list>
+      <div v-else class="cc-card pa-0" style="overflow: hidden">
+        <v-list lines="one">
+          <v-list-item
+            v-for="category in categories"
+            :key="category.id"
+            :title="category.name"
+          >
+            <template #append>
+              <v-btn
+                icon="mdi-delete-outline"
+                variant="text"
+                density="comfortable"
+                :aria-label="`Delete ${category.name}`"
+                :title="`Delete ${category.name}`"
+                @click="confirmDelete(category)"
+              />
+            </template>
+          </v-list-item>
+        </v-list>
+      </div>
     </template>
 
     <v-dialog :model-value="toDelete !== null" max-width="420" persistent>

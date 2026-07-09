@@ -40,7 +40,7 @@ function onOpen(taskId: string) {
     <template v-else-if="activeFarm">
       <div class="mb-4">
         <h1 class="text-h4 mb-1">Map</h1>
-        <p class="text-body-2 text-medium-emphasis">{{ activeFarm.name }}</p>
+        <p class="cc-eyebrow">{{ activeFarm.name }}</p>
       </div>
 
       <v-alert

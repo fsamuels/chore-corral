@@ -28,16 +28,19 @@ onMounted(() => {
   <v-container class="fill-height">
     <v-row justify="center" align="center">
       <v-col cols="12" sm="8" md="5" lg="4" class="text-center">
-        <template v-if="oauthError || timedOut">
-          <v-alert type="error" variant="tonal" class="mb-4 text-left">
-            {{ oauthError ?? 'Sign-in is taking too long.' }}
-          </v-alert>
-          <v-btn color="primary" to="/login">Back to sign-in</v-btn>
-        </template>
-        <template v-else>
-          <v-progress-circular indeterminate color="primary" class="mb-4" />
-          <p class="text-body-1">Signing you in…</p>
-        </template>
+        <div class="cc-card">
+          <p class="cc-eyebrow mb-4">Chore Corral</p>
+          <template v-if="oauthError || timedOut">
+            <v-alert type="error" variant="tonal" class="mb-4 text-left">
+              {{ oauthError ?? 'Sign-in is taking too long.' }}
+            </v-alert>
+            <v-btn color="primary" to="/login">Back to sign-in</v-btn>
+          </template>
+          <template v-else>
+            <v-progress-circular indeterminate color="primary" class="mb-4" />
+            <p class="text-body-1">Signing you in…</p>
+          </template>
+        </div>
       </v-col>
     </v-row>
   </v-container>
