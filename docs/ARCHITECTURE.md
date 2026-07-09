@@ -29,10 +29,11 @@ Nuxt deploys to Vercel via an official adapter, so hosting stays unchanged from 
 
 Relevant Vuetify components anticipated:
 
-- `v-data-table` — task list, especially once category/priority filtering is active
+- `v-data-table` — full task list on `/tasks` (filters + table styling; the home queue uses a custom `TaskCard` component instead)
 - `v-bottom-navigation` — primary mobile navigation (Home and Map only, on smAndDown)
-- `v-navigation-drawer` — secondary navigation (Tasks management, Categories management, Change Farm page, Settings page, Sign out) on all screen sizes, opened from app-bar hamburger button; includes signed-in user's email at the top
-- `v-app-bar` — app title links to home; hamburger button (left) opens drawer; on desktop (mdAndUp) shows Home and Map icon buttons
+- `v-navigation-drawer` — secondary navigation (Tasks management, Categories management, Change Farm page, Sign out) on all screen sizes, opened from the header hamburger button; includes signed-in user's email at the top
+- Custom app header (`app/layouts/default.vue`) — replaces `v-app-bar`; shows "Chore Corral" eyebrow + active farm name (links home), circular Home/Map icon buttons on desktop, and the hamburger trigger on the right
+- Ranch design system (`app/assets/css/main.css`) — warm cream/surface palette, priority color tokens (`--cc-urgent-*` / `--cc-soon-*` / `--cc-whenever-*`), shared utility classes (`cc-card`, `cc-pill`, `cc-eyebrow`, `cc-section-title`), and Zilla Slab + Inter typography loaded via `nuxt.config.ts`; a single Vuetify theme (`ranch`) mirrors the same palette for component defaults
 - Form components paired with VeeValidate + Zod
 
 ### Forms: VeeValidate + Zod
