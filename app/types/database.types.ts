@@ -323,6 +323,41 @@ export interface Database {
           },
         ]
       }
+      task_time_entries: {
+        Row: {
+          id: string
+          task_id: string
+          user_id: string
+          started_at: string
+          ended_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          task_id: string
+          user_id: string
+          started_at?: string
+          ended_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          task_id?: string
+          user_id?: string
+          started_at?: string
+          ended_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'task_time_entries_task_id_fkey'
+            columns: ['task_id']
+            isOneToOne: false
+            referencedRelation: 'tasks'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       activity_log: {
         Row: {
           id: string

@@ -46,23 +46,24 @@ Many-to-many relationship between users and farms.
 
 The core unit of work.
 
-| Field          | Required                 | Notes                                                                                                                                                                                                           |
-| -------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Title          | Yes                      |                                                                                                                                                                                                                 |
-| Category       | Yes                      | Single category per task; can be "Uncategorized"                                                                                                                                                                |
-| Priority       | Yes                      | Single value from a **global, fixed** tier list                                                                                                                                                                 |
-| Due date       | No                       | Optional; if passed and task isn't Done, task is flagged overdue                                                                                                                                                |
-| Estimated time | No                       | A plain user estimate (whole minutes) of how long the task should take, set at create/edit time — not derived from anything, and distinct from the future timer-measured "actual time" feature (see ROADMAP.md) |
-| Status         | Yes (defaults on create) | Not Started / In Progress / Done                                                                                                                                                                                |
-| Notes          | No                       | Free text, single field (not a threaded log)                                                                                                                                                                    |
-| Tags           | No                       | Freeform text, multiple per task, autocomplete against existing tags on that farm                                                                                                                               |
-| Location       | No                       | Single pin, optional (see Location section)                                                                                                                                                                     |
-| Photos         | No                       | Zero or more (see Photos section)                                                                                                                                                                               |
-| Shopping list  | No                       | Zero or more items to buy (see Shopping list section)                                                                                                                                                           |
-| Tool list      | No                       | Zero or more tools needed (see Tool list section)                                                                                                                                                               |
-| Created date   | Auto                     |                                                                                                                                                                                                                 |
-| Completed date | Auto                     | Set when status moves to Done; **cleared** if status moves out of Done                                                                                                                                          |
-| Farm           | Auto                     | Inherited from the active farm context; not user-editable                                                                                                                                                       |
+| Field          | Required                 | Notes                                                                                                                                                                                         |
+| -------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Title          | Yes                      |                                                                                                                                                                                               |
+| Category       | Yes                      | Single category per task; can be "Uncategorized"                                                                                                                                              |
+| Priority       | Yes                      | Single value from a **global, fixed** tier list                                                                                                                                               |
+| Due date       | No                       | Optional; if passed and task isn't Done, task is flagged overdue                                                                                                                              |
+| Estimated time | No                       | A plain user estimate (whole minutes) of how long the task should take, set at create/edit time — not derived from anything, and distinct from the timer-measured "actual time" feature below |
+| Actual time    | Auto                     | Derived from start/stop timer sessions (see Time tracking section below); not a form field, shown read-only on the View page                                                                  |
+| Status         | Yes (defaults on create) | Not Started / In Progress / Done                                                                                                                                                              |
+| Notes          | No                       | Free text, single field (not a threaded log)                                                                                                                                                  |
+| Tags           | No                       | Freeform text, multiple per task, autocomplete against existing tags on that farm                                                                                                             |
+| Location       | No                       | Single pin, optional (see Location section)                                                                                                                                                   |
+| Photos         | No                       | Zero or more (see Photos section)                                                                                                                                                             |
+| Shopping list  | No                       | Zero or more items to buy (see Shopping list section)                                                                                                                                         |
+| Tool list      | No                       | Zero or more tools needed (see Tool list section)                                                                                                                                             |
+| Created date   | Auto                     |                                                                                                                                                                                               |
+| Completed date | Auto                     | Set when status moves to Done; **cleared** if status moves out of Done                                                                                                                        |
+| Farm           | Auto                     | Inherited from the active farm context; not user-editable                                                                                                                                     |
 
 **Task creation form**: shows required fields only (Title, Category, Priority) with a "More details" expand/link to reveal all other fields (Notes, Tags, Location, Photos, Due date, Estimated time) at creation time. Shopping list and Tool list are edit-only (see their sections below) and don't appear on the creation form at all.
 
@@ -165,6 +166,16 @@ Optional, per-task list of tools needed to do the task (e.g. chainsaw, post driv
 - Managed from the task Edit page (an item row needs a real task id, same constraint as photos and the shopping list); shown read-only on the task View page.
 - Deliberately a separate concept from the shopping list above — the two are not unified, in case they diverge later (e.g. a shopping list wanting price/store fields a tool list wouldn't need).
 
+### Time tracking
+
+Optional in-app start/stop timer per task, measuring actual elapsed time. Post-MVP feature, from ROADMAP.md's near-term list; distinct from the estimated-time field above.
+
+- A task's actual time is the sum of its recorded timer sessions — not a user-entered value.
+- One running timer per user at a time, across all tasks and farms: starting a timer elsewhere automatically stops the current one.
+- Starting a timer on a Not Started task moves it to In Progress; stopping a timer never changes status, and completing a task never stops a running timer.
+- Shown on the task View page alongside the estimated-time field, alongside Start/Stop controls.
+- Manually adding or editing a time entry after the fact is not supported yet (timer-only for now).
+
 ### Activity Log
 
 Records **major events only** — not a field-by-field audit trail. Intended for historical progress tracking, not compliance/audit purposes.
@@ -199,7 +210,7 @@ Each task's activity history is shown in-app, on that task's View page (see belo
 
 - Read-only, more detailed presentation of a single task than the list or edit form show: full field values, tags, location, photos, shopping list, tool list, and the task's Activity Log history (see above).
 - Reachable from the task list, the Map view, and the dashboard's outstanding-tasks list.
-- Includes a quick status-change control (no need to open Edit just to mark a task In Progress or Done) and a link to the Edit page.
+- Includes a quick status-change control (no need to open Edit just to mark a task In Progress or Done), a link to the Edit page, and Start/Stop timer controls with the running total (see Time tracking above).
 
 ### Task Create / Edit pages
 
