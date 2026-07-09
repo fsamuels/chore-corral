@@ -178,6 +178,16 @@ Resolved 2026-07-06, implementing ROADMAP.md's "Task estimated time" item. Two c
 
 **No `activity_log` events for estimate edits.** SPEC.md's log records major events only, and its two field-edit exceptions — priority and due date — are deliberate and closed: an estimate is descriptive planning context, like notes or tags, not a lifecycle event. Changing or clearing it writes nothing to the log.
 
+## Playwright doesn't auto-load `.env`; empty optional env vars are not the same as unset
+
+Resolved 2026-07-09, while running the Playwright e2e harness (added 2026-07-07) for the first time. Two gotchas surfaced, both worth remembering if e2e ever mysteriously can't see env vars that are clearly present in `.env`:
+
+**Nuxt's dev server loads `.env` automatically; Playwright's test runner does not.** `tests/e2e/global-setup.ts` reads `process.env.NUXT_PUBLIC_SUPABASE_URL` etc. directly, and since `playwright.config.ts` boots `pnpm dev` as its `webServer`, it's easy to assume the whole process tree shares one env — but `global-setup.ts` runs in Playwright's own Node process, which never touches `.env` unless told to. The fix is the standard one: `import 'dotenv/config'` at the top of `playwright.config.ts`. `dotenv` was already present as a transitive dependency (pulled in by Nuxt's own tooling), but was promoted to an explicit devDependency since the config now imports it directly rather than relying on an implicit transitive resolution.
+
+**An env var set to an empty string is not the same as an unset one, and `??` doesn't tell them apart.** `.env` had `E2E_TEST_USER_EMAIL=` (present, empty) rather than the line simply being absent or commented out. `global-setup.ts`'s `process.env.E2E_TEST_USER_EMAIL ?? 'e2e-test@chore-corral.test'` only falls back on `null`/`undefined` — an empty string is neither, so the fallback never fired, and Supabase's Admin API rejected user creation with "Cannot create a user without either an email or phone." Fixed by removing the three empty optional-var lines from `.env` (not a code change) rather than switching the defaulting logic to `||` — an empty string is exactly this case's "not set" signal, but a future required var set to `""` should probably still fail loudly rather than silently falling back, so `??` stays the right operator for optional vars in general.
+
+**Switched from the legacy `service_role` key to a Supabase Secret API key.** Both bypass RLS identically for the Admin API calls `global-setup.ts` needs, but the legacy `service_role` key is tied to the project's JWT secret — a leak means rotating that secret, which invalidates every user's session project-wide. The newer Secret API key (`sb_secret_...`) is independently revocable: leak one, revoke just that key, no mass logout. No code change was needed — it's passed through the same `SUPABASE_SERVICE_ROLE_KEY` env var — just a different key generated from the dashboard's newer API Keys UI.
+
 ## Task time tracking: a session log with one running timer per user, a one-way status link, and no manual entries yet
 
 Resolved 2026-07-09, implementing ROADMAP.md's "Task actual time via in-app start/stop timer" item. The core shape was pre-decided by the roadmap entry itself (a time-entry log, `task_time_entries`, one row per start/stop session — not a single duration column on `tasks`); four calls rode along:
