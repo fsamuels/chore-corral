@@ -208,13 +208,14 @@ Each task's activity history is shown in-app, on that task's View page (see belo
 
 ### Task View page
 
-- Read-only, more detailed presentation of a single task than the list or edit form show: full field values, tags, location, photos, shopping list, tool list, and the task's Activity Log history (see above).
+- The single task page: a detailed presentation of one task — full field values, tags, location, photos, shopping list, tool list, and the task's Activity Log history (see above) — where every field is also **edited in place**, each edit saving immediately on commit (there is no separate Edit page; see DECISIONS.md for the in-place-editing rationale).
+- Inline editing per field: status via the quick status-change control; priority, category, due date, and estimated time via chip menus; title and notes via click-to-edit with blur-commit; tags and location via click-to-edit with explicit Save/Cancel; photos, shopping list, and tool list directly editable in their sections.
 - Reachable from the task list, the Map view, and the dashboard's outstanding-tasks list.
-- Includes a quick status-change control (no need to open Edit just to mark a task In Progress or Done), a link to the Edit page, and Start/Stop timer controls with the running total (see Time tracking above).
+- Includes Start/Stop timer controls with the running total (see Time tracking above), and the task's Delete action (with confirmation).
 
-### Task Create / Edit pages
+### Task Create page
 
-- Full pages, not modal dialogs — separate routes for creating a task, viewing a task, and editing a task (see the Task section above for the create/edit field behavior).
+- A full page, not a modal dialog — a separate route for creating a task (see the Task section above for the field behavior). Editing happens in place on the View page, not on a separate route.
 - Photos added at creation time are staged client-side (local previews only) and uploaded once the task is successfully created — a task must exist before a photo's storage path/row can.
 
 ### Map View

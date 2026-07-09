@@ -14,7 +14,7 @@ const taskId = computed(() => route.params.id as string)
 
 const { fetchFarms, activeFarm, activeFarmId, farmsError } = useFarms()
 const { task, taskError, loading, fetchTask } = useTask(taskId)
-const { setStatus, update } = useTasks()
+const { setStatus, update, remove } = useTasks()
 const { categories, fetchCategories } = useCategories()
 const { tags, fetchTags } = useTags()
 
@@ -95,7 +95,14 @@ const categoryItems = computed(() => [
 ])
 
 type EditableField =
-  'priority' | 'category' | 'dueDate' | 'estimate' | 'title' | 'notes' | 'tags'
+  | 'priority'
+  | 'category'
+  | 'dueDate'
+  | 'estimate'
+  | 'title'
+  | 'notes'
+  | 'tags'
+  | 'location'
 const fieldSaving = ref<EditableField | null>(null)
 const fieldSaveError = ref<string | null>(null)
 
@@ -109,6 +116,8 @@ async function saveTaskField(
     title: string
     notes: string | null
     tagNames: string[]
+    lat: number | null
+    lng: number | null
   }>,
 ): Promise<boolean> {
   const current = task.value
@@ -273,6 +282,74 @@ async function onTagsSave() {
     editingTags.value = false
 }
 
+// Location: explicit edit mode with Save/Cancel, like tags — a map's
+// click/drag interactions rule out blur-commit, and LocationPicker itself
+// provides GPS capture, manual placement, and pin removal. No auto-capture
+// on open (editing must never overwrite an existing pin with wherever the
+// editor happens to be standing — same call as the old Edit page).
+const farmCenter = computed(() => {
+  const farm = activeFarm.value
+  return farm?.default_lat != null && farm?.default_lng != null
+    ? { lat: farm.default_lat, lng: farm.default_lng }
+    : null
+})
+
+const editingLocation = ref(false)
+const locationDraft = ref<{ lat: number; lng: number } | null>(null)
+
+function startEditingLocation() {
+  if (fieldSaving.value !== null || !task.value) return
+  locationDraft.value =
+    task.value.lat !== null && task.value.lng !== null
+      ? { lat: task.value.lat, lng: task.value.lng }
+      : null
+  editingLocation.value = true
+}
+
+function onLocationCancel() {
+  editingLocation.value = false
+}
+
+async function onLocationSave() {
+  const current = task.value
+  if (!current) return
+  const draft = locationDraft.value
+  if (
+    (draft?.lat ?? null) === current.lat &&
+    (draft?.lng ?? null) === current.lng
+  ) {
+    editingLocation.value = false
+    return
+  }
+  if (
+    await saveTaskField('location', {
+      lat: draft?.lat ?? null,
+      lng: draft?.lng ?? null,
+    })
+  )
+    editingLocation.value = false
+}
+
+// --- Delete (moved here from the retired Edit page) ---
+const confirmingDelete = ref(false)
+const deleting = ref(false)
+const deleteError = ref<string | null>(null)
+
+async function performDelete() {
+  if (!task.value) return
+  deleting.value = true
+  deleteError.value = null
+  try {
+    await remove(task.value.id)
+    await navigateTo('/tasks')
+  } catch (error) {
+    deleteError.value =
+      error instanceof Error ? error.message : 'Failed to delete task'
+  } finally {
+    deleting.value = false
+  }
+}
+
 // One-time warning from the create page when a staged photo failed to
 // upload — read once, then stripped so a refresh doesn't reshow it (same
 // pattern the old `?task=` deep link used).
@@ -387,7 +464,7 @@ const hasLocation = computed(
           @update:model-value="(v: boolean) => !v && (photoWarningCount = null)"
         >
           Task created, but {{ photoWarningCount }} photo(s) failed to upload —
-          add them from Edit.
+          add them again from the Photos section below.
         </v-snackbar>
 
         <div class="d-flex align-start justify-space-between mb-4 ga-2">
@@ -423,15 +500,6 @@ const hasLocation = computed(
               class="ml-1 text-medium-emphasis"
             />
           </h1>
-          <v-btn
-            color="primary"
-            variant="tonal"
-            size="large"
-            prepend-icon="mdi-pencil-outline"
-            :to="`/tasks/${task.id}/edit`"
-          >
-            Edit
-          </v-btn>
         </div>
 
         <div class="d-flex flex-wrap ga-2 mb-6">
@@ -725,9 +793,55 @@ const hasLocation = computed(
           </p>
         </div>
 
-        <div v-if="hasLocation" class="mb-6">
+        <div class="mb-6">
           <p class="text-body-2 text-medium-emphasis mb-2">Location</p>
-          <TaskLocationPreview :lat="task.lat!" :lng="task.lng!" />
+          <template v-if="editingLocation">
+            <LocationPicker
+              v-model="locationDraft"
+              :fallback-center="farmCenter"
+              :disabled="fieldSaving === 'location'"
+            />
+            <div class="d-flex justify-end ga-2 mt-2">
+              <v-btn
+                size="small"
+                :disabled="fieldSaving === 'location'"
+                @click="onLocationCancel"
+              >
+                Cancel
+              </v-btn>
+              <v-btn
+                size="small"
+                color="primary"
+                :loading="fieldSaving === 'location'"
+                @click="onLocationSave"
+              >
+                Save
+              </v-btn>
+            </div>
+          </template>
+          <template v-else-if="hasLocation">
+            <TaskLocationPreview :lat="task.lat!" :lng="task.lng!" />
+            <v-btn
+              size="small"
+              variant="text"
+              prepend-icon="mdi-pencil-outline"
+              class="mt-1"
+              @click="startEditingLocation"
+            >
+              Edit location
+            </v-btn>
+          </template>
+          <p
+            v-else
+            class="text-body-1 text-medium-emphasis font-italic"
+            style="cursor: pointer"
+            role="button"
+            tabindex="0"
+            @click="startEditingLocation"
+            @keydown.enter="startEditingLocation"
+          >
+            Add location
+          </p>
         </div>
 
         <div class="mb-6">
@@ -778,6 +892,56 @@ const hasLocation = computed(
             </v-timeline-item>
           </v-timeline>
         </div>
+
+        <v-divider class="my-6" />
+
+        <div class="d-flex justify-end">
+          <v-btn
+            color="error"
+            variant="text"
+            size="large"
+            :disabled="fieldSaving !== null"
+            @click="confirmingDelete = true"
+          >
+            Delete task
+          </v-btn>
+        </div>
+
+        <v-dialog v-model="confirmingDelete" max-width="420" persistent>
+          <v-card>
+            <v-card-title>Delete task?</v-card-title>
+            <v-card-text>
+              Delete "{{ task.title }}"? This can't be undone.
+              <v-alert
+                v-if="deleteError"
+                type="error"
+                variant="tonal"
+                density="compact"
+                class="mt-3"
+              >
+                {{ deleteError }}
+              </v-alert>
+            </v-card-text>
+            <v-card-actions>
+              <v-spacer />
+              <v-btn
+                size="large"
+                :disabled="deleting"
+                @click="confirmingDelete = false"
+              >
+                Cancel
+              </v-btn>
+              <v-btn
+                color="error"
+                size="large"
+                :loading="deleting"
+                @click="performDelete"
+              >
+                Delete
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
       </template>
     </template>
   </v-container>
