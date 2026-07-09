@@ -32,6 +32,10 @@ import type { Database } from '../../app/types/database.types'
 //   from('task_tools').insert(row).select(...).single()
 //   from('task_tools').update(row).eq('id', ...).select(...)
 //   from('task_tools').delete().eq('id', ...)
+//   from('task_time_entries').select(...).eq('task_id', ...).order(...).order(...)
+//   from('task_time_entries').select(...).eq('user_id', ...).is('ended_at', null)
+//   from('task_time_entries').insert(row).select(...).single()
+//   from('task_time_entries').update(row).eq('id', ...).is('ended_at', null).select(...)
 //   from('activity_log').select(...).eq('farm_id',...).eq('task_id',...).order('created_at',{ascending:false})
 //   from('farm_member_profiles').select(...).eq('farm_id',...).in('user_id',[...])
 //
@@ -54,6 +58,7 @@ type TableName =
   | 'task_photos'
   | 'task_shopping_items'
   | 'task_tools'
+  | 'task_time_entries'
   | 'farm_member_profiles'
 type Row = Record<string, unknown>
 
@@ -66,6 +71,7 @@ export interface FakeSupabaseSeed {
   task_photos?: Database['public']['Tables']['task_photos']['Row'][]
   task_shopping_items?: Database['public']['Tables']['task_shopping_items']['Row'][]
   task_tools?: Database['public']['Tables']['task_tools']['Row'][]
+  task_time_entries?: Database['public']['Tables']['task_time_entries']['Row'][]
   // Not a real table (it's a view), but the fake doesn't need to model that
   // distinction — it just needs queryable rows.
   farm_member_profiles?: Database['public']['Views']['farm_member_profiles']['Row'][]
@@ -267,6 +273,7 @@ export class FakeSupabaseClient {
     task_photos: 0,
     task_shopping_items: 0,
     task_tools: 0,
+    task_time_entries: 0,
     farm_member_profiles: 0,
   }
 
@@ -288,6 +295,9 @@ export class FakeSupabaseClient {
         seed.task_shopping_items as unknown as Row[] | undefined,
       ),
       task_tools: cloneRows(seed.task_tools as unknown as Row[] | undefined),
+      task_time_entries: cloneRows(
+        seed.task_time_entries as unknown as Row[] | undefined,
+      ),
       farm_member_profiles: cloneRows(
         seed.farm_member_profiles as unknown as Row[] | undefined,
       ),

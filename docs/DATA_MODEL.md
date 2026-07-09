@@ -21,6 +21,7 @@ farm_memberships ──────► farms
                             │        tasks ──┬──► task_photos
                             │          │      ├──► task_shopping_items
                             │          │      ├──► task_tools
+                            │          │      ├──► task_time_entries
                             │          │      └──► task_tags ──► tags
                             │          │
                             │          └──► activity_log
@@ -177,6 +178,29 @@ Optional per-task tool list — tools needed to do a task (e.g. chainsaw, post d
 
 Like `task_shopping_items`, this table carries no `farm_id`; it is scoped to a farm through its parent task, and its RLS policy joins through `tasks`. No unique constraint on (`task_id`, `name`) — duplicate tool names on the same task are intentionally allowed. Items are listed per task in insertion order: `ORDER BY created_at ASC, id ASC` (the `id` tiebreaker keeps order deterministic if rows are ever bulk-inserted in one transaction, where `created_at` values would be identical).
 
+### `task_time_entries`
+
+Per-task time tracking: one row per start/stop timer session. A task's "actual" time is **derived** — the sum of `ended_at - started_at` across its entries (a running entry counts up to now) — deliberately not denormalized into an `actual_minutes` column on `tasks`, so there's nothing to keep in sync. Displayed beside `tasks.estimated_minutes` as actual-vs-estimate.
+
+| Column       | Type                                 | Notes                                                                                   |
+| ------------ | ------------------------------------ | --------------------------------------------------------------------------------------- |
+| `id`         | uuid, PK                             |                                                                                         |
+| `task_id`    | uuid, FK → `tasks.id`, not null      | `ON DELETE CASCADE` with the task                                                       |
+| `user_id`    | uuid, FK → `auth.users.id`, not null | Who ran the timer — attribution when two people work the same task                      |
+| `started_at` | timestamptz, not null, default now() |                                                                                         |
+| `ended_at`   | timestamptz, nullable                | **Null = timer currently running.** `CHECK (ended_at IS NULL OR ended_at > started_at)` |
+| `created_at` | timestamptz, default now()           |                                                                                         |
+
+**One running timer per user, farm-wide** (the Toggl model), enforced by a partial unique index on `user_id` where `ended_at IS NULL`. Application code auto-stops the user's running entry when they start a timer on another task; the index is the backstop against races.
+
+Behavior decisions (see DECISIONS.md):
+
+- Starting a timer on a `not_started` task flips it to `in_progress` (with the normal `task_status_changed` activity-log entry). The link is one-way: stopping never touches status, and marking a task done does not auto-stop timers.
+- Timer start/stop is **not** an `activity_log` event — the log is major-events-only, and the entries table is its own record.
+- Manual add/edit of entries ("forgot to start the timer") is out of scope for now, but needs no future migration — it's just inserting a row with both timestamps set.
+
+Like the other task-child tables, this table carries no `farm_id`; it is scoped to a farm through its parent task, and its RLS policy joins through `tasks`. Entries are listed per task oldest-session-first: `ORDER BY started_at ASC, id ASC`.
+
 ### `activity_log`
 
 Major-event-only log, per SPEC.md (not a full audit trail).
@@ -211,7 +235,7 @@ The view runs with its owner's privileges (the Postgres default for views — th
 
 ## Row Level Security (RLS) Policy Intent
 
-All farm-scoped tables (`categories`, `tasks`, `tags`, `task_tags`, `task_photos`, `task_shopping_items`, `task_tools`, `activity_log`) should have RLS **enabled by default** (deny-by-default), with policies granting access based on farm membership:
+All farm-scoped tables (`categories`, `tasks`, `tags`, `task_tags`, `task_photos`, `task_shopping_items`, `task_tools`, `task_time_entries`, `activity_log`) should have RLS **enabled by default** (deny-by-default), with policies granting access based on farm membership:
 
 ```sql
 -- Illustrative pattern, not final SQL

@@ -278,6 +278,14 @@ const hasLocation = computed(
           {{ statusChangeError }}
         </v-alert>
 
+        <div class="mb-6">
+          <TaskTimer
+            :task-id="task.id"
+            :estimated-minutes="task.estimated_minutes"
+            @started="fetchTask"
+          />
+        </div>
+
         <div v-if="task.tags.length > 0" class="mb-6">
           <p class="text-body-2 text-medium-emphasis mb-2">Tags</p>
           <div class="d-flex flex-wrap ga-1">
