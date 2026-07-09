@@ -16,10 +16,14 @@ const { fetchFarms, activeFarm, activeFarmId, farmsError } = useFarms()
 const { task, taskError, loading, fetchTask } = useTask(taskId)
 const { setStatus, update } = useTasks()
 const { categories, fetchCategories } = useCategories()
+const { tags, fetchTags } = useTags()
 
 await fetchFarms()
 await fetchTask()
 await fetchCategories()
+await fetchTags()
+
+const tagSuggestions = computed(() => (tags.value ?? []).map((t) => t.name))
 
 const statusItems: { title: string; value: TaskStatus }[] = [
   { title: 'Not started', value: 'not_started' },
@@ -91,7 +95,7 @@ const categoryItems = computed(() => [
 ])
 
 type EditableField =
-  'priority' | 'category' | 'dueDate' | 'estimate' | 'title' | 'notes'
+  'priority' | 'category' | 'dueDate' | 'estimate' | 'title' | 'notes' | 'tags'
 const fieldSaving = ref<EditableField | null>(null)
 const fieldSaveError = ref<string | null>(null)
 
@@ -104,6 +108,7 @@ async function saveTaskField(
     estimatedMinutes: number | null
     title: string
     notes: string | null
+    tagNames: string[]
   }>,
 ): Promise<boolean> {
   const current = task.value
@@ -234,6 +239,38 @@ async function onNotesBlur() {
   const draft = notesDraft.value.trim()
   if (draft === (current.notes ?? '')) return
   await saveTaskField('notes', { notes: draft || null })
+}
+
+// Tags: click-to-edit into the same combobox the Edit page uses, but with
+// explicit Save/Cancel instead of blur-commit — a combobox's menu clicks
+// make blur ambiguous, unlike a plain text field.
+const editingTags = ref(false)
+const tagsDraft = ref<string[]>([])
+
+function startEditingTags() {
+  if (fieldSaving.value !== null || !task.value) return
+  tagsDraft.value = task.value.tags.map((tag) => tag.name)
+  editingTags.value = true
+}
+
+function onTagsCancel() {
+  editingTags.value = false
+}
+
+async function onTagsSave() {
+  const current = task.value
+  if (!current) return
+  const before = current.tags.map((tag) => tag.name)
+  const draft = [...tagsDraft.value]
+  const unchanged =
+    draft.length === before.length &&
+    [...draft].sort().join('\n') === [...before].sort().join('\n')
+  if (unchanged) {
+    editingTags.value = false
+    return
+  }
+  if (await saveTaskField('tags', { tagNames: draft }))
+    editingTags.value = false
 }
 
 // One-time warning from the create page when a staged photo failed to
@@ -599,12 +636,64 @@ const hasLocation = computed(
           />
         </div>
 
-        <div v-if="task.tags.length > 0" class="mb-6">
+        <div class="mb-6">
           <p class="text-body-2 text-medium-emphasis mb-2">Tags</p>
-          <div class="d-flex flex-wrap ga-1">
-            <v-chip v-for="tag in task.tags" :key="tag.id" size="small">
-              {{ tag.name }}
-            </v-chip>
+          <template v-if="editingTags">
+            <v-combobox
+              v-model="tagsDraft"
+              :items="tagSuggestions"
+              multiple
+              chips
+              closable-chips
+              autofocus
+              density="comfortable"
+              variant="outlined"
+              hide-details
+              :disabled="fieldSaving === 'tags'"
+              @keydown.esc.stop="onTagsCancel"
+            />
+            <div class="d-flex justify-end ga-2 mt-2">
+              <v-btn
+                size="small"
+                :disabled="fieldSaving === 'tags'"
+                @click="onTagsCancel"
+              >
+                Cancel
+              </v-btn>
+              <v-btn
+                size="small"
+                color="primary"
+                :loading="fieldSaving === 'tags'"
+                @click="onTagsSave"
+              >
+                Save
+              </v-btn>
+            </div>
+          </template>
+          <div
+            v-else
+            role="button"
+            tabindex="0"
+            style="cursor: pointer"
+            @click="startEditingTags"
+            @keydown.enter="startEditingTags"
+          >
+            <div
+              v-if="task.tags.length > 0"
+              class="d-flex flex-wrap align-center ga-1"
+            >
+              <v-chip v-for="tag in task.tags" :key="tag.id" size="small">
+                {{ tag.name }}
+              </v-chip>
+              <v-icon
+                icon="mdi-pencil-outline"
+                size="small"
+                class="text-medium-emphasis"
+              />
+            </div>
+            <p v-else class="text-body-1 text-medium-emphasis font-italic">
+              Add tags
+            </p>
           </div>
         </div>
 
@@ -646,11 +735,11 @@ const hasLocation = computed(
         </div>
 
         <div class="mb-6">
-          <TaskShoppingList :task-id="task.id" readonly />
+          <TaskShoppingList :task-id="task.id" />
         </div>
 
         <div class="mb-6">
-          <TaskTools :task-id="task.id" readonly />
+          <TaskTools :task-id="task.id" />
         </div>
 
         <v-divider class="my-6" />

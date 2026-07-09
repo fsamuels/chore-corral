@@ -2,10 +2,8 @@
 import type { ToolItemSummary } from '~/services/tools'
 
 // Only rendered once a task exists (parents guard with v-if="task"), so a
-// task id is always present. `readonly` is the View-page mode: items and
-// their checked state display, but nothing is editable there — all changes
-// happen from the Edit page.
-const props = defineProps<{ taskId: string; readonly?: boolean }>()
+// task id is always present.
+const props = defineProps<{ taskId: string }>()
 
 const {
   items,
@@ -119,7 +117,6 @@ function onRemove(item: ToolItemSummary): void {
     <p
       v-else-if="items && items.length === 0"
       class="text-body-2 text-medium-emphasis"
-      :class="{ 'mb-0': readonly }"
     >
       No tools yet.
     </p>
@@ -132,49 +129,38 @@ function onRemove(item: ToolItemSummary): void {
       >
         <v-checkbox-btn
           :model-value="item.checked"
-          :disabled="readonly || pendingIds.has(item.id)"
+          :disabled="pendingIds.has(item.id)"
           :aria-label="`Mark ${item.name} as ${item.checked ? 'not ready' : 'ready'}`"
           density="compact"
           class="flex-grow-0"
           @update:model-value="onToggle(item)"
         />
-        <span
-          v-if="readonly"
-          class="text-body-2"
+        <v-text-field
+          v-model="drafts[item.id]"
+          density="compact"
+          variant="underlined"
+          hide-details
+          class="flex-grow-1"
           :class="{
             'text-medium-emphasis text-decoration-line-through': item.checked,
           }"
-        >
-          {{ item.name }}
-        </span>
-        <template v-else>
-          <v-text-field
-            v-model="drafts[item.id]"
-            density="compact"
-            variant="underlined"
-            hide-details
-            class="flex-grow-1"
-            :class="{
-              'text-medium-emphasis text-decoration-line-through': item.checked,
-            }"
-            @blur="onNameBlur(item)"
-            @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
-          />
-          <v-btn
-            icon="mdi-close"
-            size="x-small"
-            variant="text"
-            :loading="pendingIds.has(item.id)"
-            :disabled="pendingIds.has(item.id)"
-            aria-label="Remove tool"
-            title="Remove tool"
-            @click="onRemove(item)"
-          />
-        </template>
+          @blur="onNameBlur(item)"
+          @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
+        />
+        <v-btn
+          icon="mdi-close"
+          size="x-small"
+          variant="text"
+          :loading="pendingIds.has(item.id)"
+          :disabled="pendingIds.has(item.id)"
+          aria-label="Remove tool"
+          title="Remove tool"
+          @click="onRemove(item)"
+        />
       </div>
     </div>
 
-    <div v-if="!readonly" class="d-flex align-center ga-2 mt-2">
+    <div class="d-flex align-center ga-2 mt-2">
       <v-text-field
         v-model="newItemName"
         placeholder="Add a tool needed"
