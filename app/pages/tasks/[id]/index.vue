@@ -90,7 +90,8 @@ const categoryItems = computed(() => [
   })),
 ])
 
-type EditableField = 'priority' | 'category' | 'dueDate' | 'estimate'
+type EditableField =
+  'priority' | 'category' | 'dueDate' | 'estimate' | 'title' | 'notes'
 const fieldSaving = ref<EditableField | null>(null)
 const fieldSaveError = ref<string | null>(null)
 
@@ -101,6 +102,8 @@ async function saveTaskField(
     priority: TaskPriority
     dueDate: string | null
     estimatedMinutes: number | null
+    title: string
+    notes: string | null
   }>,
 ): Promise<boolean> {
   const current = task.value
@@ -181,6 +184,56 @@ async function onEstimateSave() {
   }
   if (await saveTaskField('estimate', { estimatedMinutes }))
     estimateMenu.value = false
+}
+
+// Title: click-to-edit, blur-commits (same convention as the shopping/tool
+// list's inline rename). Empty is rejected by reverting rather than saving
+// — a task can't be retitled to nothing, and Delete is the explicit way to
+// remove a task, mirroring the shopping-list item convention.
+const editingTitle = ref(false)
+const titleDraft = ref('')
+
+function startEditingTitle() {
+  if (fieldSaving.value !== null || !task.value) return
+  titleDraft.value = task.value.title
+  editingTitle.value = true
+}
+
+function onTitleCancel() {
+  editingTitle.value = false
+}
+
+async function onTitleBlur() {
+  editingTitle.value = false
+  const current = task.value
+  if (!current) return
+  const draft = titleDraft.value.trim()
+  if (!draft || draft === current.title) return
+  await saveTaskField('title', { title: draft })
+}
+
+// Notes: same click-to-edit, blur-commit convention. Empty is valid here
+// (clears notes to null), unlike title.
+const editingNotes = ref(false)
+const notesDraft = ref('')
+
+function startEditingNotes() {
+  if (fieldSaving.value !== null || !task.value) return
+  notesDraft.value = task.value.notes ?? ''
+  editingNotes.value = true
+}
+
+function onNotesCancel() {
+  editingNotes.value = false
+}
+
+async function onNotesBlur() {
+  editingNotes.value = false
+  const current = task.value
+  if (!current) return
+  const draft = notesDraft.value.trim()
+  if (draft === (current.notes ?? '')) return
+  await saveTaskField('notes', { notes: draft || null })
 }
 
 // One-time warning from the create page when a staged photo failed to
@@ -300,15 +353,38 @@ const hasLocation = computed(
           add them from Edit.
         </v-snackbar>
 
-        <div class="d-flex align-start justify-space-between mb-4">
+        <div class="d-flex align-start justify-space-between mb-4 ga-2">
+          <v-text-field
+            v-if="editingTitle"
+            v-model="titleDraft"
+            autofocus
+            density="comfortable"
+            variant="outlined"
+            hide-details
+            class="text-h4 flex-grow-1"
+            :disabled="fieldSaving === 'title'"
+            @blur="onTitleBlur"
+            @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
+            @keydown.esc.stop="onTitleCancel"
+          />
           <h1
+            v-else
             class="text-h4"
             :class="{
               'text-medium-emphasis text-decoration-line-through':
                 task.status === 'done',
             }"
+            role="button"
+            tabindex="0"
+            @click="startEditingTitle"
+            @keydown.enter="startEditingTitle"
           >
             {{ task.title }}
+            <v-icon
+              icon="mdi-pencil-outline"
+              size="small"
+              class="ml-1 text-medium-emphasis"
+            />
           </h1>
           <v-btn
             color="primary"
@@ -532,10 +608,31 @@ const hasLocation = computed(
           </div>
         </div>
 
-        <div v-if="task.notes" class="mb-6">
+        <div class="mb-6">
           <p class="text-body-2 text-medium-emphasis mb-2">Notes</p>
-          <p class="text-body-1" style="white-space: pre-wrap">
-            {{ task.notes }}
+          <v-textarea
+            v-if="editingNotes"
+            v-model="notesDraft"
+            autofocus
+            rows="3"
+            density="comfortable"
+            variant="outlined"
+            hide-details
+            :disabled="fieldSaving === 'notes'"
+            @blur="onNotesBlur"
+            @keydown.esc.stop="onNotesCancel"
+          />
+          <p
+            v-else
+            class="text-body-1"
+            :class="{ 'text-medium-emphasis font-italic': !task.notes }"
+            style="white-space: pre-wrap; cursor: pointer"
+            role="button"
+            tabindex="0"
+            @click="startEditingNotes"
+            @keydown.enter="startEditingNotes"
+          >
+            {{ task.notes || 'Add notes' }}
           </p>
         </div>
 
