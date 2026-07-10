@@ -101,30 +101,38 @@ async function onStart(): Promise<void> {
     </div>
 
     <div v-else-if="entries" class="d-flex align-center flex-wrap ga-3">
-      <v-btn
+      <button
         v-if="runningHere"
-        color="error"
-        variant="tonal"
-        size="small"
-        prepend-icon="mdi-stop-circle-outline"
-        :loading="mutating"
+        type="button"
+        class="cc-pill-btn cc-pill-btn--danger cc-pill-btn--lg"
         :disabled="mutating"
         @click="stop"
       >
+        <v-progress-circular
+          v-if="mutating"
+          indeterminate
+          size="16"
+          width="2"
+        />
+        <v-icon v-else icon="mdi-stop-circle-outline" size="18" />
         Stop timer
-      </v-btn>
-      <v-btn
+      </button>
+      <button
         v-else
-        color="primary"
-        variant="tonal"
-        size="small"
-        prepend-icon="mdi-play-circle-outline"
-        :loading="mutating"
+        type="button"
+        class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--lg"
         :disabled="mutating"
         @click="onStart"
       >
+        <v-progress-circular
+          v-if="mutating"
+          indeterminate
+          size="16"
+          width="2"
+        />
+        <v-icon v-else icon="mdi-play" size="18" />
         Start timer
-      </v-btn>
+      </button>
 
       <span class="text-body-2" :class="{ 'font-weight-medium': runningHere }">
         <template v-if="trackedMs > 0 || runningHere">

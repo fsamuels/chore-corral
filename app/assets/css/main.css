@@ -44,6 +44,19 @@
   --cc-pill-muted-bg: #ede8dc;
   --cc-pill-muted-text: #8a7d6d;
 
+  /* Done state (segmented status control) */
+  --cc-success: #3e6b3a;
+  --cc-success-contrast: #ffffff;
+
+  /* Soft input/textarea field surface, and segmented-control track */
+  --cc-field: #f6f1e6;
+  --cc-field-border: #e4dccb;
+  --cc-track: #e4dccb;
+
+  /* Outlined button border; dashed "add" affordance border */
+  --cc-outline-border: #d9cfba;
+  --cc-dashed-border: #c6b99f;
+
   /* Type */
   --cc-font-slab: 'Zilla Slab', 'Georgia', serif;
   --cc-font-sans:
@@ -164,4 +177,190 @@
   border-radius: var(--cc-radius);
   box-shadow: var(--cc-shadow);
   padding: 20px;
+}
+
+/*
+ * Shared pill-button system: every tappable control (back link, meta
+ * chips, add/edit/delete actions) is a fully-rounded pill sized to a
+ * touch-friendly minimum height, in one of a few surface treatments.
+ * Height is set per-usage via modifier classes below; base handles shape,
+ * spacing, and typography so every pill stays visually consistent.
+ */
+.cc-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 0 18px;
+  font-family: var(--cc-font-sans);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  border: none;
+  background: none;
+  color: var(--cc-ink);
+}
+
+.cc-pill-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Card-surface pill with a soft shadow — back link, filled meta chips. */
+.cc-pill-btn--surface {
+  background: var(--cc-surface);
+  border: 1px solid var(--cc-border);
+  box-shadow: var(--cc-shadow);
+}
+
+/* Dashed ghost pill — "add" affordances with nothing set yet. */
+.cc-pill-btn--ghost {
+  background: transparent;
+  border: 1.5px dashed var(--cc-dashed-border);
+  color: var(--cc-ink-muted);
+}
+
+/* Solid-outline pill — secondary full-width actions (Edit location,
+   Take photo / Gallery). */
+.cc-pill-btn--outline {
+  background: transparent;
+  border: 1.5px solid var(--cc-outline-border);
+  color: var(--cc-ink);
+}
+
+/* Filled accent pill — primary action (Start timer). */
+.cc-pill-btn--accent {
+  background: var(--cc-accent);
+  color: var(--cc-accent-contrast);
+  box-shadow: 0 2px 6px rgba(181, 84, 30, 0.3);
+}
+
+/* Outlined danger pill — Delete task. */
+.cc-pill-btn--danger {
+  background: transparent;
+  border: 1.5px solid var(--cc-border-urgent);
+  color: var(--cc-urgent-ring);
+}
+
+/* Standard touch-target heights. */
+.cc-pill-btn--sm {
+  height: 44px;
+}
+
+.cc-pill-btn--lg {
+  height: 52px;
+}
+
+.cc-pill-btn--full {
+  width: 100%;
+}
+
+/* Circular icon button — 44x44 card-surface button (edit pencil, header
+   nav buttons use the same shape locally). */
+.cc-icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cc-surface);
+  border: 1px solid var(--cc-border);
+  box-shadow: var(--cc-shadow);
+  color: var(--cc-ink);
+  cursor: pointer;
+  padding: 0;
+  flex: none;
+}
+
+.cc-icon-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Small circular icon button — 36x36, e.g. photo-remove overlay. */
+.cc-icon-btn--sm {
+  width: 36px;
+  height: 36px;
+}
+
+/* Soft field surface for inputs/textareas that sit directly on a card
+   (Notes, captions, list-item add rows) — no sharp corners anywhere. */
+.cc-field {
+  width: 100%;
+  background: var(--cc-field);
+  border: 1.5px solid var(--cc-field-border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-family: var(--cc-font-sans);
+  font-size: 1rem;
+  color: var(--cc-ink);
+}
+
+.cc-field:focus {
+  outline: 2px solid var(--cc-accent);
+  outline-offset: 1px;
+}
+
+.cc-field::placeholder {
+  color: var(--cc-ink-muted);
+}
+
+textarea.cc-field {
+  border-radius: var(--cc-radius);
+  resize: vertical;
+}
+
+/* Segmented control (task status): a `--cc-track` pill track holding N
+   equal buttons, the active one raised as a filled pill. */
+.cc-segmented {
+  display: flex;
+  gap: 4px;
+  background: var(--cc-track);
+  border-radius: 26px;
+  padding: 4px;
+}
+
+.cc-segmented__option {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 44px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--cc-ink-muted);
+  font-family: var(--cc-font-sans);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 8px;
+}
+
+.cc-segmented__option:disabled {
+  cursor: default;
+}
+
+.cc-segmented__option--active {
+  background: var(--cc-surface);
+  color: var(--cc-ink);
+  box-shadow: var(--cc-shadow);
+}
+
+.cc-segmented__option--active-progress {
+  background: var(--cc-accent);
+  color: var(--cc-accent-contrast);
+  box-shadow: var(--cc-shadow);
+}
+
+.cc-segmented__option--active-done {
+  background: var(--cc-success);
+  color: var(--cc-success-contrast);
+  box-shadow: var(--cc-shadow);
 }

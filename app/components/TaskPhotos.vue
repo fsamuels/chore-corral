@@ -132,27 +132,25 @@ watch(photos, (list) => {
       @change="onFileSelected"
     />
 
-    <div class="d-flex align-center flex-wrap ga-2 mb-2">
-      <v-btn
-        size="small"
-        variant="tonal"
-        prepend-icon="mdi-camera"
-        :loading="uploading"
+    <div class="photos-actions mb-2">
+      <button
+        type="button"
+        class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm"
         :disabled="uploading"
         @click="cameraInput?.click()"
       >
+        <v-icon icon="mdi-camera" size="16" />
         Take photo
-      </v-btn>
-      <v-btn
-        size="small"
-        variant="tonal"
-        prepend-icon="mdi-image-multiple"
-        :loading="uploading"
+      </button>
+      <button
+        type="button"
+        class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm"
         :disabled="uploading"
         @click="galleryInput?.click()"
       >
-        Choose from gallery
-      </v-btn>
+        <v-icon icon="mdi-image-multiple" size="16" />
+        Gallery
+      </button>
     </div>
 
     <v-alert
@@ -198,34 +196,35 @@ watch(photos, (list) => {
             width="140"
             height="140"
             cover
-            class="rounded cursor-pointer"
+            class="photos-thumb cursor-pointer"
             @click="openLightbox(index)"
           />
-          <v-btn
-            icon="mdi-close"
-            size="x-small"
-            variant="flat"
-            color="surface"
-            class="position-absolute"
-            style="top: 4px; right: 4px"
-            :loading="pendingDeletes.has(photo.id)"
+          <button
+            type="button"
+            class="cc-icon-btn cc-icon-btn--sm photos-thumb__remove"
             :disabled="pendingDeletes.has(photo.id)"
             :aria-label="`Delete photo`"
             title="Delete photo"
             @click="onDelete(photo)"
-          />
+          >
+            <v-progress-circular
+              v-if="pendingDeletes.has(photo.id)"
+              indeterminate
+              size="14"
+              width="2"
+            />
+            <v-icon v-else icon="mdi-close" size="16" />
+          </button>
         </div>
-        <v-text-field
+        <input
           v-model="captions[photo.id]"
+          type="text"
           placeholder="Add a caption"
-          density="compact"
-          variant="underlined"
-          hide-details
-          class="mt-1"
+          class="cc-field photos-caption mt-2"
           @blur="onCaptionBlur(photo)"
         />
-        <p class="text-caption text-medium-emphasis mb-0">
-          {{ formatTaken(photo.taken_at) }}
+        <p class="text-caption text-medium-emphasis mb-0 mt-1">
+          Added {{ formatTaken(photo.taken_at) }}
         </p>
       </div>
     </div>
@@ -281,3 +280,28 @@ watch(photos, (list) => {
     </v-dialog>
   </div>
 </template>
+
+<style scoped>
+/* Two equal-width outlined pills side by side on mobile widths. */
+.photos-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.photos-thumb {
+  border-radius: var(--cc-radius);
+}
+
+/* Remove (x) button overlapping the thumbnail's top-right corner. */
+.photos-thumb__remove {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+}
+
+.photos-caption {
+  height: 44px;
+  padding: 0 12px;
+}
+</style>

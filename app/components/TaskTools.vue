@@ -160,26 +160,46 @@ function onRemove(item: ToolItemSummary): void {
       </div>
     </div>
 
-    <div class="d-flex align-center ga-2 mt-2">
-      <v-text-field
+    <div class="add-row mt-2">
+      <input
         v-model="newItemName"
+        type="text"
         placeholder="Add a tool needed"
-        density="compact"
-        variant="outlined"
-        hide-details
+        class="cc-field add-row__input"
         :disabled="adding"
         @keydown.enter.prevent="onAdd"
       />
-      <v-btn
-        size="small"
-        variant="tonal"
-        prepend-icon="mdi-tools"
-        :loading="adding"
+      <button
+        type="button"
+        class="cc-icon-btn add-row__submit"
         :disabled="adding || !newItemName.trim()"
+        aria-label="Add tool"
+        title="Add tool"
         @click="onAdd"
       >
-        Add
-      </v-btn>
+        <v-progress-circular v-if="adding" indeterminate size="18" width="2" />
+        <v-icon v-else icon="mdi-plus" size="20" />
+      </button>
     </div>
   </div>
 </template>
+
+<style scoped>
+.add-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.add-row__input {
+  height: 52px;
+  border-radius: 999px;
+  padding: 0 18px;
+}
+
+.add-row__submit {
+  width: 52px;
+  height: 52px;
+  background: #ebe2ce;
+}
+</style>

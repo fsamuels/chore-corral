@@ -456,14 +456,13 @@ const taskLocation = computed(() =>
     </v-alert>
 
     <template v-else-if="activeFarm">
-      <v-btn
-        variant="text"
-        prepend-icon="mdi-arrow-left"
+      <NuxtLink
         to="/tasks"
-        class="mb-2"
+        class="cc-pill-btn cc-pill-btn--surface cc-pill-btn--sm mb-4"
       >
+        <v-icon icon="mdi-chevron-left" size="18" />
         Back to tasks
-      </v-btn>
+      </NuxtLink>
 
       <v-alert
         v-if="taskError"
@@ -517,25 +516,26 @@ const taskLocation = computed(() =>
             @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
             @keydown.esc.stop="onTitleCancel"
           />
-          <h1
-            v-else
-            class="text-h4"
-            :class="{
-              'text-medium-emphasis text-decoration-line-through':
-                task.status === 'done',
-            }"
-            role="button"
-            tabindex="0"
-            @click="startEditingTitle"
-            @keydown.enter="startEditingTitle"
-          >
-            {{ task.title }}
-            <v-icon
-              icon="mdi-pencil-outline"
-              size="small"
-              class="ml-1 text-medium-emphasis"
-            />
-          </h1>
+          <template v-else>
+            <h1
+              class="text-h4 detail-title"
+              :class="{
+                'text-medium-emphasis text-decoration-line-through':
+                  task.status === 'done',
+              }"
+            >
+              {{ task.title }}
+            </h1>
+            <button
+              type="button"
+              class="cc-icon-btn"
+              aria-label="Edit title"
+              title="Edit title"
+              @click="startEditingTitle"
+            >
+              <v-icon icon="mdi-pencil-outline" size="18" />
+            </button>
+          </template>
         </div>
 
         <div class="d-flex flex-wrap ga-2 mb-6">
@@ -544,7 +544,7 @@ const taskLocation = computed(() =>
               <button
                 type="button"
                 v-bind="activatorProps"
-                class="cc-pill cc-pill--pick"
+                class="cc-pill cc-pill--pick cc-pill-btn--sm"
                 :class="`cc-pill--${task.priority}`"
                 :disabled="fieldSaving !== null"
               >
@@ -570,17 +570,20 @@ const taskLocation = computed(() =>
             </v-list>
           </v-menu>
 
-          <span v-if="isTaskOverdue(task)" class="cc-pill cc-pill--error">
+          <span
+            v-if="isTaskOverdue(task)"
+            class="cc-pill cc-pill--error cc-pill-btn--sm"
+          >
             <v-icon :icon="OVERDUE_ICON" size="14" />
             Overdue
           </span>
 
           <v-menu>
             <template #activator="{ props: activatorProps }">
-              <v-chip
+              <button
+                type="button"
                 v-bind="activatorProps"
-                link
-                append-icon="mdi-menu-down"
+                class="cc-pill-btn cc-pill-btn--surface cc-pill-btn--sm"
                 :disabled="fieldSaving !== null"
                 :class="{
                   'text-medium-emphasis font-italic': categoryDisplay(
@@ -589,7 +592,8 @@ const taskLocation = computed(() =>
                 }"
               >
                 {{ categoryDisplay(task.category_id).text }}
-              </v-chip>
+                <v-icon icon="mdi-menu-down" size="16" />
+              </button>
             </template>
             <v-list density="compact">
               <v-list-item
@@ -605,16 +609,23 @@ const taskLocation = computed(() =>
 
           <v-menu v-model="dueDateMenu" :close-on-content-click="false">
             <template #activator="{ props: activatorProps }">
-              <v-chip
+              <button
+                type="button"
                 v-bind="activatorProps"
-                link
-                :variant="task.due_date ? undefined : 'outlined'"
-                :prepend-icon="task.due_date ? undefined : 'mdi-calendar-plus'"
-                append-icon="mdi-menu-down"
+                class="cc-pill-btn cc-pill-btn--sm"
+                :class="
+                  task.due_date ? 'cc-pill-btn--surface' : 'cc-pill-btn--ghost'
+                "
                 :disabled="fieldSaving !== null"
               >
+                <v-icon
+                  v-if="!task.due_date"
+                  icon="mdi-calendar-plus"
+                  size="16"
+                />
                 {{ task.due_date ? `Due ${task.due_date}` : 'Add due date' }}
-              </v-chip>
+                <v-icon v-if="task.due_date" icon="mdi-menu-down" size="16" />
+              </button>
             </template>
             <v-card>
               <v-date-picker
@@ -639,22 +650,33 @@ const taskLocation = computed(() =>
 
           <v-menu v-model="estimateMenu" :close-on-content-click="false">
             <template #activator="{ props: activatorProps }">
-              <v-chip
+              <button
+                type="button"
                 v-bind="activatorProps"
-                link
-                :variant="
-                  task.estimated_minutes !== null ? undefined : 'outlined'
+                class="cc-pill-btn cc-pill-btn--sm"
+                :class="
+                  task.estimated_minutes !== null
+                    ? 'cc-pill-btn--surface'
+                    : 'cc-pill-btn--ghost'
                 "
-                prepend-icon="mdi-timer-outline"
-                append-icon="mdi-menu-down"
                 :disabled="fieldSaving !== null"
               >
+                <v-icon
+                  v-if="task.estimated_minutes === null"
+                  icon="mdi-timer-outline"
+                  size="16"
+                />
                 {{
                   task.estimated_minutes !== null
                     ? `Est. ${formatEstimatedMinutes(task.estimated_minutes)}`
-                    : 'Add estimate'
+                    : '+ Estimate'
                 }}
-              </v-chip>
+                <v-icon
+                  v-if="task.estimated_minutes !== null"
+                  icon="mdi-menu-down"
+                  size="16"
+                />
+              </button>
             </template>
             <v-card min-width="280">
               <v-card-text>
@@ -696,33 +718,29 @@ const taskLocation = computed(() =>
           {{ fieldSaveError }}
         </v-alert>
 
-        <v-select
-          :model-value="task.status"
-          :items="statusItems"
-          label="Status"
-          density="comfortable"
-          variant="outlined"
-          :loading="statusChanging"
-          hide-details
-          style="max-width: 260px"
-          class="mb-6"
-          @update:model-value="onStatusChange"
-        >
-          <template #selection="{ item: selected }">
-            <v-icon
-              :icon="STATUS_DISPLAY[selected.value as TaskStatus].icon"
-              size="small"
-              class="mr-1"
-            />
-            {{ selected.title }}
-          </template>
-          <template #item="{ item: option, props: itemProps }">
-            <v-list-item
-              v-bind="itemProps"
-              :prepend-icon="STATUS_DISPLAY[option.value as TaskStatus].icon"
-            />
-          </template>
-        </v-select>
+        <div class="cc-eyebrow mb-2">Status</div>
+        <div class="cc-segmented mb-6" role="group" aria-label="Task status">
+          <button
+            v-for="item in statusItems"
+            :key="item.value"
+            type="button"
+            class="cc-segmented__option"
+            :class="{
+              'cc-segmented__option--active':
+                task.status === item.value && item.value === 'not_started',
+              'cc-segmented__option--active-progress':
+                task.status === item.value && item.value === 'in_progress',
+              'cc-segmented__option--active-done':
+                task.status === item.value && item.value === 'done',
+            }"
+            :disabled="statusChanging"
+            :aria-pressed="task.status === item.value"
+            @click="onStatusChange(item.value)"
+          >
+            <v-icon :icon="STATUS_DISPLAY[item.value].icon" size="16" />
+            {{ item.title }}
+          </button>
+        </div>
 
         <v-alert
           v-if="statusChangeError"
@@ -797,22 +815,25 @@ const taskLocation = computed(() =>
                 class="text-medium-emphasis"
               />
             </div>
-            <p v-else class="text-body-1 text-medium-emphasis font-italic">
-              Add tags
-            </p>
+            <button
+              v-else
+              type="button"
+              class="cc-pill-btn cc-pill-btn--ghost cc-pill-btn--sm"
+              @click="startEditingTags"
+            >
+              + Add tags
+            </button>
           </div>
         </div>
 
         <div class="cc-card mb-6">
           <p class="cc-eyebrow mb-2">Notes</p>
-          <v-textarea
+          <textarea
             v-if="editingNotes"
             v-model="notesDraft"
             autofocus
             rows="3"
-            density="comfortable"
-            variant="outlined"
-            hide-details
+            class="cc-field"
             :disabled="fieldSaving === 'notes'"
             @blur="onNotesBlur"
             @keydown.esc.stop="onNotesCancel"
@@ -862,59 +883,58 @@ const taskLocation = computed(() =>
             <v-chip prepend-icon="mdi-map-marker" class="mb-2">
               {{ taskLocation.name }}
             </v-chip>
-            <TaskLocationPreview
-              :lat="taskLocation.lat"
-              :lng="taskLocation.lng"
-            />
-            <v-btn
-              size="small"
-              variant="text"
-              prepend-icon="mdi-pencil-outline"
-              class="mt-1"
+            <div class="detail-map">
+              <TaskLocationPreview
+                :lat="taskLocation.lat"
+                :lng="taskLocation.lng"
+              />
+            </div>
+            <button
+              type="button"
+              class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm cc-pill-btn--full mt-3"
               @click="startEditingLocation"
             >
+              <v-icon icon="mdi-pencil-outline" size="16" />
               Edit location
-            </v-btn>
+            </button>
           </template>
           <template v-else-if="task.lat !== null && task.lng !== null">
-            <TaskLocationPreview :lat="task.lat" :lng="task.lng" />
-            <v-btn
-              size="small"
-              variant="text"
-              prepend-icon="mdi-pencil-outline"
-              class="mt-1"
+            <div class="detail-map">
+              <TaskLocationPreview :lat="task.lat" :lng="task.lng" />
+            </div>
+            <button
+              type="button"
+              class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm cc-pill-btn--full mt-3"
               @click="startEditingLocation"
             >
+              <v-icon icon="mdi-pencil-outline" size="16" />
               Edit location
-            </v-btn>
+            </button>
           </template>
           <template v-else-if="task.location_id !== null">
             <!-- location_id set but unresolved: the referenced location was
                  soft-deleted after this (non-active) task was assigned to
                  it, so useLocations() no longer returns it. -->
-            <p class="text-body-1 text-medium-emphasis font-italic mb-1">
+            <p class="text-body-1 text-medium-emphasis font-italic mb-2">
               Location no longer available
             </p>
-            <v-btn
-              size="small"
-              variant="text"
-              prepend-icon="mdi-pencil-outline"
+            <button
+              type="button"
+              class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm cc-pill-btn--full"
               @click="startEditingLocation"
             >
+              <v-icon icon="mdi-pencil-outline" size="16" />
               Edit location
-            </v-btn>
+            </button>
           </template>
-          <p
+          <button
             v-else
-            class="text-body-1 text-medium-emphasis font-italic"
-            style="cursor: pointer"
-            role="button"
-            tabindex="0"
+            type="button"
+            class="cc-pill-btn cc-pill-btn--ghost cc-pill-btn--sm"
             @click="startEditingLocation"
-            @keydown.enter="startEditingLocation"
           >
-            Add location
-          </p>
+            + Add location
+          </button>
         </div>
 
         <div class="cc-card mb-6">
@@ -964,16 +984,16 @@ const taskLocation = computed(() =>
           </v-timeline>
         </div>
 
-        <div class="d-flex justify-end">
-          <v-btn
-            color="error"
-            variant="text"
-            size="large"
+        <div class="detail-delete">
+          <button
+            type="button"
+            class="cc-pill-btn cc-pill-btn--danger cc-pill-btn--lg cc-pill-btn--full"
             :disabled="fieldSaving !== null"
             @click="confirmingDelete = true"
           >
+            <v-icon icon="mdi-delete-outline" size="18" />
             Delete task
-          </v-btn>
+          </button>
         </div>
 
         <v-dialog v-model="confirmingDelete" max-width="420" persistent>
@@ -1028,5 +1048,35 @@ const taskLocation = computed(() =>
 .cc-pill--pick:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+.detail-title {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Round the map preview's corners to match the rest of the page — the
+   Leaflet container itself doesn't take a border-radius directly. */
+.detail-map {
+  border-radius: var(--cc-radius);
+  overflow: hidden;
+}
+
+.detail-delete {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--cc-border);
+}
+
+/* Ring the activity timeline's dots in the shared track color instead of
+   Vuetify's default. */
+:deep(.v-timeline-item .v-timeline-item__dot) {
+  background: var(--cc-track);
+  box-shadow: none;
+}
+
+:deep(.v-timeline-item .v-timeline-item__inner-dot) {
+  color: var(--cc-ink);
 }
 </style>
