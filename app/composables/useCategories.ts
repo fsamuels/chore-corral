@@ -3,6 +3,7 @@ import {
   createCategory,
   deleteCategory,
   listCategories,
+  updateCategory,
   type CategorySummary,
   type DeleteCategoryResult,
 } from '~/services/categories'
@@ -59,6 +60,21 @@ export function useCategories() {
     categories.value = next
   }
 
+  async function update(categoryId: string, name: string): Promise<void> {
+    const farmId = activeFarmId.value
+    if (!farmId) return
+    const updated = await updateCategory(supabase, {
+      farmId,
+      categoryId,
+      name,
+    })
+    const next = (categories.value ?? []).map((category) =>
+      category.id === categoryId ? updated : category,
+    )
+    next.sort((a, b) => a.name.localeCompare(b.name))
+    categories.value = next
+  }
+
   async function remove(categoryId: string): Promise<DeleteCategoryResult> {
     const farmId = activeFarmId.value
     const actorUserId = getActorUserId(user.value)
@@ -84,6 +100,7 @@ export function useCategories() {
     loading,
     fetchCategories,
     create,
+    update,
     remove,
   }
 }

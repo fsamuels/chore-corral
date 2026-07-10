@@ -9,6 +9,7 @@ const {
   loading,
   fetchCategories,
   create,
+  update,
   remove,
 } = useCategories()
 
@@ -42,6 +43,42 @@ async function submitCreate() {
       error instanceof Error ? error.message : 'Failed to create category'
   } finally {
     creating.value = false
+  }
+}
+
+// Edit: explicit edit mode with Save/Cancel, like the locations page (blur-
+// commit would fire on every field-navigation click, which reads as jumpy
+// for a plain text field too).
+const editingId = ref<string | null>(null)
+const editName = ref('')
+const saving = ref(false)
+const saveError = ref<string | null>(null)
+
+function startEditing(category: CategorySummary) {
+  editingId.value = category.id
+  editName.value = category.name
+  saveError.value = null
+}
+
+function cancelEditing() {
+  editingId.value = null
+  saveError.value = null
+}
+
+async function saveEditing() {
+  const id = editingId.value
+  const name = editName.value.trim()
+  if (!id || !name) return
+  saving.value = true
+  saveError.value = null
+  try {
+    await update(id, name)
+    editingId.value = null
+  } catch (error) {
+    saveError.value =
+      error instanceof Error ? error.message : 'Failed to save category'
+  } finally {
+    saving.value = false
   }
 }
 
@@ -163,23 +200,69 @@ async function performDelete() {
 
       <div v-else class="cc-card pa-0" style="overflow: hidden">
         <v-list lines="one">
-          <v-list-item
-            v-for="category in categories"
-            :key="category.id"
-            :title="category.name"
-          >
-            <template #append>
-              <button
-                type="button"
-                class="cc-icon-btn cc-icon-btn--sm"
-                :aria-label="`Delete ${category.name}`"
-                :title="`Delete ${category.name}`"
-                @click="confirmDelete(category)"
+          <template v-for="category in categories" :key="category.id">
+            <div v-if="editingId === category.id" class="pa-4">
+              <v-text-field
+                v-model="editName"
+                label="Name"
+                :rules="nameRules"
+                :disabled="saving"
+                density="comfortable"
+                variant="outlined"
+                hide-details="auto"
+                autofocus
+                @keyup.enter="saveEditing"
+              />
+              <v-alert
+                v-if="saveError"
+                type="error"
+                variant="tonal"
+                density="compact"
+                class="mt-2"
               >
-                <v-icon icon="mdi-delete-outline" size="18" />
-              </button>
-            </template>
-          </v-list-item>
+                {{ saveError }}
+              </v-alert>
+              <div class="d-flex justify-end ga-2 mt-3">
+                <v-btn size="small" :disabled="saving" @click="cancelEditing">
+                  Cancel
+                </v-btn>
+                <v-btn
+                  size="small"
+                  color="primary"
+                  :loading="saving"
+                  :disabled="!editName.trim()"
+                  @click="saveEditing"
+                >
+                  Save
+                </v-btn>
+              </div>
+            </div>
+            <v-list-item v-else :title="category.name">
+              <template #append>
+                <div class="d-flex ga-2">
+                  <button
+                    type="button"
+                    class="cc-icon-btn cc-icon-btn--sm"
+                    :aria-label="`Edit ${category.name}`"
+                    :title="`Edit ${category.name}`"
+                    @click="startEditing(category)"
+                  >
+                    <v-icon icon="mdi-pencil-outline" size="18" />
+                  </button>
+                  <button
+                    type="button"
+                    class="cc-icon-btn cc-icon-btn--sm"
+                    :aria-label="`Delete ${category.name}`"
+                    :title="`Delete ${category.name}`"
+                    @click="confirmDelete(category)"
+                  >
+                    <v-icon icon="mdi-delete-outline" size="18" />
+                  </button>
+                </div>
+              </template>
+            </v-list-item>
+            <v-divider />
+          </template>
         </v-list>
       </div>
     </template>

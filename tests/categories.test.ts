@@ -3,6 +3,7 @@ import {
   createCategory,
   deleteCategory,
   listCategories,
+  updateCategory,
 } from '../app/services/categories'
 import { FakeSupabaseClient, asSupabaseClient } from './helpers/fake-supabase'
 import type { Database } from '../app/types/database.types'
@@ -270,6 +271,109 @@ describe('createCategory', () => {
 
     expect(fake.getTable('categories')).toHaveLength(0)
     expect(fake.getTable('activity_log')).toHaveLength(0)
+  })
+})
+
+describe('updateCategory', () => {
+  it('renames the category', async () => {
+    const fake = new FakeSupabaseClient({
+      categories: [category({ id: 'cat-1', name: 'Fencing' })],
+      tasks: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await updateCategory(supabase, {
+      farmId: FARM_A,
+      categoryId: 'cat-1',
+      name: 'Fence Repair',
+    })
+
+    expect(result.name).toBe('Fence Repair')
+    expect((fake.getTable('categories')[0] as CategoryRow).name).toBe(
+      'Fence Repair',
+    )
+    expect(fake.getTable('activity_log')).toHaveLength(0)
+  })
+
+  it('trims surrounding whitespace from the name before update', async () => {
+    const fake = new FakeSupabaseClient({
+      categories: [category({ id: 'cat-1', name: 'Fencing' })],
+      tasks: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await updateCategory(supabase, {
+      farmId: FARM_A,
+      categoryId: 'cat-1',
+      name: '  Mowing  ',
+    })
+
+    expect(result.name).toBe('Mowing')
+  })
+
+  it('throws and writes nothing for an empty or whitespace-only name', async () => {
+    const fake = new FakeSupabaseClient({
+      categories: [category({ id: 'cat-1', name: 'Fencing' })],
+      tasks: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    await expect(
+      updateCategory(supabase, {
+        farmId: FARM_A,
+        categoryId: 'cat-1',
+        name: '   ',
+      }),
+    ).rejects.toThrow('Category name is required')
+
+    expect((fake.getTable('categories')[0] as CategoryRow).name).toBe('Fencing')
+  })
+
+  it('throws when the category does not exist', async () => {
+    const fake = new FakeSupabaseClient({ categories: [], tasks: [] })
+    const supabase = asSupabaseClient(fake)
+
+    await expect(
+      updateCategory(supabase, {
+        farmId: FARM_A,
+        categoryId: 'missing',
+        name: 'New Name',
+      }),
+    ).rejects.toThrow('Category not found or already deleted')
+  })
+
+  it('throws when the category is already soft-deleted', async () => {
+    const fake = new FakeSupabaseClient({
+      categories: [
+        category({ id: 'cat-1', deleted_at: '2026-01-01T00:00:00.000Z' }),
+      ],
+      tasks: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    await expect(
+      updateCategory(supabase, {
+        farmId: FARM_A,
+        categoryId: 'cat-1',
+        name: 'New Name',
+      }),
+    ).rejects.toThrow('Category not found or already deleted')
+  })
+
+  it('does not rename a category belonging to a different farm', async () => {
+    const fake = new FakeSupabaseClient({
+      categories: [category({ id: 'cat-1', farm_id: FARM_B })],
+      tasks: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    await expect(
+      updateCategory(supabase, {
+        farmId: FARM_A,
+        categoryId: 'cat-1',
+        name: 'New Name',
+      }),
+    ).rejects.toThrow('Category not found or already deleted')
   })
 })
 
