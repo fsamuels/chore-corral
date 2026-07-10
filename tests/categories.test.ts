@@ -20,6 +20,7 @@ function category(overrides: Partial<CategoryRow> = {}): CategoryRow {
     id: 'cat-seed',
     farm_id: FARM_A,
     name: 'Fencing',
+    emoji: null,
     deleted_at: null,
     created_at: '2026-01-01T00:00:00.000Z',
     ...overrides,
@@ -257,6 +258,34 @@ describe('createCategory', () => {
     expect((fake.getTable('categories')[0] as CategoryRow).name).toBe('Mowing')
   })
 
+  it('stores a provided emoji, and null when omitted or blank', async () => {
+    const fake = new FakeSupabaseClient({ categories: [], tasks: [] })
+    const supabase = asSupabaseClient(fake)
+
+    const withEmoji = await createCategory(supabase, {
+      farmId: FARM_A,
+      name: 'Chickens',
+      emoji: '🐔',
+      actorUserId: ACTOR,
+    })
+    expect(withEmoji.emoji).toBe('🐔')
+
+    const blank = await createCategory(supabase, {
+      farmId: FARM_A,
+      name: 'Fencing',
+      emoji: '   ',
+      actorUserId: ACTOR,
+    })
+    expect(blank.emoji).toBeNull()
+
+    const omitted = await createCategory(supabase, {
+      farmId: FARM_A,
+      name: 'Mowing',
+      actorUserId: ACTOR,
+    })
+    expect(omitted.emoji).toBeNull()
+  })
+
   it('throws and writes nothing for an empty or whitespace-only name', async () => {
     const fake = new FakeSupabaseClient({ categories: [], tasks: [] })
     const supabase = asSupabaseClient(fake)
@@ -309,6 +338,30 @@ describe('updateCategory', () => {
     })
 
     expect(result.name).toBe('Mowing')
+  })
+
+  it('sets and clears the emoji', async () => {
+    const fake = new FakeSupabaseClient({
+      categories: [category({ id: 'cat-1', name: 'Fencing', emoji: null })],
+      tasks: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const set = await updateCategory(supabase, {
+      farmId: FARM_A,
+      categoryId: 'cat-1',
+      name: 'Fencing',
+      emoji: '🔧',
+    })
+    expect(set.emoji).toBe('🔧')
+
+    const cleared = await updateCategory(supabase, {
+      farmId: FARM_A,
+      categoryId: 'cat-1',
+      name: 'Fencing',
+      emoji: null,
+    })
+    expect(cleared.emoji).toBeNull()
   })
 
   it('throws and writes nothing for an empty or whitespace-only name', async () => {

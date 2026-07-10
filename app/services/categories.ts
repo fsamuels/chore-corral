@@ -10,7 +10,17 @@ export const ACTIVE_TASK_STATUSES = ['not_started', 'in_progress'] as const
 export interface CategorySummary {
   id: string
   name: string
+  /** Optional decorative emoji (null when unset). */
+  emoji: string | null
   created_at: string
+}
+
+// Normalize category emoji input: trim, and treat empty as "no emoji" (null).
+// Kept short to a single emoji at the DB layer (categories_emoji_length),
+// which this doesn't re-check — bad input surfaces as the DB constraint error.
+function normalizeEmoji(emoji: string | null | undefined): string | null {
+  const trimmed = emoji?.trim()
+  return trimmed ? trimmed : null
 }
 
 export type DeleteCategoryResult =
@@ -26,7 +36,7 @@ export async function listCategories(
 ): Promise<CategorySummary[]> {
   const { data, error } = await supabase
     .from('categories')
-    .select('id, name, created_at')
+    .select('id, name, emoji, created_at')
     .eq('farm_id', farmId)
     .is('deleted_at', null)
     .order('name')
@@ -44,15 +54,20 @@ export async function listCategories(
  */
 export async function createCategory(
   supabase: Client,
-  opts: { farmId: string; name: string; actorUserId: string },
+  opts: {
+    farmId: string
+    name: string
+    emoji?: string | null
+    actorUserId: string
+  },
 ): Promise<CategorySummary> {
   const name = opts.name.trim()
   if (!name) throw new Error('Category name is required')
 
   const { data, error } = await supabase
     .from('categories')
-    .insert({ farm_id: opts.farmId, name })
-    .select('id, name, created_at')
+    .insert({ farm_id: opts.farmId, name, emoji: normalizeEmoji(opts.emoji) })
+    .select('id, name, emoji, created_at')
     .single()
   if (error) throw new Error(error.message)
 
@@ -66,18 +81,23 @@ export async function createCategory(
  */
 export async function updateCategory(
   supabase: Client,
-  opts: { farmId: string; categoryId: string; name: string },
+  opts: {
+    farmId: string
+    categoryId: string
+    name: string
+    emoji?: string | null
+  },
 ): Promise<CategorySummary> {
   const name = opts.name.trim()
   if (!name) throw new Error('Category name is required')
 
   const { data, error } = await supabase
     .from('categories')
-    .update({ name })
+    .update({ name, emoji: normalizeEmoji(opts.emoji) })
     .eq('id', opts.categoryId)
     .eq('farm_id', opts.farmId)
     .is('deleted_at', null)
-    .select('id, name, created_at')
+    .select('id, name, emoji, created_at')
   if (error) throw new Error(error.message)
   const category = data[0]
   if (!category) throw new Error('Category not found or already deleted')

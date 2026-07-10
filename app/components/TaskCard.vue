@@ -6,17 +6,21 @@ const props = defineProps<{
   task: TaskSummary
   /** Resolved category display name (page owns the categories list). */
   categoryName: string
+  /** Optional category emoji, shown in the circular timer button. */
+  categoryEmoji?: string | null
   /** Local calendar-date string ("YYYY-MM-DD") for due-date rendering. */
   today: string
-  /** True while the page is persisting this task's completion. */
+  /** True while the page is persisting this task's timer change. */
   updating?: boolean
-  /** Hide the complete-checkbox for pages that don't offer status changes. */
+  /** True when this task has the user's running timer (shows a stop control). */
+  timerRunning?: boolean
+  /** Hide the circular timer button for pages that don't offer it. */
   hideCheck?: boolean
 }>()
 
 const emit = defineEmits<{
-  /** User clicked the complete-checkbox; the page calls setStatus(id, 'done'). */
-  complete: [task: TaskSummary]
+  /** User tapped the circular button; the page starts or stops this task's timer. */
+  toggleTimer: [task: TaskSummary]
 }>()
 
 const overdue = computed(() => isTaskOverdue(props.task))
@@ -56,9 +60,9 @@ const hasLocation = computed(
   () => props.task.lat !== null && props.task.lng !== null,
 )
 
-function onComplete() {
+function onToggleTimer() {
   if (props.updating) return
-  emit('complete', props.task)
+  emit('toggleTimer', props.task)
 }
 </script>
 
@@ -72,11 +76,18 @@ function onComplete() {
       v-if="!hideCheck"
       type="button"
       class="task-card__check"
-      :class="`task-card__check--${task.priority}`"
-      :aria-label="`Mark ${task.title} done`"
-      :title="'Mark done'"
+      :class="[
+        `task-card__check--${task.priority}`,
+        { 'task-card__check--running': timerRunning },
+      ]"
+      :aria-label="
+        timerRunning
+          ? `Stop timer for ${task.title}`
+          : `Start timer for ${task.title}`
+      "
+      :title="timerRunning ? 'Stop timer' : 'Start timer'"
       :disabled="updating"
-      @click.stop.prevent="onComplete"
+      @click.stop.prevent="onToggleTimer"
     >
       <v-progress-circular
         v-if="updating"
@@ -85,7 +96,26 @@ function onComplete() {
         width="2"
         class="task-card__check-spinner"
       />
-      <v-icon v-else icon="mdi-check" size="20" class="task-card__check-tick" />
+      <v-icon
+        v-else-if="timerRunning"
+        icon="mdi-stop"
+        size="22"
+        class="task-card__check-stop"
+      />
+      <template v-else>
+        <span
+          v-if="categoryEmoji"
+          class="task-card__check-emoji"
+          aria-hidden="true"
+          >{{ categoryEmoji }}</span
+        >
+        <v-icon
+          icon="mdi-play"
+          size="20"
+          class="task-card__check-play"
+          :class="{ 'task-card__check-play--solo': !categoryEmoji }"
+        />
+      </template>
     </button>
 
     <div class="task-card__content">
@@ -151,8 +181,11 @@ function onComplete() {
   border-color: var(--cc-border-urgent);
 }
 
-/* 44px circular complete-checkbox: 3px priority ring + soft priority fill. */
+/* 44px circular start-timer button: 3px priority ring + soft priority fill.
+   Holds the category emoji at rest and reveals a play icon on hover; a
+   running timer swaps it for a stop icon in the accent color. */
 .task-card__check {
+  position: relative;
   flex: 0 0 44px;
   width: 44px;
   height: 44px;
@@ -182,15 +215,47 @@ function onComplete() {
   color: var(--cc-whenever-ring);
 }
 
-/* Tick appears on hover/focus as an affordance; spinner while updating. */
-.task-card__check-tick {
-  opacity: 0;
+/* Running state: accent-filled circle with the stop glyph. Placed after the
+   priority modifiers so it wins on source order without !important. */
+.task-card__check--running {
+  border-color: var(--cc-accent);
+  background: var(--cc-accent);
+  color: var(--cc-accent-contrast);
+}
+
+/* Emoji (rest) and play icon (hover) share the center via absolute overlap. */
+.task-card__check-emoji,
+.task-card__check-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   transition: opacity 0.15s ease;
 }
 
-.task-card__check:hover .task-card__check-tick,
-.task-card__check:focus-visible .task-card__check-tick {
+.task-card__check-emoji {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+/* Play hidden at rest when an emoji is showing; revealed on hover/focus. */
+.task-card__check-play {
+  opacity: 0;
+}
+
+/* No emoji to show — keep the play glyph faintly visible as the affordance. */
+.task-card__check-play--solo {
+  opacity: 0.55;
+}
+
+.task-card__check:hover .task-card__check-play,
+.task-card__check:focus-visible .task-card__check-play {
   opacity: 1;
+}
+
+.task-card__check:hover .task-card__check-emoji,
+.task-card__check:focus-visible .task-card__check-emoji {
+  opacity: 0;
 }
 
 .task-card__content {

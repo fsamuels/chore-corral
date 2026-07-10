@@ -75,6 +75,7 @@ export interface Database {
           id: string
           farm_id: string
           name: string
+          emoji: string | null
           deleted_at: string | null
           created_at: string
         }
@@ -82,6 +83,7 @@ export interface Database {
           id?: string
           farm_id: string
           name: string
+          emoji?: string | null
           deleted_at?: string | null
           created_at?: string
         }
@@ -89,6 +91,7 @@ export interface Database {
           id?: string
           farm_id?: string
           name?: string
+          emoji?: string | null
           deleted_at?: string | null
           created_at?: string
         }
