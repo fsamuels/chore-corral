@@ -50,7 +50,9 @@ async function submitCreate() {
     newPin.value = null
     // Clearing the field re-triggers `nameRules` against the now-empty
     // string, which would otherwise flash a spurious "Name is required"
-    // right after a successful create.
+    // right after a successful create. VTextField validates its new value
+    // on the next tick, so resetValidation must run after that, not before.
+    await nextTick()
     createForm.value?.resetValidation()
   } catch (error) {
     createError.value =
