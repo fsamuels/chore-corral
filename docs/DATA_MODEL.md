@@ -257,6 +257,17 @@ Not a table — a view joining `farm_memberships` to `auth.users`, exposing just
 
 The view runs with its owner's privileges (the Postgres default for views — the owner can read `auth.users` and isn't subject to `farm_memberships`' RLS), and carries its membership scoping in its own definition: a `where` clause restricts output to farms the querying user (`auth.uid()`) belongs to, and `security_barrier` keeps caller-supplied predicates from being evaluated ahead of that filter. Only `authenticated` holds a SELECT grant on the view. A view can't carry its own `create policy` the way a table can, so the in-view predicate is the equivalent mechanism. It was originally created as a `security_invoker` view instead, which failed in production — see DECISIONS.md for why that didn't work. One row per `(farm_id, user_id)` pair — a user who belongs to multiple farms appears once per farm, which is expected since callers always filter by a specific `farm_id`.
 
+### `farm_recent_activity`
+
+Not a table — a view over `tasks`, one row per farm, giving the timestamp of that farm's most recent task activity. Powers the default-farm fallback in `resolveActiveFarmId` (`app/utils/active-farm.ts`): when a user has no valid saved farm selection, the app picks the farm with the latest activity here instead of the alphabetically-first farm — see DECISIONS.md.
+
+| Column             | Type        | Notes                                                                                                                      |
+| ------------------ | ----------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `farm_id`          | uuid        | From `tasks.farm_id`, one row per distinct farm with any tasks                                                             |
+| `last_activity_at` | timestamptz | `max(greatest(created_at, coalesce(completed_at, created_at)))` per farm — the newer of each task's creation or completion |
+
+Unlike `farm_member_profiles`, this view is `security_invoker`: it only reads `tasks`, which `authenticated` already has an ordinary table-level grant on (the app queries `tasks` directly everywhere else), so it inherits `tasks`' existing farm-membership RLS as-is with no in-view scoping needed. A farm with no tasks at all has no row here, which is fine — the fallback chain in `resolveActiveFarmId` moves on to the alphabetically-first farm in that case.
+
 ## Row Level Security (RLS) Policy Intent
 
 All farm-scoped tables (`categories`, `locations`, `tasks`, `tags`, `task_tags`, `task_photos`, `task_shopping_items`, `task_tools`, `task_time_entries`, `activity_log`) should have RLS **enabled by default** (deny-by-default), with policies granting access based on farm membership:

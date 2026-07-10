@@ -454,6 +454,13 @@ export interface Database {
         }
         Relationships: []
       }
+      farm_recent_activity: {
+        Row: {
+          farm_id: string
+          last_activity_at: string
+        }
+        Relationships: []
+      }
     }
     Functions: Record<string, never>
     Enums: {
