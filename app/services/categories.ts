@@ -61,6 +61,30 @@ export async function createCategory(
 }
 
 /**
+ * Edit a category's name. Not logged (field edits, like a location's, are
+ * not major events).
+ */
+export async function updateCategory(
+  supabase: Client,
+  opts: { farmId: string; categoryId: string; name: string },
+): Promise<CategorySummary> {
+  const name = opts.name.trim()
+  if (!name) throw new Error('Category name is required')
+
+  const { data, error } = await supabase
+    .from('categories')
+    .update({ name })
+    .eq('id', opts.categoryId)
+    .eq('farm_id', opts.farmId)
+    .is('deleted_at', null)
+    .select('id, name, created_at')
+  if (error) throw new Error(error.message)
+  const category = data[0]
+  if (!category) throw new Error('Category not found or already deleted')
+  return category
+}
+
+/**
  * Soft-delete a category, unless any active task still references it —
  * the check and the update are two statements, so a concurrent task
  * creation can slip between them; fine at this app's scale (see
