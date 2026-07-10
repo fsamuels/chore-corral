@@ -102,6 +102,44 @@ export interface Database {
           },
         ]
       }
+      locations: {
+        Row: {
+          id: string
+          farm_id: string
+          name: string
+          lat: number
+          lng: number
+          deleted_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          farm_id: string
+          name: string
+          lat: number
+          lng: number
+          deleted_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          farm_id?: string
+          name?: string
+          lat?: number
+          lng?: number
+          deleted_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'locations_farm_id_fkey'
+            columns: ['farm_id']
+            isOneToOne: false
+            referencedRelation: 'farms'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       tasks: {
         Row: {
           id: string
@@ -114,6 +152,7 @@ export interface Database {
           notes: string | null
           lat: number | null
           lng: number | null
+          location_id: string | null
           created_at: string
           created_by: string
           completed_at: string | null
@@ -130,6 +169,7 @@ export interface Database {
           notes?: string | null
           lat?: number | null
           lng?: number | null
+          location_id?: string | null
           created_at?: string
           created_by: string
           completed_at?: string | null
@@ -146,6 +186,7 @@ export interface Database {
           notes?: string | null
           lat?: number | null
           lng?: number | null
+          location_id?: string | null
           created_at?: string
           created_by?: string
           completed_at?: string | null
@@ -164,6 +205,13 @@ export interface Database {
             columns: ['category_id']
             isOneToOne: false
             referencedRelation: 'categories'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'tasks_location_id_fkey'
+            columns: ['location_id']
+            isOneToOne: false
+            referencedRelation: 'locations'
             referencedColumns: ['id']
           },
         ]
