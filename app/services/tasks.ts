@@ -347,6 +347,25 @@ export async function getTask(
   }
 }
 
+/**
+ * A task's title by id alone, with no farm_id filter — used by the
+ * floating running-timer button, which only has the task id from a time
+ * entry and shouldn't have to know which of the user's farms it's in. RLS
+ * (farm-membership check on `tasks`) is what actually scopes this, same as
+ * every other query here. Null if the task doesn't exist or isn't visible.
+ */
+export async function getTaskTitle(
+  supabase: Client,
+  taskId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('id, title')
+    .eq('id', taskId)
+  if (error) throw new Error(error.message)
+  return data[0]?.title ?? null
+}
+
 export interface CreateTaskInput {
   farmId: string
   title: string

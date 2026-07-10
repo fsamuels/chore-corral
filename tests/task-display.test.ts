@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  formatElapsedDuration,
   formatEstimatedMinutes,
   parseEstimatedMinutesInput,
 } from '../app/utils/task-display'
@@ -38,5 +39,17 @@ describe('formatEstimatedMinutes', () => {
     expect(formatEstimatedMinutes(61)).toBe('1h 1m')
     expect(formatEstimatedMinutes(90)).toBe('1h 30m')
     expect(formatEstimatedMinutes(1441)).toBe('24h 1m')
+  })
+})
+
+describe('formatElapsedDuration', () => {
+  it('renders sub-minute durations as "<1m" rather than "0m"', () => {
+    expect(formatElapsedDuration(0)).toBe('<1m')
+    expect(formatElapsedDuration(59_000)).toBe('<1m')
+  })
+
+  it('renders whole minutes/hours the same way formatEstimatedMinutes does', () => {
+    expect(formatElapsedDuration(60_000)).toBe('1m')
+    expect(formatElapsedDuration(90 * 60_000)).toBe('1h 30m')
   })
 })

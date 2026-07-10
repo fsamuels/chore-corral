@@ -5,6 +5,7 @@ import {
   createTask,
   deleteTask,
   getTask,
+  getTaskTitle,
   isTaskOverdue,
   listTasks,
   updateTask,
@@ -1152,6 +1153,28 @@ describe('getTask', () => {
     const supabase = asSupabaseClient(fake)
 
     const result = await getTask(supabase, { farmId: FARM_B, taskId: 'task-1' })
+
+    expect(result).toBeNull()
+  })
+})
+
+describe('getTaskTitle', () => {
+  it('returns the title for a task by id, with no farm_id filter needed', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1', title: 'Fix the gate', farm_id: FARM_B })],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await getTaskTitle(supabase, 'task-1')
+
+    expect(result).toBe('Fix the gate')
+  })
+
+  it('returns null for a non-existent id rather than throwing', async () => {
+    const fake = new FakeSupabaseClient({ tasks: [task({ id: 'task-1' })] })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await getTaskTitle(supabase, 'no-such-task')
 
     expect(result).toBeNull()
   })

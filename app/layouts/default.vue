@@ -117,6 +117,8 @@ async function signOut() {
       <slot />
     </v-main>
 
+    <FloatingTimerButton v-if="user" />
+
     <v-bottom-navigation
       v-if="user && mobile"
       grow

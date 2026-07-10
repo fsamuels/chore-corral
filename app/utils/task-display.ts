@@ -110,6 +110,19 @@ export function formatEstimatedMinutes(minutes: number): string {
   return `${hours}h ${remainder}m`
 }
 
+/**
+ * Compact "1h 30m" rendering of an elapsed duration in milliseconds, for
+ * the floating running-timer button — reuses `formatEstimatedMinutes`'s
+ * hour/minute split since the two read identically. The button's cadence
+ * is a periodic tick rather than a per-second one, so anything under a
+ * minute renders as "<1m" instead of "0m" (which would look stuck).
+ */
+export function formatElapsedDuration(ms: number): string {
+  const minutes = Math.floor(ms / 60000)
+  if (minutes < 1) return '<1m'
+  return formatEstimatedMinutes(minutes)
+}
+
 export function categoryDisplayName(
   categoryId: string | null,
   categories: Pick<CategorySummary, 'id' | 'name'>[] | null | undefined,
