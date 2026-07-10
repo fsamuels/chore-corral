@@ -1,10 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~/types/database.types'
+import type { TaskStatus } from './tasks'
 
 export interface TagSummary {
   id: string
   name: string
   created_at: string
+}
+
+/** All progress statuses, in the order the tags page renders their counts. */
+export const TASK_STATUSES = ['not_started', 'in_progress', 'done'] as const
+
+function emptyStatusCounts(): Record<TaskStatus, number> {
+  return { not_started: 0, in_progress: 0, done: 0 }
 }
 
 type Client = SupabaseClient<Database>
@@ -149,14 +157,20 @@ export async function listTagsForTasks(
 
 export interface TagSummaryWithCount extends TagSummary {
   taskCount: number
+  /** How many of the tagged tasks sit in each progress status. */
+  statusCounts: Record<TaskStatus, number>
 }
 
 /**
  * The farm's tags (per `listTags`, alphabetical) alongside each one's usage
- * count — the number of tasks currently carrying it. Two sequential queries
- * instead of a join, matching `listTagsForTasks`'s style: no farm scoping is
- * needed on the `task_tags` fetch since tag ids are already farm-scoped via
- * `tags`.
+ * count — the number of tasks currently carrying it — broken down by progress
+ * status. Three sequential queries instead of joins, matching
+ * `listTagsForTasks`'s style: fetch the tags, their `task_tags` links, then
+ * the linked tasks' statuses. No farm scoping is needed on the `task_tags`
+ * fetch since tag ids are already farm-scoped via `tags`, and the status fetch
+ * is scoped by the linked task ids. `taskCount` is the sum of the status
+ * counts, so a `task_tags` row pointing at a task the caller can't see (RLS,
+ * or an in-flight delete) contributes to neither.
  */
 export async function listTagsWithCounts(
   supabase: Client,
@@ -168,14 +182,37 @@ export async function listTagsWithCounts(
   const tagIds = tags.map((tag) => tag.id)
   const { data: links, error } = await supabase
     .from('task_tags')
-    .select('tag_id')
+    .select('tag_id, task_id')
     .in('tag_id', tagIds)
   if (error) throw new Error(error.message)
 
-  const counts = new Map<string, number>()
-  for (const link of links) {
-    counts.set(link.tag_id, (counts.get(link.tag_id) ?? 0) + 1)
+  const taskIds = [...new Set(links.map((link) => link.task_id))]
+  const statusByTaskId = new Map<string, TaskStatus>()
+  if (taskIds.length > 0) {
+    const { data: taskRows, error: taskError } = await supabase
+      .from('tasks')
+      .select('id, status')
+      .in('id', taskIds)
+    if (taskError) throw new Error(taskError.message)
+    for (const row of taskRows) statusByTaskId.set(row.id, row.status)
   }
 
-  return tags.map((tag) => ({ ...tag, taskCount: counts.get(tag.id) ?? 0 }))
+  const countsByTag = new Map<string, Record<TaskStatus, number>>()
+  for (const link of links) {
+    const status = statusByTaskId.get(link.task_id)
+    if (!status) continue
+    let counts = countsByTag.get(link.tag_id)
+    if (!counts) {
+      counts = emptyStatusCounts()
+      countsByTag.set(link.tag_id, counts)
+    }
+    counts[status] += 1
+  }
+
+  return tags.map((tag) => {
+    const statusCounts = countsByTag.get(tag.id) ?? emptyStatusCounts()
+    const taskCount =
+      statusCounts.not_started + statusCounts.in_progress + statusCounts.done
+    return { ...tag, taskCount, statusCounts }
+  })
 }

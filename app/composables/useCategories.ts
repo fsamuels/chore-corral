@@ -46,13 +46,14 @@ export function useCategories() {
     fetchCategories()
   })
 
-  async function create(name: string): Promise<void> {
+  async function create(name: string, emoji?: string | null): Promise<void> {
     const farmId = activeFarmId.value
     const actorUserId = getActorUserId(user.value)
     if (!farmId || !actorUserId) return
     const created = await createCategory(supabase, {
       farmId,
       name,
+      emoji,
       actorUserId,
     })
     const next = [...(categories.value ?? []), created]
@@ -60,13 +61,18 @@ export function useCategories() {
     categories.value = next
   }
 
-  async function update(categoryId: string, name: string): Promise<void> {
+  async function update(
+    categoryId: string,
+    name: string,
+    emoji?: string | null,
+  ): Promise<void> {
     const farmId = activeFarmId.value
     if (!farmId) return
     const updated = await updateCategory(supabase, {
       farmId,
       categoryId,
       name,
+      emoji,
     })
     const next = (categories.value ?? []).map((category) =>
       category.id === categoryId ? updated : category,

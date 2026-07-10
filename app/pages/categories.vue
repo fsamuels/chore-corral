@@ -19,6 +19,7 @@ await fetchFarms()
 await fetchCategories()
 
 const newName = ref('')
+const newEmoji = ref<string | null>(null)
 const creating = ref(false)
 const createError = ref<string | null>(null)
 const nameRules = [(v: string) => !!v.trim() || 'Name is required']
@@ -30,8 +31,9 @@ async function submitCreate() {
   creating.value = true
   createError.value = null
   try {
-    await create(name)
+    await create(name, newEmoji.value)
     newName.value = ''
+    newEmoji.value = null
     // Clearing the field re-triggers `nameRules` against the now-empty
     // string, which would otherwise flash a spurious "Name is required"
     // right after a successful create. VTextField validates its new value
@@ -51,12 +53,14 @@ async function submitCreate() {
 // for a plain text field too).
 const editingId = ref<string | null>(null)
 const editName = ref('')
+const editEmoji = ref<string | null>(null)
 const saving = ref(false)
 const saveError = ref<string | null>(null)
 
 function startEditing(category: CategorySummary) {
   editingId.value = category.id
   editName.value = category.name
+  editEmoji.value = category.emoji
   saveError.value = null
 }
 
@@ -72,7 +76,7 @@ async function saveEditing() {
   saving.value = true
   saveError.value = null
   try {
-    await update(id, name)
+    await update(id, name, editEmoji.value)
     editingId.value = null
   } catch (error) {
     saveError.value =
@@ -155,6 +159,7 @@ async function performDelete() {
           <v-btn
             type="submit"
             color="primary"
+            size="large"
             :loading="creating"
             :disabled="!newName.trim()"
             class="mt-1"
@@ -162,6 +167,8 @@ async function performDelete() {
             Add
           </v-btn>
         </div>
+        <p class="cc-eyebrow mt-4 mb-2">Emoji (optional)</p>
+        <CategoryEmojiPicker v-model="newEmoji" :disabled="creating" />
         <v-alert
           v-if="createError"
           type="error"
@@ -213,6 +220,8 @@ async function performDelete() {
                 autofocus
                 @keyup.enter="saveEditing"
               />
+              <p class="cc-eyebrow mt-4 mb-2">Emoji (optional)</p>
+              <CategoryEmojiPicker v-model="editEmoji" :disabled="saving" />
               <v-alert
                 v-if="saveError"
                 type="error"
@@ -238,6 +247,15 @@ async function performDelete() {
               </div>
             </div>
             <v-list-item v-else :title="category.name">
+              <template #prepend>
+                <span
+                  class="category-emoji"
+                  :class="{ 'category-emoji--empty': !category.emoji }"
+                  aria-hidden="true"
+                >
+                  {{ category.emoji ?? '🏷️' }}
+                </span>
+              </template>
               <template #append>
                 <div class="d-flex ga-2">
                   <button
@@ -297,3 +315,20 @@ async function performDelete() {
     </v-snackbar>
   </v-container>
 </template>
+
+<style scoped>
+/* Emoji chip in a category row; the placeholder tag is dimmed so real emoji
+   read as the accent. */
+.category-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.category-emoji--empty {
+  opacity: 0.35;
+}
+</style>

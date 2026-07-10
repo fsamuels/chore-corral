@@ -11,6 +11,7 @@ import type { Database } from '../app/types/database.types'
 
 type TagRow = Database['public']['Tables']['tags']['Row']
 type TaskTagRow = Database['public']['Tables']['task_tags']['Row']
+type TaskRow = Database['public']['Tables']['tasks']['Row']
 
 const FARM_A = 'farm-a'
 const FARM_B = 'farm-b'
@@ -32,6 +33,29 @@ function taskTag(overrides: Partial<TaskTagRow> = {}): TaskTagRow {
     ...overrides,
   }
 }
+
+function task(overrides: Partial<TaskRow> = {}): TaskRow {
+  return {
+    id: 'task-seed',
+    farm_id: FARM_A,
+    title: 'Fix the gate',
+    category_id: null,
+    priority: 'soon',
+    status: 'not_started',
+    due_date: null,
+    notes: null,
+    lat: null,
+    lng: null,
+    location_id: null,
+    created_at: '2026-01-01T00:00:00.000Z',
+    created_by: 'user-1',
+    completed_at: null,
+    estimated_minutes: null,
+    ...overrides,
+  }
+}
+
+const ZERO_COUNTS = { not_started: 0, in_progress: 0, done: 0 }
 
 describe('listTags', () => {
   it("returns only the given farm's tags, sorted by name", async () => {
@@ -307,15 +331,21 @@ describe('listTagsWithCounts', () => {
         name: 'Fence',
         created_at: tag().created_at,
         taskCount: 0,
+        statusCounts: ZERO_COUNTS,
       },
     ])
   })
 
-  it('counts tasks per tag independently, sorted by name', async () => {
+  it('counts tasks per tag independently, broken down by status, sorted by name', async () => {
     const fake = new FakeSupabaseClient({
       tags: [
         tag({ id: 'tag-1', farm_id: FARM_A, name: 'Mowing' }),
         tag({ id: 'tag-2', farm_id: FARM_A, name: 'Fence' }),
+      ],
+      tasks: [
+        task({ id: 'task-1', status: 'not_started' }),
+        task({ id: 'task-2', status: 'done' }),
+        task({ id: 'task-3', status: 'in_progress' }),
       ],
       task_tags: [
         taskTag({ task_id: 'task-1', tag_id: 'tag-1' }),
@@ -333,12 +363,14 @@ describe('listTagsWithCounts', () => {
         name: 'Fence',
         created_at: tag().created_at,
         taskCount: 1,
+        statusCounts: { not_started: 0, in_progress: 1, done: 0 },
       },
       {
         id: 'tag-1',
         name: 'Mowing',
         created_at: tag().created_at,
         taskCount: 2,
+        statusCounts: { not_started: 1, in_progress: 0, done: 1 },
       },
     ])
   })
@@ -348,6 +380,10 @@ describe('listTagsWithCounts', () => {
       tags: [
         tag({ id: 'tag-1', farm_id: FARM_A, name: 'Fence' }),
         tag({ id: 'tag-2', farm_id: FARM_B, name: 'Gate' }),
+      ],
+      tasks: [
+        task({ id: 'task-1', farm_id: FARM_A, status: 'not_started' }),
+        task({ id: 'task-2', farm_id: FARM_B, status: 'not_started' }),
       ],
       task_tags: [
         taskTag({ task_id: 'task-1', tag_id: 'tag-1' }),
@@ -364,6 +400,7 @@ describe('listTagsWithCounts', () => {
         name: 'Fence',
         created_at: tag().created_at,
         taskCount: 1,
+        statusCounts: { not_started: 1, in_progress: 0, done: 0 },
       },
     ])
   })

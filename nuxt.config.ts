@@ -21,6 +21,23 @@ export default defineNuxtConfig({
   },
   vuetify: {
     vuetifyOptions: {
+      // App-wide component defaults. The ranch look is soft and pill-shaped
+      // (see the `cc-*` classes in main.css); these push Vuetify's own
+      // controls the same way so buttons/inputs/cards aren't sharp-cornered,
+      // and bumps the default touch density up for comfortable tapping on
+      // mobile.
+      defaults: {
+        global: { rounded: 'lg' },
+        VBtn: { rounded: 'xl' },
+        VTextField: { rounded: 'lg' },
+        VSelect: { rounded: 'lg' },
+        VCombobox: { rounded: 'lg' },
+        VAutocomplete: { rounded: 'lg' },
+        VTextarea: { rounded: 'lg' },
+        VCard: { rounded: 'lg' },
+        VChip: { rounded: 'lg' },
+        VListItem: { rounded: 'lg' },
+      },
       theme: {
         defaultTheme: 'ranch',
         // Single warm "ranch" theme; palette tokens also live as CSS custom

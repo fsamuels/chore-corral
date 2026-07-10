@@ -66,13 +66,16 @@ No `role` column for MVP (see SPEC.md — no roles/permissions tiering). Adding 
 
 Per-farm, user-editable task categories.
 
-| Column       | Type                            | Notes                            |
-| ------------ | ------------------------------- | -------------------------------- |
-| `id`         | uuid, PK                        |                                  |
-| `farm_id`    | uuid, FK → `farms.id`, not null | Scopes category to one farm      |
-| `name`       | text, not null                  |                                  |
-| `deleted_at` | timestamptz, nullable           | Soft delete only — null = active |
-| `created_at` | timestamptz, default now()      |                                  |
+| Column       | Type                            | Notes                                                             |
+| ------------ | ------------------------------- | ----------------------------------------------------------------- |
+| `id`         | uuid, PK                        |                                                                   |
+| `farm_id`    | uuid, FK → `farms.id`, not null | Scopes category to one farm                                       |
+| `name`       | text, not null                  |                                                                   |
+| `emoji`      | text, nullable                  | Optional decorative emoji; `CHECK` `char_length` between 1 and 16 |
+| `deleted_at` | timestamptz, nullable           | Soft delete only — null = active                                  |
+| `created_at` | timestamptz, default now()      |                                                                   |
+
+The optional `emoji` is purely decorative — shown in the category picker and, on the home screen, inside each task card's circular start-timer button so a category is recognizable at a glance. The length cap (`categories_emoji_length`) keeps it to a single emoji, which can itself be several codepoints (ZWJ sequences, flags), rather than an arbitrary string.
 
 **Constraint (application-enforced, not DB-enforced):** a category cannot be soft-deleted while any task referencing it has `status != 'done'`. This check happens in application code at delete-time (see ARCHITECTURE.md for the app-layer vs. RLS authorization split).
 

@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { toLocalDateString, type TaskPriority } from '~/services/tasks'
+import {
+  toLocalDateString,
+  type TaskPriority,
+  type TaskStatus,
+} from '~/services/tasks'
 import {
   ALL,
   defaultTaskFilters,
@@ -7,17 +11,23 @@ import {
   type DueDateFilter,
 } from '~/utils/task-filters'
 
+const route = useRoute()
 const { fetchFarms, activeFarm, farmsError } = useFarms()
 const { tasks, tasksError, loading, fetchTasks } = useTasks()
 const { categories, fetchCategories } = useCategories()
+const { tags, fetchTags } = useTags()
 
 // Fetch farms first so the active farm resolves during SSR, then load its
-// tasks and categories (the composables' watch covers later farm switches).
+// tasks, categories, and tags (the composables' watch covers later farm
+// switches).
 await fetchFarms()
 await fetchTasks()
 await fetchCategories()
+await fetchTags()
 
 const today = computed(() => toLocalDateString(new Date()))
+
+const KNOWN_STATUSES: TaskStatus[] = ['not_started', 'in_progress', 'done']
 
 const statusFilterItems = [
   { title: 'All statuses', value: ALL },
@@ -60,11 +70,38 @@ const categoryFilterItems = computed(() => [
   ...categoryItems.value,
 ])
 
+// Tag filter matches by tag name (tasks carry their tags inline). 'all' is the
+// no-filter sentinel; the picker is populated from the farm's full tag list.
+const ALL_TAGS = 'all'
+const selectedTag = ref<string>(ALL_TAGS)
+
+const tagFilterItems = computed(() => [
+  { title: 'All tags', value: ALL_TAGS },
+  ...(tags.value ?? []).map((tag) => ({ title: tag.name, value: tag.name })),
+])
+
 const filters = ref(defaultTaskFilters())
+
+// The tags page deep-links here with `?tag=<name>&status=<status>`; sync those
+// query params into the filters, both on first load and on later in-app
+// navigation to a new query (the page component is reused, so a watcher is
+// needed — setup doesn't re-run).
+function applyQuery() {
+  const tag = route.query.tag
+  selectedTag.value = typeof tag === 'string' && tag ? tag : ALL_TAGS
+
+  const status = route.query.status
+  filters.value.status =
+    typeof status === 'string' && (KNOWN_STATUSES as string[]).includes(status)
+      ? (status as TaskStatus)
+      : ALL
+}
+watch(() => route.query, applyQuery, { immediate: true })
 
 const hasActiveFilters = computed(
   () =>
     selectedCategory.value !== ALL_CATEGORIES ||
+    selectedTag.value !== ALL_TAGS ||
     filters.value.status !== ALL ||
     filters.value.priority !== ALL ||
     filters.value.dueDate !== ALL ||
@@ -74,6 +111,7 @@ const hasActiveFilters = computed(
 
 function resetFilters() {
   selectedCategory.value = ALL_CATEGORIES
+  selectedTag.value = ALL_TAGS
   filters.value = defaultTaskFilters()
 }
 
@@ -83,7 +121,13 @@ const filteredTasks = computed(() => {
     selectedCategory.value === ALL_CATEGORIES
       ? all
       : all.filter((task) => task.category_id === selectedCategory.value)
-  return filterTasks(byCategory, filters.value)
+  const byTag =
+    selectedTag.value === ALL_TAGS
+      ? byCategory
+      : byCategory.filter((task) =>
+          task.tags.some((tag) => tag.name === selectedTag.value),
+        )
+  return filterTasks(byTag, filters.value)
 })
 
 function categoryName(categoryId: string | null): string {
@@ -104,10 +148,7 @@ function categoryName(categoryId: string | null): string {
       be reachable.
     </v-alert>
     <template v-else-if="activeFarm">
-      <div class="d-flex align-start justify-space-between mb-1">
-        <h1 class="text-h4 mb-1">Tasks</h1>
-        <v-btn color="primary" size="large" to="/tasks/new">New task</v-btn>
-      </div>
+      <h1 class="text-h4 mb-1">Tasks</h1>
       <p class="cc-eyebrow mb-4">{{ activeFarm.name }}</p>
 
       <v-text-field
@@ -118,8 +159,7 @@ function categoryName(categoryId: string | null): string {
         variant="outlined"
         hide-details
         clearable
-        class="mb-4"
-        style="max-width: 400px"
+        class="mb-4 tasks-search"
       />
 
       <div class="d-flex flex-wrap ga-4 align-center mb-4">
@@ -130,7 +170,16 @@ function categoryName(categoryId: string | null): string {
           density="comfortable"
           variant="outlined"
           hide-details
-          style="max-width: 220px"
+          class="tasks-filter__field"
+        />
+        <v-select
+          v-model="selectedTag"
+          :items="tagFilterItems"
+          label="Tag"
+          density="comfortable"
+          variant="outlined"
+          hide-details
+          class="tasks-filter__field"
         />
         <v-select
           v-model="filters.status"
@@ -139,7 +188,7 @@ function categoryName(categoryId: string | null): string {
           density="comfortable"
           variant="outlined"
           hide-details
-          style="max-width: 220px"
+          class="tasks-filter__field"
         />
         <v-select
           v-model="filters.priority"
@@ -148,7 +197,7 @@ function categoryName(categoryId: string | null): string {
           density="comfortable"
           variant="outlined"
           hide-details
-          style="max-width: 220px"
+          class="tasks-filter__field"
         />
         <v-select
           v-model="filters.dueDate"
@@ -157,7 +206,7 @@ function categoryName(categoryId: string | null): string {
           density="comfortable"
           variant="outlined"
           hide-details
-          style="max-width: 220px"
+          class="tasks-filter__field"
         />
         <v-checkbox
           v-model="filters.overdueOnly"
@@ -228,6 +277,8 @@ function categoryName(categoryId: string | null): string {
           hide-check
         />
       </div>
+
+      <NewTaskFab />
     </template>
   </v-container>
 </template>
@@ -237,5 +288,27 @@ function categoryName(categoryId: string | null): string {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.tasks-search {
+  max-width: 400px;
+}
+
+/* Filter selects sit at a comfortable width on desktop but stretch to fill
+   the row on phones, so each stays an easy tap target instead of a cramped
+   square. */
+.tasks-filter__field {
+  max-width: 220px;
+}
+
+@media (max-width: 600px) {
+  .tasks-search {
+    max-width: 100%;
+  }
+
+  .tasks-filter__field {
+    max-width: none;
+    flex: 1 1 100%;
+  }
 }
 </style>

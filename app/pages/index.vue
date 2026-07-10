@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { Database } from '~/types/database.types'
 import {
   isTaskOverdue,
   partitionHomeTasks,
@@ -8,11 +9,14 @@ import {
   toLocalDateString,
   type TaskSummary,
 } from '~/services/tasks'
+import { startTimer, stopTimer } from '~/services/time-entries'
 
-const { fetchFarms, activeFarm, farmsError } = useFarms()
-const { tasks, tasksError, loading, fetchTasks, setStatus } = useTasks()
+const supabase = useSupabaseClient<Database>()
+const user = useSupabaseUser()
+const { fetchFarms, activeFarm, activeFarmId, farmsError } = useFarms()
+const { tasks, tasksError, loading, fetchTasks } = useTasks()
 const { categories, fetchCategories } = useCategories()
-const { mobile } = useDisplay()
+const { runningEntry, refresh: refreshRunningTimer } = useRunningTimer()
 
 await fetchFarms()
 await fetchTasks()
@@ -78,20 +82,54 @@ function categoryName(task: TaskSummary): string {
   return categoryDisplayName(task.category_id, categories.value).text
 }
 
+function categoryEmoji(task: TaskSummary): string | null {
+  return categories.value?.find((c) => c.id === task.category_id)?.emoji ?? null
+}
+
+// Which task, if any, currently holds the user's running timer.
+function isTimerRunning(task: TaskSummary): boolean {
+  return runningEntry.value?.task_id === task.id
+}
+
 const updatingTaskId = ref<string | null>(null)
 const snackbarMessage = ref<string | null>(null)
+const snackbarColor = ref<'error' | 'success'>('success')
 const showSnackbar = ref(false)
 
-async function completeTask(task: TaskSummary) {
+function notify(message: string, color: 'error' | 'success') {
+  snackbarMessage.value = message
+  snackbarColor.value = color
+  showSnackbar.value = true
+}
+
+/**
+ * Start this task's timer, or stop it if it's already the running one. Starting
+ * can flip the task to in_progress and auto-stop a timer on another task (both
+ * handled service-side), so afterward we refetch tasks and the running-timer
+ * state to reflect whatever actually happened.
+ */
+async function toggleTimer(task: TaskSummary) {
+  const farmId = activeFarmId.value
+  const actorUserId = getActorUserId(user.value)
+  if (!farmId || !actorUserId) return
+
+  const running = runningEntry.value
   updatingTaskId.value = task.id
   try {
-    await setStatus(task.id, 'done')
-  } catch (error) {
-    snackbarMessage.value =
-      error instanceof Error ? error.message : 'Failed to update status'
-    showSnackbar.value = true
-    // Make sure the list reflects reality rather than a stale/optimistic value.
+    if (running && running.task_id === task.id) {
+      await stopTimer(supabase, running.id)
+      notify(`Timer stopped for “${task.title}”`, 'success')
+    } else {
+      await startTimer(supabase, { farmId, taskId: task.id, actorUserId })
+      notify(`Timer started for “${task.title}”`, 'success')
+    }
+    await refreshRunningTimer()
     await fetchTasks()
+  } catch (error) {
+    notify(
+      error instanceof Error ? error.message : 'Failed to update timer',
+      'error',
+    )
   } finally {
     updatingTaskId.value = null
   }
@@ -175,9 +213,11 @@ async function completeTask(task: TaskSummary) {
                 :key="task.id"
                 :task="task"
                 :category-name="categoryName(task)"
+                :category-emoji="categoryEmoji(task)"
                 :today="today"
                 :updating="updatingTaskId === task.id"
-                @complete="completeTask"
+                :timer-running="isTimerRunning(task)"
+                @toggle-timer="toggleTimer"
               />
             </div>
           </section>
@@ -196,9 +236,11 @@ async function completeTask(task: TaskSummary) {
                 :key="task.id"
                 :task="task"
                 :category-name="categoryName(task)"
+                :category-emoji="categoryEmoji(task)"
                 :today="today"
                 :updating="updatingTaskId === task.id"
-                @complete="completeTask"
+                :timer-running="isTimerRunning(task)"
+                @toggle-timer="toggleTimer"
               />
             </div>
           </section>
@@ -222,18 +264,9 @@ async function completeTask(task: TaskSummary) {
       </template>
     </template>
 
-    <NuxtLink
-      to="/tasks/new"
-      class="home-fab"
-      :class="{ 'home-fab--above-bottom-nav': mobile }"
-      aria-label="New chore"
-      title="New chore"
-    >
-      <v-icon icon="mdi-plus" size="20" />
-      <span>New chore</span>
-    </NuxtLink>
+    <NewTaskFab />
 
-    <v-snackbar v-model="showSnackbar" color="error" :timeout="6000">
+    <v-snackbar v-model="showSnackbar" :color="snackbarColor" :timeout="4000">
       {{ snackbarMessage }}
     </v-snackbar>
   </v-container>
@@ -275,29 +308,5 @@ async function completeTask(task: TaskSummary) {
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-
-/* Floating pill "+ New chore" button: fixed bottom-right, above the mobile
-   bottom nav (56px tall) when it's present so the two don't overlap. */
-.home-fab {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 10;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--cc-accent);
-  color: var(--cc-accent-contrast);
-  border-radius: 999px;
-  padding: 12px 20px;
-  font-weight: 600;
-  font-size: 0.9375rem;
-  text-decoration: none;
-  box-shadow: 0 4px 12px rgba(43, 33, 24, 0.25);
-}
-
-.home-fab--above-bottom-nav {
-  bottom: 80px;
 }
 </style>
