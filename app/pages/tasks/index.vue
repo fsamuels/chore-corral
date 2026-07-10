@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import {
-  isTaskOverdue,
-  type TaskPriority,
-  type TaskStatus,
-  type TaskSummary,
-} from '~/services/tasks'
+import { toLocalDateString, type TaskPriority } from '~/services/tasks'
 import {
   ALL,
   defaultTaskFilters,
@@ -13,7 +8,7 @@ import {
 } from '~/utils/task-filters'
 
 const { fetchFarms, activeFarm, farmsError } = useFarms()
-const { tasks, tasksError, loading, fetchTasks, setStatus } = useTasks()
+const { tasks, tasksError, loading, fetchTasks } = useTasks()
 const { categories, fetchCategories } = useCategories()
 
 // Fetch farms first so the active farm resolves during SSR, then load its
@@ -22,15 +17,13 @@ await fetchFarms()
 await fetchTasks()
 await fetchCategories()
 
-const statusItems: { title: string; value: TaskStatus }[] = [
-  { title: 'Not started', value: 'not_started' },
-  { title: 'In progress', value: 'in_progress' },
-  { title: 'Done', value: 'done' },
-]
+const today = computed(() => toLocalDateString(new Date()))
 
 const statusFilterItems = [
   { title: 'All statuses', value: ALL },
-  ...statusItems,
+  { title: 'Not started', value: 'not_started' },
+  { title: 'In progress', value: 'in_progress' },
+  { title: 'Done', value: 'done' },
 ]
 
 const priorityFilterItems: {
@@ -47,14 +40,6 @@ const dueDateFilterItems: { title: string; value: DueDateFilter }[] = [
   { title: 'Any due date', value: ALL },
   { title: 'Has due date', value: 'has_due_date' },
   { title: 'No due date', value: 'no_due_date' },
-]
-
-const headers = [
-  { title: 'Title', key: 'title', sortable: false },
-  { title: 'Category', key: 'category', sortable: false },
-  { title: 'Priority', key: 'priority', sortable: false },
-  { title: 'Status', key: 'status', sortable: false },
-  { title: 'Due date', key: 'due_date', sortable: false },
 ]
 
 const categoryItems = computed(() =>
@@ -101,36 +86,8 @@ const filteredTasks = computed(() => {
   return filterTasks(byCategory, filters.value)
 })
 
-function categoryDisplay(categoryId: string | null): {
-  text: string
-  deleted: boolean
-} {
-  return categoryDisplayName(categoryId, categories.value)
-}
-
-const snackbarMessage = ref<string | null>(null)
-const showSnackbar = ref(false)
-
-function notifyError(message: string) {
-  snackbarMessage.value = message
-  showSnackbar.value = true
-}
-
-async function onStatusChange(task: TaskSummary, status: TaskStatus) {
-  if (task.status === status) return
-  try {
-    await setStatus(task.id, status)
-  } catch (error) {
-    notifyError(
-      error instanceof Error ? error.message : 'Failed to update status',
-    )
-    // Make sure the list reflects reality rather than a stale/optimistic value.
-    await fetchTasks()
-  }
-}
-
-function openTask(taskId: string) {
-  navigateTo(`/tasks/${taskId}`)
+function categoryName(categoryId: string | null): string {
+  return categoryDisplayName(categoryId, categories.value).text
 }
 </script>
 
@@ -261,144 +218,24 @@ function openTask(taskId: string) {
         </v-btn>
       </div>
 
-      <div class="cc-table-wrap">
-        <v-data-table
-          :headers="headers"
-          :items="filteredTasks"
-          :items-per-page="-1"
-          hide-default-footer
-          density="comfortable"
-        >
-          <template #item="{ item }">
-            <tr
-              style="cursor: pointer"
-              :aria-label="`Open ${item.title}`"
-              @click="openTask(item.id)"
-            >
-              <td>
-                <span
-                  class="cc-table-title"
-                  :class="{
-                    'text-medium-emphasis text-decoration-line-through':
-                      item.status === 'done',
-                  }"
-                >
-                  {{ item.title }}
-                </span>
-                <div
-                  v-if="item.tags.length > 0"
-                  class="d-flex flex-wrap ga-1 mt-1"
-                >
-                  <v-chip
-                    v-for="tag in item.tags"
-                    :key="tag.id"
-                    size="x-small"
-                    variant="tonal"
-                  >
-                    {{ tag.name }}
-                  </v-chip>
-                </div>
-              </td>
-
-              <td>
-                <span
-                  class="cc-eyebrow"
-                  :class="{
-                    'font-italic': categoryDisplay(item.category_id).deleted,
-                  }"
-                >
-                  {{ categoryDisplay(item.category_id).text }}
-                </span>
-              </td>
-
-              <td>
-                <span class="cc-pill" :class="`cc-pill--${item.priority}`">
-                  <v-icon
-                    v-if="item.priority === 'urgent'"
-                    icon="mdi-fire"
-                    size="14"
-                  />
-                  <v-icon
-                    v-else-if="item.priority === 'soon'"
-                    icon="mdi-clock-outline"
-                    size="14"
-                  />
-                  {{
-                    item.priority === 'urgent'
-                      ? 'Urgent'
-                      : item.priority === 'soon'
-                        ? 'Soon'
-                        : 'Whenever'
-                  }}
-                </span>
-              </td>
-
-              <td @click.stop>
-                <v-select
-                  :model-value="item.status"
-                  :items="statusItems"
-                  density="compact"
-                  variant="outlined"
-                  hide-details
-                  style="width: 170px"
-                  @update:model-value="
-                    (value: TaskStatus) => onStatusChange(item, value)
-                  "
-                >
-                  <template #selection="{ item: selected }">
-                    <v-icon
-                      :icon="STATUS_DISPLAY[selected.value as TaskStatus].icon"
-                      size="small"
-                      class="mr-1"
-                    />
-                    {{ selected.title }}
-                  </template>
-                  <template #item="{ item: option, props: itemProps }">
-                    <v-list-item
-                      v-bind="itemProps"
-                      :prepend-icon="
-                        STATUS_DISPLAY[option.value as TaskStatus].icon
-                      "
-                    />
-                  </template>
-                </v-select>
-              </td>
-
-              <td>
-                <span :class="{ 'text-error': isTaskOverdue(item) }">
-                  {{ item.due_date ?? '' }}
-                </span>
-                <span
-                  v-if="isTaskOverdue(item)"
-                  class="cc-pill cc-pill--error ml-2"
-                >
-                  <v-icon :icon="OVERDUE_ICON" size="14" />
-                  Overdue
-                </span>
-              </td>
-            </tr>
-          </template>
-        </v-data-table>
+      <div class="tasks-list__cards">
+        <TaskCard
+          v-for="item in filteredTasks"
+          :key="item.id"
+          :task="item"
+          :category-name="categoryName(item.category_id)"
+          :today="today"
+          hide-check
+        />
       </div>
     </template>
-
-    <v-snackbar v-model="showSnackbar" color="error" :timeout="6000">
-      {{ snackbarMessage }}
-    </v-snackbar>
   </v-container>
 </template>
 
 <style scoped>
-.cc-table-wrap {
-  background: var(--cc-surface);
-  border: 1px solid var(--cc-border);
-  border-radius: var(--cc-radius);
-  box-shadow: var(--cc-shadow);
-  overflow: hidden;
-}
-
-.cc-table-title {
-  font-family: var(--cc-font-slab);
-  font-weight: 600;
+.tasks-list__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 </style>

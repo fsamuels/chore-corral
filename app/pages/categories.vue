@@ -169,14 +169,15 @@ async function performDelete() {
             :title="category.name"
           >
             <template #append>
-              <v-btn
-                icon="mdi-delete-outline"
-                variant="text"
-                density="comfortable"
+              <button
+                type="button"
+                class="cc-icon-btn cc-icon-btn--sm"
                 :aria-label="`Delete ${category.name}`"
                 :title="`Delete ${category.name}`"
                 @click="confirmDelete(category)"
-              />
+              >
+                <v-icon icon="mdi-delete-outline" size="18" />
+              </button>
             </template>
           </v-list-item>
         </v-list>

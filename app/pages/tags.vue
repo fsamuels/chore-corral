@@ -58,9 +58,9 @@ await fetchTags()
             prepend-icon="mdi-tag-outline"
           >
             <template #append>
-              <v-chip size="small" variant="tonal">
+              <span class="cc-pill cc-pill--muted">
                 {{ tag.taskCount }} task{{ tag.taskCount === 1 ? '' : 's' }}
-              </v-chip>
+              </span>
             </template>
           </v-list-item>
         </v-list>

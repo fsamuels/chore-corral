@@ -456,14 +456,6 @@ const taskLocation = computed(() =>
     </v-alert>
 
     <template v-else-if="activeFarm">
-      <NuxtLink
-        to="/tasks"
-        class="cc-pill-btn cc-pill-btn--surface cc-pill-btn--sm mb-4"
-      >
-        <v-icon icon="mdi-chevron-left" size="18" />
-        Back to tasks
-      </NuxtLink>
-
       <v-alert
         v-if="taskError"
         type="error"
