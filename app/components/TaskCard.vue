@@ -10,6 +10,8 @@ const props = defineProps<{
   today: string
   /** True while the page is persisting this task's completion. */
   updating?: boolean
+  /** Hide the complete-checkbox for pages that don't offer status changes. */
+  hideCheck?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -67,6 +69,7 @@ function onComplete() {
     :class="`task-card--${task.priority}`"
   >
     <button
+      v-if="!hideCheck"
       type="button"
       class="task-card__check"
       :class="`task-card__check--${task.priority}`"

@@ -273,22 +273,26 @@ async function performDelete() {
               :subtitle="formatCoords(location)"
             >
               <template #append>
-                <v-btn
-                  icon="mdi-pencil-outline"
-                  variant="text"
-                  density="comfortable"
-                  :aria-label="`Edit ${location.name}`"
-                  :title="`Edit ${location.name}`"
-                  @click="startEditing(location)"
-                />
-                <v-btn
-                  icon="mdi-delete-outline"
-                  variant="text"
-                  density="comfortable"
-                  :aria-label="`Delete ${location.name}`"
-                  :title="`Delete ${location.name}`"
-                  @click="confirmDelete(location)"
-                />
+                <div class="d-flex ga-2">
+                  <button
+                    type="button"
+                    class="cc-icon-btn cc-icon-btn--sm"
+                    :aria-label="`Edit ${location.name}`"
+                    :title="`Edit ${location.name}`"
+                    @click="startEditing(location)"
+                  >
+                    <v-icon icon="mdi-pencil-outline" size="18" />
+                  </button>
+                  <button
+                    type="button"
+                    class="cc-icon-btn cc-icon-btn--sm"
+                    :aria-label="`Delete ${location.name}`"
+                    :title="`Delete ${location.name}`"
+                    @click="confirmDelete(location)"
+                  >
+                    <v-icon icon="mdi-delete-outline" size="18" />
+                  </button>
+                </div>
               </template>
             </v-list-item>
             <v-divider />
