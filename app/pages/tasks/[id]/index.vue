@@ -7,6 +7,7 @@ import {
   type TaskStatus,
 } from '~/services/tasks'
 import { listActivityForTask, type ActivityEntry } from '~/services/activity'
+import type { TaskLocationValue } from '~/components/TaskLocationInput.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -17,11 +18,20 @@ const { task, taskError, loading, fetchTask } = useTask(taskId)
 const { setStatus, update, remove } = useTasks()
 const { categories, fetchCategories } = useCategories()
 const { tags, fetchTags } = useTags()
+const { locations, fetchLocations } = useLocations()
 
 await fetchFarms()
 await fetchTask()
 await fetchCategories()
 await fetchTags()
+await fetchLocations()
+
+// Resolve a task's defined-location name/coords from the farm's location
+// list — the task row only carries `location_id`, not a name or coords.
+function locationById(locationId: string | null) {
+  if (!locationId) return null
+  return (locations.value ?? []).find((l) => l.id === locationId) ?? null
+}
 
 const tagSuggestions = computed(() => (tags.value ?? []).map((t) => t.name))
 
@@ -133,6 +143,7 @@ async function saveTaskField(
     tagNames: string[]
     lat: number | null
     lng: number | null
+    locationId: string | null
   }>,
 ): Promise<boolean> {
   const current = task.value
@@ -150,6 +161,7 @@ async function saveTaskField(
       notes: current.notes,
       lat: current.lat,
       lng: current.lng,
+      locationId: current.location_id,
       tagNames: current.tags.map((tag) => tag.name),
       ...patch,
     })
@@ -310,14 +322,19 @@ const farmCenter = computed(() => {
 })
 
 const editingLocation = ref(false)
-const locationDraft = ref<{ lat: number; lng: number } | null>(null)
+const locationDraft = ref<TaskLocationValue>({
+  locationId: null,
+  lat: null,
+  lng: null,
+})
 
 function startEditingLocation() {
   if (fieldSaving.value !== null || !task.value) return
-  locationDraft.value =
-    task.value.lat !== null && task.value.lng !== null
-      ? { lat: task.value.lat, lng: task.value.lng }
-      : null
+  locationDraft.value = {
+    locationId: task.value.location_id,
+    lat: task.value.lat,
+    lng: task.value.lng,
+  }
   editingLocation.value = true
 }
 
@@ -330,16 +347,18 @@ async function onLocationSave() {
   if (!current) return
   const draft = locationDraft.value
   if (
-    (draft?.lat ?? null) === current.lat &&
-    (draft?.lng ?? null) === current.lng
+    draft.locationId === current.location_id &&
+    draft.lat === current.lat &&
+    draft.lng === current.lng
   ) {
     editingLocation.value = false
     return
   }
   if (
     await saveTaskField('location', {
-      lat: draft?.lat ?? null,
-      lng: draft?.lng ?? null,
+      lat: draft.lat,
+      lng: draft.lng,
+      locationId: draft.locationId,
     })
   )
     editingLocation.value = false
@@ -416,8 +435,10 @@ function formatTimestamp(iso: string): string {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleString()
 }
 
-const hasLocation = computed(
-  () => task.value?.lat != null && task.value?.lng != null,
+// The task's defined location, resolved for display — null when the task
+// uses a freeform pin instead (or has no location at all).
+const taskLocation = computed(() =>
+  locationById(task.value?.location_id ?? null),
 )
 </script>
 
@@ -813,8 +834,9 @@ const hasLocation = computed(
         <div class="cc-card mb-6">
           <p class="cc-eyebrow mb-2">Location</p>
           <template v-if="editingLocation">
-            <LocationPicker
+            <TaskLocationInput
               v-model="locationDraft"
+              :locations="locations ?? []"
               :fallback-center="farmCenter"
               :disabled="fieldSaving === 'location'"
             />
@@ -836,13 +858,47 @@ const hasLocation = computed(
               </v-btn>
             </div>
           </template>
-          <template v-else-if="hasLocation">
-            <TaskLocationPreview :lat="task.lat!" :lng="task.lng!" />
+          <template v-else-if="taskLocation">
+            <v-chip prepend-icon="mdi-map-marker" class="mb-2">
+              {{ taskLocation.name }}
+            </v-chip>
+            <TaskLocationPreview
+              :lat="taskLocation.lat"
+              :lng="taskLocation.lng"
+            />
             <v-btn
               size="small"
               variant="text"
               prepend-icon="mdi-pencil-outline"
               class="mt-1"
+              @click="startEditingLocation"
+            >
+              Edit location
+            </v-btn>
+          </template>
+          <template v-else-if="task.lat !== null && task.lng !== null">
+            <TaskLocationPreview :lat="task.lat" :lng="task.lng" />
+            <v-btn
+              size="small"
+              variant="text"
+              prepend-icon="mdi-pencil-outline"
+              class="mt-1"
+              @click="startEditingLocation"
+            >
+              Edit location
+            </v-btn>
+          </template>
+          <template v-else-if="task.location_id !== null">
+            <!-- location_id set but unresolved: the referenced location was
+                 soft-deleted after this (non-active) task was assigned to
+                 it, so useLocations() no longer returns it. -->
+            <p class="text-body-1 text-medium-emphasis font-italic mb-1">
+              Location no longer available
+            </p>
+            <v-btn
+              size="small"
+              variant="text"
+              prepend-icon="mdi-pencil-outline"
               @click="startEditingLocation"
             >
               Edit location

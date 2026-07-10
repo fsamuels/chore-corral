@@ -17,6 +17,7 @@ farm_memberships ──────► farms
                             ▼
                           categories ──┐
                             │          │ referenced by
+                          locations ───┤
                             │          ▼
                             │        tasks ──┬──► task_photos
                             │          │      ├──► task_shopping_items
@@ -77,6 +78,26 @@ Per-farm, user-editable task categories.
 
 A task with no category set represents "Uncategorized" — this is `category_id IS NULL` on the `tasks` table, not a real row in this table.
 
+### `locations`
+
+Per-farm defined locations — reusable named places with coordinates (e.g. Shop, Front Barn, Back Barn) that a task can point at instead of dropping a one-off `lat`/`lng` pin. Farm-scoped and soft-deletable, structurally parallel to `categories`.
+
+| Column       | Type                            | Notes                            |
+| ------------ | ------------------------------- | -------------------------------- |
+| `id`         | uuid, PK                        |                                  |
+| `farm_id`    | uuid, FK → `farms.id`, not null | Scopes location to one farm      |
+| `name`       | text, not null                  |                                  |
+| `lat`        | numeric, **not null**           | Single point — always set        |
+| `lng`        | numeric, **not null**           |                                  |
+| `deleted_at` | timestamptz, nullable           | Soft delete only — null = active |
+| `created_at` | timestamptz, default now()      |                                  |
+
+Unlike `tasks.lat`/`lng` (an optional both-or-neither pin), a defined location always has a point, so `lat`/`lng` are `NOT NULL` here.
+
+**Uniqueness:** a partial unique index on (`farm_id`, `lower(name)`) `WHERE deleted_at IS NULL` makes names case-insensitively unique per farm among active rows — `categories` has no such constraint, but a location is a picker where duplicate names are confusing, so this one adds it. A soft-deleted name can be reused.
+
+**Constraint (application-enforced, not DB-enforced):** a location cannot be soft-deleted while any task referencing it (`tasks.location_id`) has `status != 'done'`. This check happens in application code at delete-time (`services/locations.ts`), mirroring the `categories` delete guard.
+
 ### Priority (enum, not a table)
 
 Global, fixed priority tiers — **not** scoped to a farm, **not** a separate table.
@@ -103,14 +124,17 @@ The core work-item entity.
 | `status`            | `task_status` enum, not null, default 'not_started'                             | Values: `not_started`, `in_progress`, `done`                                                                                                                                                                                                                                                |
 | `due_date`          | date, nullable                                                                  |                                                                                                                                                                                                                                                                                             |
 | `notes`             | text, nullable                                                                  | Single free-text field                                                                                                                                                                                                                                                                      |
-| `lat`               | numeric, nullable                                                               | Single location pin (MVP)                                                                                                                                                                                                                                                                   |
+| `lat`               | numeric, nullable                                                               | Freeform location pin (MVP)                                                                                                                                                                                                                                                                 |
 | `lng`               | numeric, nullable                                                               |                                                                                                                                                                                                                                                                                             |
+| `location_id`       | uuid, FK → `locations.id`, nullable                                             | Optional defined location (see `locations`). Mutually exclusive with the freeform `lat`/`lng` pin — see the constraint below.                                                                                                                                                               |
 | `created_at`        | timestamptz, default now()                                                      |                                                                                                                                                                                                                                                                                             |
 | `created_by`        | uuid, FK → `auth.users.id`, not null                                            | For activity log / attribution, not for access control (all members have equal access)                                                                                                                                                                                                      |
 | `completed_at`      | timestamptz, nullable                                                           | Set when status → done; **cleared** when status moves out of done                                                                                                                                                                                                                           |
 | `estimated_minutes` | integer, nullable, `CHECK (estimated_minutes IS NULL OR estimated_minutes > 0)` | Optional user-entered estimate of how long the task should take, in whole minutes, set at create/edit time. Null = no estimate (no backfill, no default). Distinct from a future timer-measured "actual" counterpart (e.g. `actual_minutes`) that a separate feature will add alongside it. |
 
 **No `deleted_at`** — tasks are hard-deleted per SPEC.md. Deletion produces an `activity_log` entry as the only remaining trace.
+
+**Constraint (DB-enforced): a task has a defined location OR a freeform pin, never both.** `CHECK (location_id IS NULL OR (lat IS NULL AND lng IS NULL))` — setting `location_id` requires `lat`/`lng` to be null, and vice versa. The app layer enforces the same rule up front (`assertLocationXorPin` in `services/tasks.ts`) so bad combinations fail with a readable message instead of a Postgres error. The freeform pin remains for ad-hoc spots that aren't worth naming; a defined location is a reusable named place (see `locations`).
 
 **On multiple location pins:** the schema currently supports exactly one pin (`lat`/`lng` columns directly on `tasks`). If/when multiple pins per task becomes a real feature (see ROADMAP.md), this will require extracting location into a separate `task_locations` table with a one-to-many relationship — a real migration, not a config change. Worth keeping in mind if location-pin UI is built in a way that assumes a list rather than a single point, to ease that future migration.
 
@@ -205,15 +229,15 @@ Like the other task-child tables, this table carries no `farm_id`; it is scoped 
 
 Major-event-only log, per SPEC.md (not a full audit trail).
 
-| Column          | Type                                 | Notes                                                                                                                                                                                                                                                                                                                              |
-| --------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`            | uuid, PK                             |                                                                                                                                                                                                                                                                                                                                    |
-| `farm_id`       | uuid, FK → `farms.id`, not null      | Denormalized for query convenience even though most events reference a task                                                                                                                                                                                                                                                        |
-| `task_id`       | uuid, nullable, **no FK constraint** | Soft reference only — deliberately not enforced at the DB level, since a deleted task's row no longer exists but its log entries must survive                                                                                                                                                                                      |
-| `event_type`    | text, not null                       | `task_created`, `task_status_changed`, `task_priority_changed`, `task_due_date_changed`, `task_deleted`, `category_created`, `category_deleted`                                                                                                                                                                                    |
-| `event_detail`  | jsonb, not null                      | Always includes a name snapshot plus event-specific context (e.g. old/new status): task events snapshot `task_title`, category events (`task_id` null) snapshot `category_id`/`category_name`. Snapshotting on every row means log entries stay readable without a join back to a row that may be deleted (or soft-deleted) later. |
-| `actor_user_id` | uuid, FK → `auth.users.id`, not null | Who performed the action                                                                                                                                                                                                                                                                                                           |
-| `created_at`    | timestamptz, default now()           |                                                                                                                                                                                                                                                                                                                                    |
+| Column          | Type                                 | Notes                                                                                                                                                                                                                                                                                                                                                                                                       |
+| --------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`            | uuid, PK                             |                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `farm_id`       | uuid, FK → `farms.id`, not null      | Denormalized for query convenience even though most events reference a task                                                                                                                                                                                                                                                                                                                                 |
+| `task_id`       | uuid, nullable, **no FK constraint** | Soft reference only — deliberately not enforced at the DB level, since a deleted task's row no longer exists but its log entries must survive                                                                                                                                                                                                                                                               |
+| `event_type`    | text, not null                       | `task_created`, `task_status_changed`, `task_priority_changed`, `task_due_date_changed`, `task_deleted`, `category_created`, `category_deleted`, `location_created`, `location_deleted`                                                                                                                                                                                                                     |
+| `event_detail`  | jsonb, not null                      | Always includes a name snapshot plus event-specific context (e.g. old/new status): task events snapshot `task_title`, category events (`task_id` null) snapshot `category_id`/`category_name`, location events (`task_id` null) snapshot `location_id`/`location_name`. Snapshotting on every row means log entries stay readable without a join back to a row that may be deleted (or soft-deleted) later. |
+| `actor_user_id` | uuid, FK → `auth.users.id`, not null | Who performed the action                                                                                                                                                                                                                                                                                                                                                                                    |
+| `created_at`    | timestamptz, default now()           |                                                                                                                                                                                                                                                                                                                                                                                                             |
 
 **Resolved: task_id is a soft reference, not a hard FK.** `task_id` is a plain `uuid` column with no foreign key constraint, so a hard-deleted task never orphans or cascades against its log entries. `event_detail.task_title` is always populated (not just on delete) so the log stays meaningful without needing a join — see DECISIONS.md.
 
@@ -235,7 +259,7 @@ The view runs with its owner's privileges (the Postgres default for views — th
 
 ## Row Level Security (RLS) Policy Intent
 
-All farm-scoped tables (`categories`, `tasks`, `tags`, `task_tags`, `task_photos`, `task_shopping_items`, `task_tools`, `task_time_entries`, `activity_log`) should have RLS **enabled by default** (deny-by-default), with policies granting access based on farm membership:
+All farm-scoped tables (`categories`, `locations`, `tasks`, `tags`, `task_tags`, `task_photos`, `task_shopping_items`, `task_tools`, `task_time_entries`, `activity_log`) should have RLS **enabled by default** (deny-by-default), with policies granting access based on farm membership:
 
 ```sql
 -- Illustrative pattern, not final SQL

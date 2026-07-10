@@ -1,15 +1,37 @@
 <script setup lang="ts">
+import type { TaskSummary } from '~/services/tasks'
+
 const { fetchFarms, activeFarm, farmsError } = useFarms()
 const { tasks, tasksError, loading, fetchTasks } = useTasks()
+const { locations, fetchLocations } = useLocations()
 
 // Same fetch order as tasks/index.vue: farms first so the active farm resolves
-// during SSR, then that farm's tasks.
+// during SSR, then that farm's tasks (and its defined locations).
 await fetchFarms()
 await fetchTasks()
+await fetchLocations()
 
-const locatedTasks = computed(() =>
-  (tasks.value ?? []).filter((task) => task.lat !== null && task.lng !== null),
-)
+// Tasks with a freeform pin already carry lat/lng; tasks with a defined
+// location only carry `location_id`, so resolve those to the location's
+// coords here before handing everything to TaskMap (which just draws
+// whatever lat/lng it's given — it doesn't know about location_id at all).
+const locatedTasks = computed<TaskSummary[]>(() => {
+  const byId = new Map((locations.value ?? []).map((l) => [l.id, l]))
+  const resolved: TaskSummary[] = []
+  for (const task of tasks.value ?? []) {
+    if (task.lat !== null && task.lng !== null) {
+      resolved.push(task)
+      continue
+    }
+    if (task.location_id !== null) {
+      const location = byId.get(task.location_id)
+      if (location) {
+        resolved.push({ ...task, lat: location.lat, lng: location.lng })
+      }
+    }
+  }
+  return resolved
+})
 
 // Map starting point before any pins are fit — the farm's default center
 // (SPEC: manually set at farm creation) when known.
@@ -59,7 +81,11 @@ function onOpen(taskId: string) {
       </div>
 
       <template v-else>
-        <v-card v-if="locatedTasks.length === 0" variant="tonal" class="mb-4">
+        <v-card
+          v-if="locatedTasks.length === 0 && (locations ?? []).length === 0"
+          variant="tonal"
+          class="mb-4"
+        >
           <v-card-text>
             No tasks have a location yet. Add one from a task's More details.
           </v-card-text>
@@ -68,6 +94,7 @@ function onOpen(taskId: string) {
         <div style="height: calc(100vh - 220px); min-height: 320px">
           <TaskMap
             :tasks="locatedTasks"
+            :locations="locations ?? []"
             :fallback-center="farmCenter"
             @open="onOpen"
           />

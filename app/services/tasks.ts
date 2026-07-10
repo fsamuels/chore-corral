@@ -20,6 +20,7 @@ export interface TaskSummary {
   notes: string | null
   lat: number | null
   lng: number | null
+  location_id: string | null
   created_at: string
   completed_at: string | null
   estimated_minutes: number | null
@@ -28,7 +29,7 @@ export interface TaskSummary {
 }
 
 const TASK_COLUMNS =
-  'id, title, category_id, priority, status, due_date, notes, lat, lng, created_at, completed_at, estimated_minutes'
+  'id, title, category_id, priority, status, due_date, notes, lat, lng, location_id, created_at, completed_at, estimated_minutes'
 
 // listTasks alone embeds the photo count (a `task_photos(count)` relation),
 // since it's the only read path that needs it for the home-screen list;
@@ -241,6 +242,25 @@ export function assertValidLocation(
   }
 }
 
+/**
+ * A task has EITHER a defined location (`location_id`) OR a freeform pin
+ * (`lat`/`lng`), never both — the app-layer complement to the DB check
+ * constraint `tasks_location_xor_pin`. The UI already sends explicit nulls
+ * for whichever isn't in use; this is the defensive backstop so a caller
+ * can't set both and trip the constraint with an opaque Postgres error.
+ */
+export function assertLocationXorPin(
+  locationId: string | null,
+  lat: number | null,
+  lng: number | null,
+): void {
+  if (locationId !== null && (lat !== null || lng !== null)) {
+    throw new Error(
+      'A task has either a defined location or a map pin, not both',
+    )
+  }
+}
+
 // Postgres `integer` max — a larger estimate would clear the positivity
 // check below but fail the insert/update with an opaque overflow error.
 const MAX_ESTIMATED_MINUTES = 2_147_483_647
@@ -336,6 +356,7 @@ export interface CreateTaskInput {
   notes?: string | null
   lat?: number | null
   lng?: number | null
+  locationId?: string | null
   estimatedMinutes?: number | null
   actorUserId: string
   tagNames?: string[]
@@ -355,6 +376,11 @@ export async function createTask(
   const title = input.title.trim()
   if (!title) throw new Error('Task title is required')
   assertValidLocation(input.lat ?? null, input.lng ?? null)
+  assertLocationXorPin(
+    input.locationId ?? null,
+    input.lat ?? null,
+    input.lng ?? null,
+  )
   assertValidEstimatedMinutes(input.estimatedMinutes ?? null)
 
   // status/completed_at match the DB defaults; passing them explicitly means
@@ -371,6 +397,7 @@ export async function createTask(
       notes: input.notes?.trim() || null,
       lat: input.lat ?? null,
       lng: input.lng ?? null,
+      location_id: input.locationId ?? null,
       estimated_minutes: input.estimatedMinutes ?? null,
       created_by: input.actorUserId,
       completed_at: null,
@@ -405,6 +432,7 @@ export interface UpdateTaskInput {
   notes: string | null
   lat: number | null
   lng: number | null
+  locationId: string | null
   estimatedMinutes: number | null
   actorUserId: string
   tagNames: string[]
@@ -428,6 +456,7 @@ export async function updateTask(
   const title = input.title.trim()
   if (!title) throw new Error('Task title is required')
   assertValidLocation(input.lat, input.lng)
+  assertLocationXorPin(input.locationId ?? null, input.lat, input.lng)
   assertValidEstimatedMinutes(input.estimatedMinutes)
 
   const { data: current, error: readError } = await supabase
@@ -452,6 +481,7 @@ export async function updateTask(
       notes: input.notes?.trim() || null,
       lat: input.lat,
       lng: input.lng,
+      location_id: input.locationId ?? null,
       estimated_minutes: input.estimatedMinutes,
     })
     .eq('id', input.taskId)

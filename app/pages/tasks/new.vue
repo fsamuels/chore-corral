@@ -4,16 +4,19 @@ import type { TaskPriority } from '~/services/tasks'
 import { uploadTaskPhoto } from '~/services/photos'
 import { compressImage } from '~/utils/photo-compression'
 import type { StagedPhoto } from '~/components/StagedTaskPhotos.vue'
+import type { TaskLocationValue } from '~/components/TaskLocationInput.vue'
 
 const supabase = useSupabaseClient<Database>()
 const { fetchFarms, activeFarm, activeFarmId, farmsError } = useFarms()
 const { create } = useTasks()
 const { categories, fetchCategories } = useCategories()
 const { tags, fetchTags } = useTags()
+const { locations, fetchLocations } = useLocations()
 
 await fetchFarms()
 await fetchCategories()
 await fetchTags()
+await fetchLocations()
 
 const tagSuggestions = computed(() => (tags.value ?? []).map((t) => t.name))
 
@@ -47,7 +50,11 @@ const dueDate = ref('')
 const estimatedMinutes = ref('')
 const notes = ref('')
 const taskTags = ref<string[]>([])
-const location = ref<{ lat: number; lng: number } | null>(null)
+const location = ref<TaskLocationValue>({
+  locationId: null,
+  lat: null,
+  lng: null,
+})
 const stagedPhotos = ref<StagedPhoto[]>([])
 const moreDetailsOpen = ref(false)
 
@@ -68,8 +75,9 @@ async function submit() {
       dueDate: dueDate.value || null,
       estimatedMinutes: parseEstimatedMinutesInput(estimatedMinutes.value),
       notes: notes.value || null,
-      lat: location.value?.lat ?? null,
-      lng: location.value?.lng ?? null,
+      lat: location.value.lat,
+      lng: location.value.lng,
+      locationId: location.value.locationId,
       tagNames: taskTags.value,
     })
 
@@ -224,8 +232,9 @@ async function submit() {
             class="mb-4"
           />
           <p class="cc-eyebrow mb-2">Location</p>
-          <LocationPicker
+          <TaskLocationInput
             v-model="location"
+            :locations="locations ?? []"
             auto-capture
             :fallback-center="farmCenter"
             :disabled="creating"

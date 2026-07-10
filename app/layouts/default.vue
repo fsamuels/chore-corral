@@ -42,6 +42,12 @@ async function signOut() {
           @click="drawer = false"
         />
         <v-list-item
+          title="Locations"
+          prepend-icon="mdi-map-marker-multiple"
+          to="/locations"
+          @click="drawer = false"
+        />
+        <v-list-item
           title="Tags"
           prepend-icon="mdi-tag-multiple-outline"
           to="/tags"
