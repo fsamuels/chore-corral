@@ -7,9 +7,13 @@ import type { Database } from '../../app/types/database.types'
 //
 //   from('categories').select(...).eq(...).is(...).order(...)
 //   from('categories').insert(row).select(...).single()
+//   from('locations').select(...).eq(...).is(...).order(...)
+//   from('locations').insert(row).select(...).single()
 //   from('tasks').select('id', { count: 'exact', head: true }).eq(...).eq(...).in(...)
 //   from('categories').update(row).eq(...).eq(...).is(...).select(...)
 //   from('activity_log').insert(row)                       // awaited with no .select()
+//   from('tasks').select(cols).eq('farm_id', ...).in('category_id', [...])
+//   from('tasks').select(cols).eq('farm_id', ...).in('location_id', [...])
 //   from('tasks').select(cols).eq('farm_id', ...)
 //   from('tasks').select(cols).eq('id', ...).eq('farm_id', ...)
 //   from('tasks').insert(row).select(cols).single()
@@ -51,6 +55,7 @@ import type { Database } from '../../app/types/database.types'
 
 type TableName =
   | 'categories'
+  | 'locations'
   | 'tasks'
   | 'activity_log'
   | 'tags'
@@ -64,6 +69,7 @@ type Row = Record<string, unknown>
 
 export interface FakeSupabaseSeed {
   categories?: Database['public']['Tables']['categories']['Row'][]
+  locations?: Database['public']['Tables']['locations']['Row'][]
   tasks?: Database['public']['Tables']['tasks']['Row'][]
   activity_log?: Database['public']['Tables']['activity_log']['Row'][]
   tags?: Database['public']['Tables']['tags']['Row'][]
@@ -266,6 +272,7 @@ export class FakeSupabaseClient {
   private readonly storageObjects = new Set<string>()
   private readonly counters: Record<TableName, number> = {
     categories: 0,
+    locations: 0,
     tasks: 0,
     activity_log: 0,
     tags: 0,
@@ -284,6 +291,7 @@ export class FakeSupabaseClient {
   ) {
     this.store = {
       categories: cloneRows(seed.categories as unknown as Row[] | undefined),
+      locations: cloneRows(seed.locations as unknown as Row[] | undefined),
       tasks: cloneRows(seed.tasks as unknown as Row[] | undefined),
       activity_log: cloneRows(
         seed.activity_log as unknown as Row[] | undefined,

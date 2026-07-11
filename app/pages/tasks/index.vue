@@ -16,14 +16,16 @@ const { fetchFarms, activeFarm, farmsError } = useFarms()
 const { tasks, tasksError, loading, fetchTasks } = useTasks()
 const { categories, fetchCategories } = useCategories()
 const { tags, fetchTags } = useTags()
+const { locations, fetchLocations } = useLocations()
 
 // Fetch farms first so the active farm resolves during SSR, then load its
-// tasks, categories, and tags (the composables' watch covers later farm
-// switches).
+// tasks, categories, tags, and locations (the composables' watch covers later
+// farm switches).
 await fetchFarms()
 await fetchTasks()
 await fetchCategories()
 await fetchTags()
+await fetchLocations()
 
 const today = computed(() => toLocalDateString(new Date()))
 
@@ -80,15 +82,38 @@ const tagFilterItems = computed(() => [
   ...(tags.value ?? []).map((tag) => ({ title: tag.name, value: tag.name })),
 ])
 
+// Location filter matches by id (locations aren't addressable by name, and
+// two locations could share a name). 'all' is the no-filter sentinel.
+const ALL_LOCATIONS = 'all'
+const selectedLocation = ref<string>(ALL_LOCATIONS)
+
+const locationFilterItems = computed(() => [
+  { title: 'All locations', value: ALL_LOCATIONS },
+  ...(locations.value ?? []).map((location) => ({
+    title: location.name,
+    value: location.id,
+  })),
+])
+
 const filters = ref(defaultTaskFilters())
 
-// The tags page deep-links here with `?tag=<name>&status=<status>`; sync those
-// query params into the filters, both on first load and on later in-app
-// navigation to a new query (the page component is reused, so a watcher is
-// needed — setup doesn't re-run).
+// The tags/categories/locations pages deep-link here with
+// `?tag=<name>&status=<status>`, `?category=<id>&status=<status>`, or
+// `?location=<id>&status=<status>`; sync those query params into the
+// filters, both on first load and on later in-app navigation to a new query
+// (the page component is reused, so a watcher is needed — setup doesn't
+// re-run).
 function applyQuery() {
+  const category = route.query.category
+  selectedCategory.value =
+    typeof category === 'string' && category ? category : ALL_CATEGORIES
+
   const tag = route.query.tag
   selectedTag.value = typeof tag === 'string' && tag ? tag : ALL_TAGS
+
+  const location = route.query.location
+  selectedLocation.value =
+    typeof location === 'string' && location ? location : ALL_LOCATIONS
 
   const status = route.query.status
   filters.value.status =
@@ -102,6 +127,7 @@ const hasActiveFilters = computed(
   () =>
     selectedCategory.value !== ALL_CATEGORIES ||
     selectedTag.value !== ALL_TAGS ||
+    selectedLocation.value !== ALL_LOCATIONS ||
     filters.value.status !== ALL ||
     filters.value.priority !== ALL ||
     filters.value.dueDate !== ALL ||
@@ -112,6 +138,7 @@ const hasActiveFilters = computed(
 function resetFilters() {
   selectedCategory.value = ALL_CATEGORIES
   selectedTag.value = ALL_TAGS
+  selectedLocation.value = ALL_LOCATIONS
   filters.value = defaultTaskFilters()
 }
 
@@ -127,7 +154,11 @@ const filteredTasks = computed(() => {
       : byCategory.filter((task) =>
           task.tags.some((tag) => tag.name === selectedTag.value),
         )
-  return filterTasks(byTag, filters.value)
+  const byLocation =
+    selectedLocation.value === ALL_LOCATIONS
+      ? byTag
+      : byTag.filter((task) => task.location_id === selectedLocation.value)
+  return filterTasks(byLocation, filters.value)
 })
 
 function categoryName(categoryId: string | null): string {
@@ -176,6 +207,15 @@ function categoryName(categoryId: string | null): string {
           v-model="selectedTag"
           :items="tagFilterItems"
           label="Tag"
+          density="comfortable"
+          variant="outlined"
+          hide-details
+          class="tasks-filter__field"
+        />
+        <v-select
+          v-model="selectedLocation"
+          :items="locationFilterItems"
+          label="Location"
           density="comfortable"
           variant="outlined"
           hide-details

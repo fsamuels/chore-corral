@@ -3,6 +3,7 @@ import {
   createCategory,
   deleteCategory,
   listCategories,
+  listCategoriesWithCounts,
   updateCategory,
 } from '../app/services/categories'
 import { FakeSupabaseClient, asSupabaseClient } from './helpers/fake-supabase'
@@ -451,5 +452,113 @@ describe('listCategories', () => {
     const result = await listCategories(supabase, FARM_A)
 
     expect(result.map((c) => c.name)).toEqual(['Fencing', 'Mowing'])
+  })
+})
+
+const ZERO_COUNTS = { not_started: 0, in_progress: 0, done: 0 }
+
+describe('listCategoriesWithCounts', () => {
+  it('returns an empty array when the farm has no categories', async () => {
+    const fake = new FakeSupabaseClient({ categories: [], tasks: [] })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listCategoriesWithCounts(supabase, FARM_A)
+
+    expect(result).toEqual([])
+  })
+
+  it('gives a category with no tasks a count of zero', async () => {
+    const fake = new FakeSupabaseClient({
+      categories: [category({ id: 'cat-1', farm_id: FARM_A, name: 'Fencing' })],
+      tasks: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listCategoriesWithCounts(supabase, FARM_A)
+
+    expect(result).toEqual([
+      {
+        id: 'cat-1',
+        name: 'Fencing',
+        emoji: null,
+        created_at: category().created_at,
+        taskCount: 0,
+        statusCounts: ZERO_COUNTS,
+      },
+    ])
+  })
+
+  it('counts tasks per category independently, broken down by status, sorted by name', async () => {
+    const fake = new FakeSupabaseClient({
+      categories: [
+        category({ id: 'cat-1', farm_id: FARM_A, name: 'Mowing' }),
+        category({ id: 'cat-2', farm_id: FARM_A, name: 'Fencing' }),
+      ],
+      tasks: [
+        task({ id: 'task-1', category_id: 'cat-1', status: 'not_started' }),
+        task({ id: 'task-2', category_id: 'cat-1', status: 'done' }),
+        task({ id: 'task-3', category_id: 'cat-2', status: 'in_progress' }),
+        task({ id: 'task-4', category_id: null, status: 'not_started' }),
+      ],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listCategoriesWithCounts(supabase, FARM_A)
+
+    expect(result).toEqual([
+      {
+        id: 'cat-2',
+        name: 'Fencing',
+        emoji: null,
+        created_at: category().created_at,
+        taskCount: 1,
+        statusCounts: { not_started: 0, in_progress: 1, done: 0 },
+      },
+      {
+        id: 'cat-1',
+        name: 'Mowing',
+        emoji: null,
+        created_at: category().created_at,
+        taskCount: 2,
+        statusCounts: { not_started: 1, in_progress: 0, done: 1 },
+      },
+    ])
+  })
+
+  it("does not count another farm's tasks", async () => {
+    const fake = new FakeSupabaseClient({
+      categories: [
+        category({ id: 'cat-1', farm_id: FARM_A, name: 'Fencing' }),
+        category({ id: 'cat-2', farm_id: FARM_B, name: 'Gate' }),
+      ],
+      tasks: [
+        task({
+          id: 'task-1',
+          farm_id: FARM_A,
+          category_id: 'cat-1',
+          status: 'not_started',
+        }),
+        task({
+          id: 'task-2',
+          farm_id: FARM_B,
+          category_id: 'cat-2',
+          status: 'not_started',
+        }),
+      ],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listCategoriesWithCounts(supabase, FARM_A)
+
+    expect(result).toEqual([
+      {
+        id: 'cat-1',
+        name: 'Fencing',
+        emoji: null,
+        created_at: category().created_at,
+        taskCount: 1,
+        statusCounts: { not_started: 1, in_progress: 0, done: 0 },
+      },
+    ])
   })
 })
