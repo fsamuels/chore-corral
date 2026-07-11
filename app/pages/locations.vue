@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { VForm } from 'vuetify/components'
-import type { LocationSummary } from '~/services/locations'
+import type {
+  LocationSummary,
+  LocationSummaryWithCount,
+} from '~/services/locations'
+import { TASK_STATUSES } from '~/services/tags'
+import { STATUS_DISPLAY } from '~/utils/task-display'
 
 const { fetchFarms, activeFarm, farmsError } = useFarms()
 const {
@@ -12,11 +17,39 @@ const {
   update,
   remove,
 } = useLocations()
+const { locations: locationSummaries, fetchLocations: fetchLocationSummaries } =
+  useLocationSummaries()
 
 // Fetch farms first so the active farm resolves during SSR, then load its
 // locations (the composable's watch covers later farm switches).
 await fetchFarms()
 await fetchLocations()
+await fetchLocationSummaries()
+
+function summaryFor(
+  location: LocationSummary,
+): LocationSummaryWithCount | undefined {
+  return locationSummaries.value?.find((summary) => summary.id === location.id)
+}
+
+// Deep-link into the tasks page filtered by this location (and optionally a
+// status). Mirrors `tags.vue`'s `tasksLink`/`categories.vue`'s, but by id.
+function tasksLink(location: LocationSummary, status?: string): string {
+  const params = new URLSearchParams({ location: location.id })
+  if (status) params.set('status', status)
+  return `/tasks?${params.toString()}`
+}
+
+function statusEntries(location: LocationSummary) {
+  const summary = summaryFor(location)
+  return TASK_STATUSES.map((status) => ({
+    status,
+    label: STATUS_DISPLAY[status].label,
+    icon: STATUS_DISPLAY[status].icon,
+    count: summary?.statusCounts[status] ?? 0,
+    to: tasksLink(location, status),
+  }))
+}
 
 // LocationPicker's fallback center, same call as the task location editor:
 // center the map on the farm's default point until a pin is placed.
@@ -46,6 +79,7 @@ async function submitCreate() {
   createError.value = null
   try {
     await create(name, newPin.value.lat, newPin.value.lng)
+    await fetchLocationSummaries()
     newName.value = ''
     newPin.value = null
     // Clearing the field re-triggers `nameRules` against the now-empty
@@ -93,6 +127,7 @@ async function saveEditing() {
   saveError.value = null
   try {
     await update(id, name, editPin.value.lat, editPin.value.lng)
+    await fetchLocationSummaries()
     editingId.value = null
   } catch (error) {
     saveError.value =
@@ -130,6 +165,8 @@ async function performDelete() {
         n === 1 ? '' : 's'
       } still use${n === 1 ? 's' : ''} this location.`
       showBlocked.value = true
+    } else {
+      await fetchLocationSummaries()
     }
     toDelete.value = null
   } catch (error) {
@@ -267,11 +304,41 @@ async function performDelete() {
                 </v-btn>
               </div>
             </div>
-            <v-list-item
-              v-else
-              :title="location.name"
-              :subtitle="formatCoords(location)"
-            >
+            <v-list-item v-else lines="three">
+              <template #title>
+                <NuxtLink :to="tasksLink(location)" class="entity-row__title">
+                  <span>{{ location.name }}</span>
+                  <span class="cc-pill cc-pill--muted entity-row__total">
+                    {{ summaryFor(location)?.taskCount ?? 0 }} task{{
+                      (summaryFor(location)?.taskCount ?? 0) === 1 ? '' : 's'
+                    }}
+                  </span>
+                </NuxtLink>
+              </template>
+              <template #subtitle>
+                <div>{{ formatCoords(location) }}</div>
+                <div class="entity-row__statuses">
+                  <template
+                    v-for="entry in statusEntries(location)"
+                    :key="entry.status"
+                  >
+                    <NuxtLink
+                      v-if="entry.count > 0"
+                      :to="entry.to"
+                      class="entity-status entity-status--link"
+                    >
+                      <v-icon :icon="entry.icon" size="14" />
+                      <span
+                        >{{ entry.count }} {{ entry.label.toLowerCase() }}</span
+                      >
+                    </NuxtLink>
+                    <span v-else class="entity-status entity-status--empty">
+                      <v-icon :icon="entry.icon" size="14" />
+                      <span>0 {{ entry.label.toLowerCase() }}</span>
+                    </span>
+                  </template>
+                </div>
+              </template>
               <template #append>
                 <div class="d-flex ga-2">
                   <button
@@ -331,3 +398,54 @@ async function performDelete() {
     </v-snackbar>
   </v-container>
 </template>
+
+<style scoped>
+.entity-row__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: var(--cc-ink);
+}
+
+.entity-row__total {
+  flex-shrink: 0;
+}
+
+.entity-row__statuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  white-space: normal;
+}
+
+.entity-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.entity-status--link {
+  background: var(--cc-field);
+  border: 1px solid var(--cc-field-border);
+  color: var(--cc-ink);
+}
+
+.entity-status--link:hover {
+  border-color: var(--cc-accent);
+  color: var(--cc-accent);
+}
+
+.entity-status--empty {
+  color: var(--cc-ink-muted);
+  opacity: 0.6;
+}
+</style>

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~/types/database.types'
+import type { TaskStatus } from './tasks'
 
 // Statuses that block category deletion (DATA_MODEL.md: a category can't be
 // soft-deleted while any task referencing it has status != 'done'). This is
@@ -13,6 +14,10 @@ export interface CategorySummary {
   /** Optional decorative emoji (null when unset). */
   emoji: string | null
   created_at: string
+}
+
+function emptyStatusCounts(): Record<TaskStatus, number> {
+  return { not_started: 0, in_progress: 0, done: 0 }
 }
 
 // Normalize category emoji input: trim, and treat empty as "no emoji" (null).
@@ -139,6 +144,53 @@ export async function deleteCategory(
 
   await logCategoryEvent(supabase, 'category_deleted', category, opts)
   return { deleted: true }
+}
+
+export interface CategorySummaryWithCount extends CategorySummary {
+  taskCount: number
+  /** How many of the category's tasks sit in each progress status. */
+  statusCounts: Record<TaskStatus, number>
+}
+
+/**
+ * The farm's categories (per `listCategories`, alphabetical) alongside each
+ * one's usage count — the number of tasks currently assigned to it — broken
+ * down by progress status. Unlike tags, `category_id` lives directly on
+ * `tasks`, so this is a single query instead of a link-table join.
+ */
+export async function listCategoriesWithCounts(
+  supabase: Client,
+  farmId: string,
+): Promise<CategorySummaryWithCount[]> {
+  const categories = await listCategories(supabase, farmId)
+  if (categories.length === 0) return []
+
+  const categoryIds = categories.map((category) => category.id)
+  const { data: taskRows, error } = await supabase
+    .from('tasks')
+    .select('category_id, status')
+    .eq('farm_id', farmId)
+    .in('category_id', categoryIds)
+  if (error) throw new Error(error.message)
+
+  const countsByCategory = new Map<string, Record<TaskStatus, number>>()
+  for (const row of taskRows) {
+    if (!row.category_id) continue
+    let counts = countsByCategory.get(row.category_id)
+    if (!counts) {
+      counts = emptyStatusCounts()
+      countsByCategory.set(row.category_id, counts)
+    }
+    counts[row.status] += 1
+  }
+
+  return categories.map((category) => {
+    const statusCounts =
+      countsByCategory.get(category.id) ?? emptyStatusCounts()
+    const taskCount =
+      statusCounts.not_started + statusCounts.in_progress + statusCounts.done
+    return { ...category, taskCount, statusCounts }
+  })
 }
 
 // event_detail snapshots the category name (the category analog of the

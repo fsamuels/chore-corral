@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~/types/database.types'
 import { ACTIVE_TASK_STATUSES } from './categories'
+import type { TaskStatus } from './tasks'
 
 export interface LocationSummary {
   id: string
@@ -8,6 +9,10 @@ export interface LocationSummary {
   lat: number
   lng: number
   created_at: string
+}
+
+function emptyStatusCounts(): Record<TaskStatus, number> {
+  return { not_started: 0, in_progress: 0, done: 0 }
 }
 
 export type DeleteLocationResult =
@@ -146,6 +151,54 @@ export async function deleteLocation(
 
   await logLocationEvent(supabase, 'location_deleted', location, opts)
   return { deleted: true }
+}
+
+export interface LocationSummaryWithCount extends LocationSummary {
+  taskCount: number
+  /** How many of the location's tasks sit in each progress status. */
+  statusCounts: Record<TaskStatus, number>
+}
+
+/**
+ * The farm's locations (per `listLocations`, alphabetical) alongside each
+ * one's usage count — the number of tasks currently pinned to it — broken
+ * down by progress status. `location_id` lives directly on `tasks`, so this
+ * is a single query instead of a link-table join (mirrors
+ * `listCategoriesWithCounts`).
+ */
+export async function listLocationsWithCounts(
+  supabase: Client,
+  farmId: string,
+): Promise<LocationSummaryWithCount[]> {
+  const locations = await listLocations(supabase, farmId)
+  if (locations.length === 0) return []
+
+  const locationIds = locations.map((location) => location.id)
+  const { data: taskRows, error } = await supabase
+    .from('tasks')
+    .select('location_id, status')
+    .eq('farm_id', farmId)
+    .in('location_id', locationIds)
+  if (error) throw new Error(error.message)
+
+  const countsByLocation = new Map<string, Record<TaskStatus, number>>()
+  for (const row of taskRows) {
+    if (!row.location_id) continue
+    let counts = countsByLocation.get(row.location_id)
+    if (!counts) {
+      counts = emptyStatusCounts()
+      countsByLocation.set(row.location_id, counts)
+    }
+    counts[row.status] += 1
+  }
+
+  return locations.map((location) => {
+    const statusCounts =
+      countsByLocation.get(location.id) ?? emptyStatusCounts()
+    const taskCount =
+      statusCounts.not_started + statusCounts.in_progress + statusCounts.done
+    return { ...location, taskCount, statusCounts }
+  })
 }
 
 // event_detail snapshots the location name (the location analog of the

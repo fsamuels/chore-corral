@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { VForm } from 'vuetify/components'
-import type { CategorySummary } from '~/services/categories'
+import type {
+  CategorySummary,
+  CategorySummaryWithCount,
+} from '~/services/categories'
+import { TASK_STATUSES } from '~/services/tags'
+import { STATUS_DISPLAY } from '~/utils/task-display'
 
 const { fetchFarms, activeFarm, farmsError } = useFarms()
 const {
@@ -12,11 +17,42 @@ const {
   update,
   remove,
 } = useCategories()
+const {
+  categories: categorySummaries,
+  fetchCategories: fetchCategorySummaries,
+} = useCategorySummaries()
 
 // Fetch farms first so the active farm resolves during SSR, then load its
 // categories (the composable's watch covers later farm switches).
 await fetchFarms()
 await fetchCategories()
+await fetchCategorySummaries()
+
+function summaryFor(
+  category: CategorySummary,
+): CategorySummaryWithCount | undefined {
+  return categorySummaries.value?.find((summary) => summary.id === category.id)
+}
+
+// Deep-link into the tasks page filtered by this category (and optionally a
+// status). Mirrors `tags.vue`'s `tasksLink`, but by id (categories aren't
+// addressable by name in the tasks-page filter).
+function tasksLink(category: CategorySummary, status?: string): string {
+  const params = new URLSearchParams({ category: category.id })
+  if (status) params.set('status', status)
+  return `/tasks?${params.toString()}`
+}
+
+function statusEntries(category: CategorySummary) {
+  const summary = summaryFor(category)
+  return TASK_STATUSES.map((status) => ({
+    status,
+    label: STATUS_DISPLAY[status].label,
+    icon: STATUS_DISPLAY[status].icon,
+    count: summary?.statusCounts[status] ?? 0,
+    to: tasksLink(category, status),
+  }))
+}
 
 const newName = ref('')
 const newEmoji = ref<string | null>(null)
@@ -32,6 +68,7 @@ async function submitCreate() {
   createError.value = null
   try {
     await create(name, newEmoji.value)
+    await fetchCategorySummaries()
     newName.value = ''
     newEmoji.value = null
     // Clearing the field re-triggers `nameRules` against the now-empty
@@ -77,6 +114,7 @@ async function saveEditing() {
   saveError.value = null
   try {
     await update(id, name, editEmoji.value)
+    await fetchCategorySummaries()
     editingId.value = null
   } catch (error) {
     saveError.value =
@@ -114,6 +152,8 @@ async function performDelete() {
         n === 1 ? '' : 's'
       } still use${n === 1 ? 's' : ''} this category.`
       showBlocked.value = true
+    } else {
+      await fetchCategorySummaries()
     }
     toDelete.value = null
   } catch (error) {
@@ -246,7 +286,7 @@ async function performDelete() {
                 </v-btn>
               </div>
             </div>
-            <v-list-item v-else :title="category.name">
+            <v-list-item v-else lines="two">
               <template #prepend>
                 <span
                   class="category-emoji"
@@ -255,6 +295,39 @@ async function performDelete() {
                 >
                   {{ category.emoji ?? '🏷️' }}
                 </span>
+              </template>
+              <template #title>
+                <NuxtLink :to="tasksLink(category)" class="entity-row__title">
+                  <span>{{ category.name }}</span>
+                  <span class="cc-pill cc-pill--muted entity-row__total">
+                    {{ summaryFor(category)?.taskCount ?? 0 }} task{{
+                      (summaryFor(category)?.taskCount ?? 0) === 1 ? '' : 's'
+                    }}
+                  </span>
+                </NuxtLink>
+              </template>
+              <template #subtitle>
+                <div class="entity-row__statuses">
+                  <template
+                    v-for="entry in statusEntries(category)"
+                    :key="entry.status"
+                  >
+                    <NuxtLink
+                      v-if="entry.count > 0"
+                      :to="entry.to"
+                      class="entity-status entity-status--link"
+                    >
+                      <v-icon :icon="entry.icon" size="14" />
+                      <span
+                        >{{ entry.count }} {{ entry.label.toLowerCase() }}</span
+                      >
+                    </NuxtLink>
+                    <span v-else class="entity-status entity-status--empty">
+                      <v-icon :icon="entry.icon" size="14" />
+                      <span>0 {{ entry.label.toLowerCase() }}</span>
+                    </span>
+                  </template>
+                </div>
               </template>
               <template #append>
                 <div class="d-flex ga-2">
@@ -330,5 +403,54 @@ async function performDelete() {
 
 .category-emoji--empty {
   opacity: 0.35;
+}
+
+.entity-row__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: var(--cc-ink);
+}
+
+.entity-row__total {
+  flex-shrink: 0;
+}
+
+.entity-row__statuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  white-space: normal;
+}
+
+.entity-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.entity-status--link {
+  background: var(--cc-field);
+  border: 1px solid var(--cc-field-border);
+  color: var(--cc-ink);
+}
+
+.entity-status--link:hover {
+  border-color: var(--cc-accent);
+  color: var(--cc-accent);
+}
+
+.entity-status--empty {
+  color: var(--cc-ink-muted);
+  opacity: 0.6;
 }
 </style>
