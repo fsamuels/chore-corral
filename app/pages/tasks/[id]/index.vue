@@ -7,6 +7,10 @@ import {
   type TaskStatus,
 } from '~/services/tasks'
 import { listActivityForTask, type ActivityEntry } from '~/services/activity'
+import {
+  listFarmMemberProfiles,
+  type FarmMemberProfile,
+} from '~/services/members'
 import type { TaskLocationValue } from '~/components/TaskLocationInput.vue'
 
 const route = useRoute()
@@ -25,6 +29,23 @@ await fetchTask()
 await fetchCategories()
 await fetchTags()
 await fetchLocations()
+
+// Farm members for the "Completed by" picker. No composable exists for this
+// (only the activity service reads farm_member_profiles), so it's a direct
+// service call into a local ref — refetched when the active farm changes.
+const members = ref<FarmMemberProfile[]>([])
+
+async function fetchMembers() {
+  const farmId = activeFarmId.value
+  if (!farmId) {
+    members.value = []
+    return
+  }
+  members.value = await listFarmMemberProfiles(useSupabaseClient(), farmId)
+}
+
+await fetchMembers()
+watch(activeFarmId, () => fetchMembers())
 
 // Resolve a task's defined-location name/coords from the farm's location
 // list — the task row only carries `location_id`, not a name or coords.
@@ -128,6 +149,7 @@ type EditableField =
   | 'notes'
   | 'tags'
   | 'location'
+  | 'completedBy'
 const fieldSaving = ref<EditableField | null>(null)
 const fieldSaveError = ref<string | null>(null)
 
@@ -144,6 +166,8 @@ async function saveTaskField(
     lat: number | null
     lng: number | null
     locationId: string | null
+    completedBy: string | null
+    completedByName: string | null
   }>,
 ): Promise<boolean> {
   const current = task.value
@@ -162,6 +186,8 @@ async function saveTaskField(
       lat: current.lat,
       lng: current.lng,
       locationId: current.location_id,
+      completedBy: current.completed_by,
+      completedByName: current.completed_by_name,
       tagNames: current.tags.map((tag) => tag.name),
       ...patch,
     })
@@ -362,6 +388,76 @@ async function onLocationSave() {
     })
   )
     editingLocation.value = false
+}
+
+// --- Completed by (attribution) — only surfaced when the task is done ---
+// Auto-filled to the acting member on completion (see changeTaskStatus), but
+// independently editable here: pick a different member, type a free-text name
+// for someone who isn't an app user, or clear it. Member and free-text name
+// are mutually exclusive (mirrors the DB constraint) — the menu enforces that
+// as you edit, so only one is ever submitted.
+const completedByMenu = ref(false)
+const completedByMemberDraft = ref<string | null>(null)
+const completedByNameDraft = ref('')
+
+watch(completedByMenu, (open) => {
+  if (open) {
+    completedByMemberDraft.value = task.value?.completed_by ?? null
+    completedByNameDraft.value = task.value?.completed_by_name ?? ''
+  }
+})
+
+const memberItems = computed(() => [
+  { title: 'No member', value: null as string | null },
+  ...members.value.map((member) => ({
+    title: member.email ?? member.user_id,
+    value: member.user_id as string | null,
+  })),
+])
+
+// Picking a member clears the free-text draft, and typing a name clears the
+// member draft — one always empties the other so exactly one is submitted.
+function onCompletedByMemberSelect(userId: string | null) {
+  completedByMemberDraft.value = userId
+  if (userId !== null) completedByNameDraft.value = ''
+}
+
+watch(completedByNameDraft, (value) => {
+  if (value.trim() !== '') completedByMemberDraft.value = null
+})
+
+// The current attribution resolved for display: a member's email (best-effort
+// — null if the member is no longer in the fetched list), else the free-text
+// name. `completedByLabel` is null only when the task has no attribution set.
+const completedByLabel = computed(() => {
+  const current = task.value
+  if (!current) return null
+  if (current.completed_by !== null) {
+    return (
+      members.value.find((m) => m.user_id === current.completed_by)?.email ??
+      'unknown member'
+    )
+  }
+  return current.completed_by_name
+})
+
+async function onCompletedBySave() {
+  const member = completedByMemberDraft.value
+  const name = completedByNameDraft.value.trim()
+  const patch = member
+    ? { completedBy: member, completedByName: null }
+    : { completedBy: null, completedByName: name || null }
+  if (await saveTaskField('completedBy', patch)) completedByMenu.value = false
+}
+
+async function onCompletedByClear() {
+  if (
+    await saveTaskField('completedBy', {
+      completedBy: null,
+      completedByName: null,
+    })
+  )
+    completedByMenu.value = false
 }
 
 // --- Delete (moved here from the retired Edit page) ---
@@ -743,6 +839,84 @@ const taskLocation = computed(() =>
         >
           {{ statusChangeError }}
         </v-alert>
+
+        <div v-if="task.status === 'done'" class="mb-6">
+          <div class="cc-eyebrow mb-2">Completed by</div>
+          <v-menu v-model="completedByMenu" :close-on-content-click="false">
+            <template #activator="{ props: activatorProps }">
+              <button
+                type="button"
+                v-bind="activatorProps"
+                class="cc-pill-btn cc-pill-btn--sm"
+                :class="
+                  completedByLabel !== null
+                    ? 'cc-pill-btn--surface'
+                    : 'cc-pill-btn--ghost'
+                "
+                :disabled="fieldSaving !== null"
+              >
+                <v-icon
+                  v-if="completedByLabel === null"
+                  icon="mdi-account-plus-outline"
+                  size="16"
+                />
+                {{
+                  completedByLabel !== null
+                    ? `Completed by ${completedByLabel}`
+                    : '+ Completed by'
+                }}
+                <v-icon
+                  v-if="completedByLabel !== null"
+                  icon="mdi-menu-down"
+                  size="16"
+                />
+              </button>
+            </template>
+            <v-card min-width="300">
+              <v-card-text>
+                <v-select
+                  :model-value="completedByMemberDraft"
+                  :items="memberItems"
+                  item-title="title"
+                  item-value="value"
+                  label="Farm member"
+                  density="comfortable"
+                  variant="outlined"
+                  hide-details
+                  @update:model-value="onCompletedByMemberSelect"
+                />
+                <div class="text-caption text-medium-emphasis my-2">or</div>
+                <v-text-field
+                  v-model="completedByNameDraft"
+                  label="Someone else (name)"
+                  density="comfortable"
+                  variant="outlined"
+                  hide-details
+                  @keydown.enter="onCompletedBySave"
+                />
+              </v-card-text>
+              <v-card-actions>
+                <v-btn
+                  color="error"
+                  variant="text"
+                  :loading="fieldSaving === 'completedBy'"
+                  @click="onCompletedByClear"
+                >
+                  Clear
+                </v-btn>
+                <v-spacer />
+                <v-btn @click="completedByMenu = false">Cancel</v-btn>
+                <v-btn
+                  color="primary"
+                  :loading="fieldSaving === 'completedBy'"
+                  @click="onCompletedBySave"
+                >
+                  Save
+                </v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-menu>
+        </div>
 
         <div class="cc-card mb-6">
           <TaskTimer
