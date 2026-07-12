@@ -218,6 +218,14 @@ Each task's activity history is shown in-app, on that task's View page (see belo
 - A full page, not a modal dialog — a separate route for creating a task (see the Task section above for the field behavior). Editing happens in place on the View page, not on a separate route.
 - Photos added at creation time are staged client-side (local previews only) and uploaded once the task is successfully created — a task must exist before a photo's storage path/row can.
 
+### Progress View
+
+- Top-level page (`/progress`), sitting between Home and Map in the primary navigation (mobile bottom nav and desktop header buttons).
+- Shows one week at a time — Monday-start weeks, computed in the viewer's local timezone — with back/forward arrows to step between weeks; forward navigation is capped at the current week, which is also the default. The selected week is reflected in the URL (`?week=<Monday's date>`) so a view is shareable and back-button-friendly.
+- Weekly summary stats: count of tasks completed that week, and total tracked time (summed timer sessions) across those tasks.
+- Below the stats, the week's completed tasks (source of truth: `tasks.completed_at` — a task later deleted or reopened drops out of history) grouped by completion day, newest day first, each row showing the completion time, title, who completed it (via the completed-by attribution), and category.
+- Deferred follow-ons (per-person and per-category breakdowns, filters, finer-grained organization) are listed in ROADMAP.md.
+
 ### Map View
 
 - Per-farm (scoped to active farm, no cross-farm view).
