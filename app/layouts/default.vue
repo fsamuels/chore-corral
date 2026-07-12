@@ -95,6 +95,14 @@ async function signOut() {
               <v-icon icon="mdi-home-outline" size="22" />
             </NuxtLink>
             <NuxtLink
+              to="/progress"
+              class="app-header__nav-btn"
+              aria-label="Progress"
+              title="Progress"
+            >
+              <v-icon icon="mdi-progress-check" size="22" />
+            </NuxtLink>
+            <NuxtLink
               to="/map"
               class="app-header__nav-btn"
               aria-label="Map"
@@ -129,6 +137,10 @@ async function signOut() {
       <v-btn to="/">
         <v-icon icon="mdi-home-outline" />
         <span>Home</span>
+      </v-btn>
+      <v-btn to="/progress">
+        <v-icon icon="mdi-progress-check" />
+        <span>Progress</span>
       </v-btn>
       <v-btn to="/map">
         <v-icon icon="mdi-map-outline" />
