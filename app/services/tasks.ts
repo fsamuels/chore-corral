@@ -23,13 +23,15 @@ export interface TaskSummary {
   location_id: string | null
   created_at: string
   completed_at: string | null
+  completed_by: string | null
+  completed_by_name: string | null
   estimated_minutes: number | null
   tags: TagSummary[]
   photo_count: number
 }
 
 const TASK_COLUMNS =
-  'id, title, category_id, priority, status, due_date, notes, lat, lng, location_id, created_at, completed_at, estimated_minutes'
+  'id, title, category_id, priority, status, due_date, notes, lat, lng, location_id, created_at, completed_at, completed_by, completed_by_name, estimated_minutes'
 
 // listTasks alone embeds the photo count (a `task_photos(count)` relation),
 // since it's the only read path that needs it for the home-screen list;
@@ -261,6 +263,24 @@ export function assertLocationXorPin(
   }
 }
 
+/**
+ * A task is credited to EITHER a completing member (`completed_by`) OR a
+ * free-text name (`completed_by_name`), never both — the app-layer complement
+ * to the DB check constraint `tasks_completed_by_xor_name`. The UI only ever
+ * sends one with the other nulled; this is the defensive backstop so a caller
+ * can't set both and trip the constraint with an opaque Postgres error.
+ */
+export function assertCompletedByXorName(
+  completedBy: string | null,
+  completedByName: string | null,
+): void {
+  if (completedBy !== null && completedByName !== null) {
+    throw new Error(
+      'A task has either a completing member or a free-text name, not both',
+    )
+  }
+}
+
 // Postgres `integer` max — a larger estimate would clear the positivity
 // check below but fail the insert/update with an opaque overflow error.
 const MAX_ESTIMATED_MINUTES = 2_147_483_647
@@ -420,6 +440,8 @@ export async function createTask(
       estimated_minutes: input.estimatedMinutes ?? null,
       created_by: input.actorUserId,
       completed_at: null,
+      completed_by: null,
+      completed_by_name: null,
     })
     .select(TASK_COLUMNS)
     .single()
@@ -453,6 +475,8 @@ export interface UpdateTaskInput {
   lng: number | null
   locationId: string | null
   estimatedMinutes: number | null
+  completedBy: string | null
+  completedByName: string | null
   actorUserId: string
   tagNames: string[]
 }
@@ -477,6 +501,7 @@ export async function updateTask(
   assertValidLocation(input.lat, input.lng)
   assertLocationXorPin(input.locationId ?? null, input.lat, input.lng)
   assertValidEstimatedMinutes(input.estimatedMinutes)
+  assertCompletedByXorName(input.completedBy, input.completedByName)
 
   const { data: current, error: readError } = await supabase
     .from('tasks')
@@ -502,6 +527,8 @@ export async function updateTask(
       lng: input.lng,
       location_id: input.locationId ?? null,
       estimated_minutes: input.estimatedMinutes,
+      completed_by: input.completedBy,
+      completed_by_name: input.completedByName,
     })
     .eq('id', input.taskId)
     .eq('farm_id', input.farmId)
@@ -536,11 +563,13 @@ export async function updateTask(
 }
 
 /**
- * Transition a task's status, keeping `completed_at` consistent: set when
- * moving to done, cleared when moving out of done (SPEC: no record of prior
- * completion times survives a reopen). Logs `task_status_changed` with the
- * old/new pair; a no-op transition (same status) skips both the write and
- * the log entry.
+ * Transition a task's status, keeping `completed_at` and the completion
+ * attribution consistent: on the move to done, `completed_at` is set and
+ * `completed_by` credited to the actor; on the move out of done both clear
+ * (SPEC: no record of prior completion survives a reopen). `completed_by_name`
+ * (the free-text fallback) is always cleared on a status change — the actor
+ * auto-fill wins. Logs `task_status_changed` with the old/new pair; a no-op
+ * transition (same status) skips both the write and the log entry.
  */
 export async function changeTaskStatus(
   supabase: Client,
@@ -576,6 +605,8 @@ export async function changeTaskStatus(
     .update({
       status: opts.status,
       completed_at: opts.status === 'done' ? new Date().toISOString() : null,
+      completed_by: opts.status === 'done' ? opts.actorUserId : null,
+      completed_by_name: null,
     })
     .eq('id', opts.taskId)
     .eq('farm_id', opts.farmId)

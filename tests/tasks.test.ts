@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  assertCompletedByXorName,
   assertValidEstimatedMinutes,
   changeTaskStatus,
   createTask,
@@ -54,6 +55,8 @@ function task(overrides: Partial<TaskRow> = {}): TaskRow {
     created_at: '2026-01-01T00:00:00.000Z',
     created_by: ACTOR,
     completed_at: null,
+    completed_by: null,
+    completed_by_name: null,
     estimated_minutes: null,
     ...overrides,
   }
@@ -417,6 +420,9 @@ describe('changeTaskStatus', () => {
     expect(result.status).toBe('done')
     expect(result.completed_at).toEqual(expect.any(String))
     expect(result.completed_at).not.toBeNull()
+    // Completion credits the acting member; the free-text fallback stays null.
+    expect(result.completed_by).toBe(ACTOR)
+    expect(result.completed_by_name).toBeNull()
     // Status transitions don't touch location — lat/lng pass through unchanged.
     expect(result.lat).toBe(40.7128)
     expect(result.lng).toBe(-74.006)
@@ -443,6 +449,7 @@ describe('changeTaskStatus', () => {
           id: 'task-1',
           status: 'done',
           completed_at: '2026-01-02T00:00:00.000Z',
+          completed_by: ACTOR,
         }),
       ],
       activity_log: [],
@@ -458,6 +465,9 @@ describe('changeTaskStatus', () => {
 
     expect(result.status).toBe('in_progress')
     expect(result.completed_at).toBeNull()
+    // Leaving done clears the completion attribution too.
+    expect(result.completed_by).toBeNull()
+    expect(result.completed_by_name).toBeNull()
 
     const log = fake.getTable('activity_log')
     expect(log).toHaveLength(1)
@@ -496,6 +506,30 @@ describe('changeTaskStatus', () => {
         new_status: 'in_progress',
       },
     })
+  })
+
+  it('clears a free-text completed_by_name when the task is marked done (auto-fill wins)', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [
+        task({
+          id: 'task-1',
+          status: 'not_started',
+          completed_by_name: 'Hired hand',
+        }),
+      ],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await changeTaskStatus(supabase, {
+      farmId: FARM_A,
+      taskId: 'task-1',
+      status: 'done',
+      actorUserId: ACTOR,
+    })
+
+    expect(result.completed_by).toBe(ACTOR)
+    expect(result.completed_by_name).toBeNull()
   })
 
   it('is a no-op when the requested status matches the current status', async () => {
@@ -556,6 +590,8 @@ describe('updateTask', () => {
       lat: null,
       lng: null,
       estimatedMinutes: null,
+      completedBy: null,
+      completedByName: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -587,6 +623,8 @@ describe('updateTask', () => {
       lat: null,
       lng: null,
       estimatedMinutes: null,
+      completedBy: null,
+      completedByName: null,
       actorUserId: ACTOR,
       tagNames: ['Fence'],
     })
@@ -612,6 +650,8 @@ describe('updateTask', () => {
       lat: null,
       lng: null,
       estimatedMinutes: null,
+      completedBy: null,
+      completedByName: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -647,6 +687,8 @@ describe('updateTask', () => {
       lat: null,
       lng: null,
       estimatedMinutes: null,
+      completedBy: null,
+      completedByName: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -682,6 +724,8 @@ describe('updateTask', () => {
       lat: null,
       lng: null,
       estimatedMinutes: null,
+      completedBy: null,
+      completedByName: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -716,6 +760,8 @@ describe('updateTask', () => {
       lat: null,
       lng: null,
       estimatedMinutes: null,
+      completedBy: null,
+      completedByName: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -747,6 +793,8 @@ describe('updateTask', () => {
         lat: null,
         lng: null,
         estimatedMinutes: null,
+        completedBy: null,
+        completedByName: null,
         actorUserId: ACTOR,
         tagNames: [],
       }),
@@ -772,6 +820,8 @@ describe('updateTask', () => {
         lat: null,
         lng: null,
         estimatedMinutes: null,
+        completedBy: null,
+        completedByName: null,
         actorUserId: ACTOR,
         tagNames: [],
       }),
@@ -801,6 +851,8 @@ describe('updateTask', () => {
       lat: null,
       lng: null,
       estimatedMinutes: null,
+      completedBy: null,
+      completedByName: null,
       actorUserId: ACTOR,
       tagNames: ['Gate', 'Barn'],
     })
@@ -831,6 +883,8 @@ describe('updateTask', () => {
       lat: 40.7128,
       lng: -74.006,
       estimatedMinutes: null,
+      completedBy: null,
+      completedByName: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -848,6 +902,8 @@ describe('updateTask', () => {
       lat: 51.5074,
       lng: -0.1278,
       estimatedMinutes: null,
+      completedBy: null,
+      completedByName: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -865,6 +921,8 @@ describe('updateTask', () => {
       lat: null,
       lng: null,
       estimatedMinutes: null,
+      completedBy: null,
+      completedByName: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -889,6 +947,8 @@ describe('updateTask', () => {
       notes: null,
       lat: null,
       lng: null,
+      completedBy: null as string | null,
+      completedByName: null as string | null,
       actorUserId: ACTOR,
       tagNames: [],
     }
@@ -932,6 +992,8 @@ describe('updateTask', () => {
         lat: null,
         lng: null,
         estimatedMinutes: 0,
+        completedBy: null,
+        completedByName: null,
         actorUserId: ACTOR,
         tagNames: [],
       }),
@@ -961,10 +1023,95 @@ describe('updateTask', () => {
         lat: 40.7128,
         lng: null,
         estimatedMinutes: null,
+        completedBy: null,
+        completedByName: null,
         actorUserId: ACTOR,
         tagNames: [],
       }),
     ).rejects.toThrow('Location requires both lat and lng, or neither')
+  })
+
+  it('sets a free-text completed_by_name, sets a member completed_by, and clears both', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1' })],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const base = {
+      farmId: FARM_A,
+      taskId: 'task-1',
+      title: 'Fix the gate',
+      categoryId: 'cat-seed' as string | null,
+      priority: 'soon' as const,
+      dueDate: null,
+      notes: null,
+      lat: null,
+      lng: null,
+      estimatedMinutes: null,
+      actorUserId: ACTOR,
+      tagNames: [],
+    }
+
+    const named = await updateTask(supabase, {
+      ...base,
+      completedBy: null,
+      completedByName: 'Hired hand',
+    })
+    expect(named.completed_by).toBeNull()
+    expect(named.completed_by_name).toBe('Hired hand')
+
+    const member = await updateTask(supabase, {
+      ...base,
+      completedBy: 'user-9',
+      completedByName: null,
+    })
+    expect(member.completed_by).toBe('user-9')
+    expect(member.completed_by_name).toBeNull()
+
+    const cleared = await updateTask(supabase, {
+      ...base,
+      completedBy: null,
+      completedByName: null,
+    })
+    expect(cleared.completed_by).toBeNull()
+    expect(cleared.completed_by_name).toBeNull()
+
+    // Completion attribution edits are not activity-logged.
+    expect(fake.getTable('activity_log')).toHaveLength(0)
+  })
+
+  it('rejects setting both a member and a free-text name, leaving the task unchanged', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1' })],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    await expect(
+      updateTask(supabase, {
+        farmId: FARM_A,
+        taskId: 'task-1',
+        title: 'Fix the gate',
+        categoryId: null,
+        priority: 'soon',
+        dueDate: null,
+        notes: null,
+        lat: null,
+        lng: null,
+        estimatedMinutes: null,
+        completedBy: 'user-9',
+        completedByName: 'Hired hand',
+        actorUserId: ACTOR,
+        tagNames: [],
+      }),
+    ).rejects.toThrow(
+      'A task has either a completing member or a free-text name, not both',
+    )
+
+    const stored = fake.getTable('tasks')[0] as TaskRow
+    expect(stored.completed_by).toBeNull()
+    expect(stored.completed_by_name).toBeNull()
   })
 })
 
@@ -1194,6 +1341,20 @@ describe('assertValidEstimatedMinutes', () => {
         'Estimated time must be a positive whole number of minutes',
       )
     }
+  })
+})
+
+describe('assertCompletedByXorName', () => {
+  it('accepts both-null, a member alone, and a name alone', () => {
+    expect(() => assertCompletedByXorName(null, null)).not.toThrow()
+    expect(() => assertCompletedByXorName('user-9', null)).not.toThrow()
+    expect(() => assertCompletedByXorName(null, 'Hired hand')).not.toThrow()
+  })
+
+  it('rejects setting both a member and a free-text name', () => {
+    expect(() => assertCompletedByXorName('user-9', 'Hired hand')).toThrow(
+      'A task has either a completing member or a free-text name, not both',
+    )
   })
 })
 
