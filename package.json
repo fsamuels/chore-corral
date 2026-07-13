@@ -41,6 +41,7 @@
     "@vue-leaflet/vue-leaflet": "^0.10.1",
     "@vue/test-utils": "^2.4.11",
     "dotenv": "^17.4.2",
+    "emojibase-data": "^17.0.0",
     "eslint": "^10.6.0",
     "eslint-config-prettier": "^10.1.8",
     "happy-dom": "^20.10.6",
