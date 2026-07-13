@@ -3,9 +3,15 @@
 // farm-flavored suggestions, and a freeform field for anything not in the
 // grid. v-model is the emoji string (null when unset). Deliberately small —
 // categories only ever carry one optional decorative emoji.
+import { recordRecentEmoji } from '~/utils/emoji-catalog'
+
 const model = defineModel<string | null>({ default: null })
 
 defineProps<{ disabled?: boolean }>()
+
+// The full searchable catalog lives behind this dialog (a lazy chunk), opened
+// from the "More…" tile so the common case stays a one-tap curated grid.
+const showFullPicker = ref(false)
 
 // Curated, farm-leaning suggestions. Not exhaustive — the freeform field
 // below covers anything else.
@@ -46,7 +52,19 @@ watch(
 )
 
 function pick(emoji: string) {
-  model.value = model.value === emoji ? null : emoji
+  if (model.value === emoji) {
+    model.value = null
+    return
+  }
+  model.value = emoji
+  // Quick-row picks feed the same recents the full picker surfaces.
+  recordRecentEmoji(emoji)
+}
+
+// The dialog records its own pick in recents before emitting; here we only
+// mirror the chosen emoji into the model.
+function onFullPick(emoji: string) {
+  model.value = emoji
 }
 
 function onCustomInput(value: string) {
@@ -82,7 +100,22 @@ function onCustomInput(value: string) {
       >
         {{ emoji }}
       </button>
+      <button
+        type="button"
+        class="emoji-picker__option emoji-picker__option--more"
+        :disabled="disabled"
+        aria-label="Browse all emoji"
+        title="Browse all emoji"
+        @click="showFullPicker = true"
+      >
+        <v-icon icon="mdi-dots-horizontal" size="18" />
+      </button>
     </div>
+    <EmojiPickerDialog
+      v-model="showFullPicker"
+      :selected="model"
+      @select="onFullPick"
+    />
     <v-text-field
       :model-value="custom"
       label="Or type your own emoji"
@@ -120,7 +153,8 @@ function onCustomInput(value: string) {
   padding: 0;
 }
 
-.emoji-picker__option--none {
+.emoji-picker__option--none,
+.emoji-picker__option--more {
   color: var(--cc-ink-muted);
 }
 
