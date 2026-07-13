@@ -317,8 +317,6 @@ function categoryName(categoryId: string | null): string {
           hide-check
         />
       </div>
-
-      <NewTaskFab />
     </template>
   </v-container>
 </template>

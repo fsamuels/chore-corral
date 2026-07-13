@@ -126,6 +126,7 @@ async function signOut() {
     </v-main>
 
     <FloatingTimerButton v-if="user" />
+    <NewTaskFab v-if="user" />
 
     <v-bottom-navigation
       v-if="user && mobile"
