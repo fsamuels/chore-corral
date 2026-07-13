@@ -38,8 +38,8 @@
   <path d="M212 290 L300 396 M300 290 L212 396" stroke="#c9532e" stroke-width="7" fill="none" />
   <line x1="256" y1="290" x2="256" y2="396" stroke="#c9532e" stroke-width="6" />
 
-  <!-- done badge, lower-right -->
-  <g id="done-badge">
+  <!-- done badge, pulled inward so a circular mask can't clip it -->
+  <g id="done-badge" transform="translate(-26,-16)">
     <circle cx="372" cy="366" r="60" fill="#f4ead2" />
     <circle cx="372" cy="366" r="48" fill="#6e8b46" />
     <path d="M349 367 l16 16 l30 -34" fill="none" stroke="#ffffff" stroke-width="12"
