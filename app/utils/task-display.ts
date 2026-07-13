@@ -123,6 +123,40 @@ export function formatElapsedDuration(ms: number): string {
   return formatEstimatedMinutes(minutes)
 }
 
+/**
+ * The "HH:mm" (24-hour, zero-padded) local time of a `Date`, for seeding a
+ * `<v-text-field type="time">` draft from an existing timestamp (e.g. the
+ * task View page's completed-at editor). Companion to `parseLocalDateString`
+ * (the date half); this is the time half.
+ */
+export function formatTimeForInput(date: Date): string {
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${hours}:${minutes}`
+}
+
+/**
+ * Combine a calendar `Date` (only its year/month/day are used) with an
+ * "HH:mm" time-of-day string into a single local `Date` — the inverse pairing
+ * of `formatTimeForInput`. Used to merge a `<v-date-picker>` date draft with a
+ * `<v-text-field type="time">` draft into one timestamp before saving.
+ * Returns null if `time` isn't in "HH:mm" form.
+ */
+export function combineDateAndTime(date: Date, time: string): Date | null {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(time)
+  if (!match) return null
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  if (hours > 23 || minutes > 59) return null
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    hours,
+    minutes,
+  )
+}
+
 export function categoryDisplayName(
   categoryId: string | null,
   categories: Pick<CategorySummary, 'id' | 'name'>[] | null | undefined,

@@ -5,6 +5,7 @@ import {
   groupByCompletionDay,
   isCompletedInWeek,
   listCompletedTasks,
+  trackedMsByTask,
   trackedMsForTasks,
   weekDays,
   weekStartFor,
@@ -334,5 +335,54 @@ describe('trackedMsForTasks', () => {
     const supabase = asSupabaseClient(fake)
 
     await expect(trackedMsForTasks(supabase, [])).resolves.toBe(0)
+  })
+})
+
+describe('trackedMsByTask', () => {
+  it('sums entries per task, keying only tasks with entries', async () => {
+    const fake = new FakeSupabaseClient({
+      task_time_entries: [
+        entry({
+          id: 'e1',
+          task_id: 'task-a',
+          started_at: '2026-01-01T08:00:00.000Z',
+          ended_at: '2026-01-01T09:00:00.000Z',
+        }),
+        entry({
+          id: 'e2',
+          task_id: 'task-a',
+          started_at: '2026-01-01T10:00:00.000Z',
+          ended_at: '2026-01-01T10:15:00.000Z',
+        }),
+        entry({
+          id: 'e3',
+          task_id: 'task-b',
+          started_at: '2026-01-01T08:00:00.000Z',
+          ended_at: '2026-01-01T08:30:00.000Z',
+        }),
+      ],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await trackedMsByTask(supabase, [
+      'task-a',
+      'task-b',
+      'task-c',
+    ])
+
+    expect(result.get('task-a')).toBe(75 * 60 * 1000)
+    expect(result.get('task-b')).toBe(30 * 60 * 1000)
+    expect(result.has('task-c')).toBe(false)
+  })
+
+  it('returns an empty map for an empty task list without touching the client', async () => {
+    const fake = new FakeSupabaseClient(
+      { task_time_entries: [entry()] },
+      { table: 'task_time_entries', op: 'select', message: 'should not run' },
+    )
+    const supabase = asSupabaseClient(fake)
+
+    const result = await trackedMsByTask(supabase, [])
+    expect(result.size).toBe(0)
   })
 })
