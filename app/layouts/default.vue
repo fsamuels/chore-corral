@@ -3,6 +3,29 @@ const user = useSupabaseUser()
 const supabase = useSupabaseClient()
 const { resetFarms, activeFarm } = useFarms()
 const { mobile } = useDisplay()
+const route = useRoute()
+
+// The layout owns the shared running-timer state's route-driven refresh:
+// there's no realtime push, so refetching on every navigation covers
+// "started/stopped a timer on one page, moved to another". Mutation paths
+// (dock-bar stop, TaskTimer, home cards) update the shared state directly.
+const {
+  runningEntry,
+  taskTitle: runningTaskTitle,
+  stopping: stoppingTimer,
+  refresh: refreshRunningTimer,
+  stop: stopRunningTimer,
+} = useRunningTimer()
+watch(() => route.path, refreshRunningTimer, { immediate: true })
+
+// Hidden on the running task's own detail page — TaskTimer.vue already
+// shows the live timer with a stop control there.
+const showTimerBar = computed(
+  () =>
+    Boolean(user.value) &&
+    runningEntry.value !== null &&
+    route.path !== `/tasks/${runningEntry.value.task_id}`,
+)
 
 // Pages already call `fetchFarms()` on load, and `useFarms`' state is shared
 // (`useState`), so the layout just reads `activeFarm` reactively rather than
@@ -123,10 +146,18 @@ async function signOut() {
         </div>
       </header>
       <slot />
+      <!-- Reserve room for the docked timer bar so page content can always
+           scroll clear of it. -->
+      <div v-if="showTimerBar" class="timer-bar-spacer" aria-hidden="true" />
     </v-main>
 
-    <FloatingTimerButton v-if="user" />
-    <NewTaskFab v-if="user" />
+    <RunningTimerBar
+      :entry="showTimerBar ? runningEntry : null"
+      :task-title="runningTaskTitle"
+      :stopping="stoppingTimer"
+      @stop="stopRunningTimer"
+    />
+    <NewTaskFab v-if="user" :lifted="showTimerBar" />
 
     <v-bottom-navigation
       v-if="user && mobile"
@@ -224,5 +255,9 @@ async function signOut() {
   letter-spacing: normal;
   font-size: 0.75rem;
   background: transparent;
+}
+
+.timer-bar-spacer {
+  height: calc(var(--cc-timer-bar-h) + 8px);
 }
 </style>

@@ -112,8 +112,8 @@ export function formatEstimatedMinutes(minutes: number): string {
 
 /**
  * Compact "1h 30m" rendering of an elapsed duration in milliseconds, for
- * the floating running-timer button — reuses `formatEstimatedMinutes`'s
- * hour/minute split since the two read identically. The button's cadence
+ * the running-timer dock bar — reuses `formatEstimatedMinutes`'s
+ * hour/minute split since the two read identically. The bar's cadence
  * is a periodic tick rather than a per-second one, so anything under a
  * minute renders as "<1m" instead of "0m" (which would look stuck).
  */

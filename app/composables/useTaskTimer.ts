@@ -1,7 +1,6 @@
 import type { Ref } from 'vue'
 import type { Database } from '~/types/database.types'
 import {
-  getRunningEntry,
   listTimeEntries,
   startTimer,
   stopTimer,
@@ -15,17 +14,19 @@ import {
  * Alongside the task's own entries this also tracks the acting user's
  * running entry across *all* tasks (`runningEntry`) — the
  * one-running-timer-per-user rule means starting here silently stops a
- * timer elsewhere, and the UI should be able to say so beforehand.
+ * timer elsewhere, and the UI should be able to say so beforehand. That
+ * running entry is `useRunningTimer`'s shared state, so start/stop here
+ * updates the global dock bar immediately, and a stop from the dock bar
+ * updates this composable's consumers immediately.
  */
 export function useTaskTimer(taskId: Ref<string | null | undefined>) {
   const supabase = useSupabaseClient<Database>()
   const user = useSupabaseUser()
   const { activeFarmId } = useFarms()
+  const { runningEntry, refresh: refreshRunning } = useRunningTimer()
 
   // null = not fetched yet; [] = fetched, no time tracked.
   const entries = ref<TimeEntrySummary[] | null>(null)
-  // The user's running entry on any task; null = nothing running.
-  const runningEntry = ref<TimeEntrySummary | null>(null)
   const entriesError = ref<string | null>(null)
   const loading = ref(false)
   const mutating = ref(false)
@@ -35,22 +36,20 @@ export function useTaskTimer(taskId: Ref<string | null | undefined>) {
     const id = taskId.value
     if (!id) {
       entries.value = null
-      runningEntry.value = null
       entriesError.value = null
       return
     }
-    const actorUserId = getActorUserId(user.value)
     loading.value = true
     try {
-      const [list, running] = await Promise.all([
+      const [list] = await Promise.all([
         listTimeEntries(supabase, id),
-        actorUserId ? getRunningEntry(supabase, actorUserId) : null,
+        refreshRunning(),
       ])
       // Staleness guard, same as useTaskTools: a slower fetch for a task
       // that's no longer open must not overwrite the current task's state.
+      // (The shared running entry is task-independent, so it needs no guard.)
       if (taskId.value !== id) return
       entries.value = list
-      runningEntry.value = running
       entriesError.value = null
     } catch (error) {
       if (taskId.value !== id) return

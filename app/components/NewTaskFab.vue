@@ -5,6 +5,10 @@
 // scrolling down so the list content underneath stays readable, and expands
 // back on scroll-up or at the top — the extended-FAB pattern. Lifts above
 // the mobile bottom nav (56px) so the two never overlap.
+// `lifted` shifts the pill up by the running-timer dock bar's height so the
+// two never overlap while a timer is running.
+defineProps<{ lifted?: boolean }>()
+
 const route = useRoute()
 const { mobile } = useDisplay()
 
@@ -57,6 +61,7 @@ watch(
     :class="{
       'new-task-fab--above-bottom-nav': mobile,
       'new-task-fab--collapsed': collapsed,
+      'new-task-fab--lifted': lifted,
     }"
     aria-label="New task"
     title="New task"
@@ -87,10 +92,18 @@ watch(
   font-size: 0.9375rem;
   text-decoration: none;
   box-shadow: 0 4px 12px rgba(43, 33, 24, 0.25);
+  transition: transform 0.25s ease;
 }
 
 .new-task-fab--above-bottom-nav {
   bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Lift via transform rather than a second bottom value so it composes with
+   the above-bottom-nav offset, and animates in step with the dock bar's
+   slide-up. */
+.new-task-fab--lifted {
+  transform: translateY(calc(-1 * var(--cc-timer-bar-h)));
 }
 
 /* Collapse by animating the label's width/margin to zero (width: auto can't
@@ -116,6 +129,7 @@ watch(
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .new-task-fab,
   .new-task-fab__label {
     transition: none;
   }
