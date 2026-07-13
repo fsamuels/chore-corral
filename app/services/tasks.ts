@@ -281,6 +281,19 @@ export function assertCompletedByXorName(
   }
 }
 
+/**
+ * Validate a manually-edited completion timestamp: null is always valid (a
+ * task that isn't done has none), and a set value must parse as a real
+ * instant — `Date.parse` rejects malformed strings before they reach an
+ * opaque Postgres timestamptz error.
+ */
+export function assertValidCompletedAt(completedAt: string | null): void {
+  if (completedAt === null) return
+  if (Number.isNaN(Date.parse(completedAt))) {
+    throw new Error('Completed date/time is invalid')
+  }
+}
+
 // Postgres `integer` max — a larger estimate would clear the positivity
 // check below but fail the insert/update with an opaque overflow error.
 const MAX_ESTIMATED_MINUTES = 2_147_483_647
@@ -475,6 +488,7 @@ export interface UpdateTaskInput {
   lng: number | null
   locationId: string | null
   estimatedMinutes: number | null
+  completedAt: string | null
   completedBy: string | null
   completedByName: string | null
   actorUserId: string
@@ -502,6 +516,7 @@ export async function updateTask(
   assertLocationXorPin(input.locationId ?? null, input.lat, input.lng)
   assertValidEstimatedMinutes(input.estimatedMinutes)
   assertCompletedByXorName(input.completedBy, input.completedByName)
+  assertValidCompletedAt(input.completedAt)
 
   const { data: current, error: readError } = await supabase
     .from('tasks')
@@ -527,6 +542,7 @@ export async function updateTask(
       lng: input.lng,
       location_id: input.locationId ?? null,
       estimated_minutes: input.estimatedMinutes,
+      completed_at: input.completedAt,
       completed_by: input.completedBy,
       completed_by_name: input.completedByName,
     })

@@ -185,21 +185,51 @@ export async function listCompletedTasks(
 }
 
 /**
- * Total tracked milliseconds across a set of tasks — the sum the Progress page
- * shows for a week's completed tasks. Returns 0 immediately for an empty
+ * Tracked milliseconds per task, for a set of tasks — backs both the
+ * Progress page's per-row "time tracked" figure and its week-total pill (via
+ * `trackedMsForTasks`). Returns an empty map immediately for an empty
  * `taskIds` (no query), so callers needn't special-case an empty week. A
- * running entry counts up to `now` via `totalTrackedMs`.
+ * running entry counts up to `now` via `totalTrackedMs`. A task with no
+ * entries has no key in the returned map (rather than an explicit 0).
+ */
+export async function trackedMsByTask(
+  supabase: Client,
+  taskIds: string[],
+  now: Date = new Date(),
+): Promise<Map<string, number>> {
+  if (taskIds.length === 0) return new Map()
+  const { data, error } = await supabase
+    .from('task_time_entries')
+    .select('task_id, started_at, ended_at')
+    .in('task_id', taskIds)
+  if (error) throw new Error(error.message)
+
+  const entriesByTask = new Map<
+    string,
+    { started_at: string; ended_at: string | null }[]
+  >()
+  for (const entry of data) {
+    const list = entriesByTask.get(entry.task_id)
+    if (list) list.push(entry)
+    else entriesByTask.set(entry.task_id, [entry])
+  }
+
+  const result = new Map<string, number>()
+  for (const [taskId, entries] of entriesByTask) {
+    result.set(taskId, totalTrackedMs(entries, now))
+  }
+  return result
+}
+
+/**
+ * Total tracked milliseconds across a set of tasks — the sum the Progress
+ * page shows for a week's completed tasks. A thin sum over `trackedMsByTask`.
  */
 export async function trackedMsForTasks(
   supabase: Client,
   taskIds: string[],
   now: Date = new Date(),
 ): Promise<number> {
-  if (taskIds.length === 0) return 0
-  const { data, error } = await supabase
-    .from('task_time_entries')
-    .select('started_at, ended_at')
-    .in('task_id', taskIds)
-  if (error) throw new Error(error.message)
-  return totalTrackedMs(data, now)
+  const byTask = await trackedMsByTask(supabase, taskIds, now)
+  return [...byTask.values()].reduce((sum, ms) => sum + ms, 0)
 }

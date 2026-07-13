@@ -4,7 +4,7 @@ import {
   addWeeks,
   completedTasksInWeek,
   groupByCompletionDay,
-  trackedMsForTasks,
+  trackedMsByTask,
   weekDays,
   weekStartFor,
   type CompletedTaskSummary,
@@ -174,6 +174,7 @@ interface ProgressRow {
   id: string
   title: string
   time: string
+  tracked: string | null
   completedBy: string | null
   category: { text: string; emoji: string | null } | null
 }
@@ -182,6 +183,35 @@ interface ProgressDayGroup {
   day: string
   heading: string
   rows: ProgressRow[]
+}
+
+// Per-task tracked time for the week in view, refetched whenever the set of
+// task ids changes (switching weeks, or the farm's completed-task list
+// refreshing) — a simple watch + ref, not a full composable, since the page
+// is the only consumer. Backs both each row's tracked-time figure and the
+// week-total stat pill.
+const trackedByTask = ref<Map<string, number>>(new Map())
+const weekTaskIds = computed(() => weekTasks.value.map((task) => task.id))
+watch(
+  weekTaskIds,
+  async (ids) => {
+    try {
+      trackedByTask.value = await trackedMsByTask(supabase, ids)
+    } catch {
+      trackedByTask.value = new Map()
+    }
+  },
+  { immediate: true },
+)
+
+const trackedMs = computed(() =>
+  [...trackedByTask.value.values()].reduce((sum, ms) => sum + ms, 0),
+)
+const trackedText = computed(() => formatElapsedDuration(trackedMs.value))
+
+function rowTrackedText(taskId: string): string | null {
+  const ms = trackedByTask.value.get(taskId)
+  return ms ? formatElapsedDuration(ms) : null
 }
 
 const dayGroups = computed<ProgressDayGroup[]>(() =>
@@ -196,31 +226,12 @@ const dayGroups = computed<ProgressDayGroup[]>(() =>
       id: task.id,
       title: task.title,
       time: completionTime(task),
+      tracked: rowTrackedText(task.id),
       completedBy: completedByLabel(task),
       category: categoryPill(task),
     })),
   })),
 )
-
-// Total tracked time across the week's completed tasks, refetched whenever
-// the set of task ids in view changes (switching weeks, or the farm's
-// completed-task list refreshing) — a simple watch + ref, not a full
-// composable, since the page is the only consumer.
-const trackedMs = ref(0)
-const weekTaskIds = computed(() => weekTasks.value.map((task) => task.id))
-watch(
-  weekTaskIds,
-  async (ids) => {
-    try {
-      trackedMs.value = await trackedMsForTasks(supabase, ids)
-    } catch {
-      trackedMs.value = 0
-    }
-  },
-  { immediate: true },
-)
-
-const trackedText = computed(() => formatElapsedDuration(trackedMs.value))
 </script>
 
 <template>
@@ -320,11 +331,15 @@ const trackedText = computed(() => formatElapsedDuration(trackedMs.value))
                 <div class="progress-row__time">{{ row.time }}</div>
                 <div class="progress-row__title">{{ row.title }}</div>
                 <div
-                  v-if="row.completedBy || row.category"
+                  v-if="row.completedBy || row.category || row.tracked"
                   class="progress-row__meta"
                 >
                   <span v-if="row.completedBy" class="progress-row__by">
                     {{ row.completedBy }}
+                  </span>
+                  <span v-if="row.tracked" class="progress-row__tracked">
+                    <v-icon icon="mdi-timer-outline" size="14" />
+                    {{ row.tracked }}
                   </span>
                   <span
                     v-if="row.category"
@@ -424,5 +439,11 @@ const trackedText = computed(() => formatElapsedDuration(trackedMs.value))
 .progress-row__category {
   font-size: 0.75rem;
   padding: 2px 10px;
+}
+
+.progress-row__tracked {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
 }
 </style>

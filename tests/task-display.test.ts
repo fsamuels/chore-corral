@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  combineDateAndTime,
   formatElapsedDuration,
   formatEstimatedMinutes,
+  formatTimeForInput,
   parseEstimatedMinutesInput,
 } from '../app/utils/task-display'
 
@@ -51,5 +53,34 @@ describe('formatElapsedDuration', () => {
   it('renders whole minutes/hours the same way formatEstimatedMinutes does', () => {
     expect(formatElapsedDuration(60_000)).toBe('1m')
     expect(formatElapsedDuration(90 * 60_000)).toBe('1h 30m')
+  })
+})
+
+describe('formatTimeForInput', () => {
+  it('renders zero-padded 24-hour "HH:mm"', () => {
+    expect(formatTimeForInput(new Date(2026, 6, 9, 9, 5))).toBe('09:05')
+    expect(formatTimeForInput(new Date(2026, 6, 9, 23, 59))).toBe('23:59')
+    expect(formatTimeForInput(new Date(2026, 6, 9, 0, 0))).toBe('00:00')
+  })
+})
+
+describe('combineDateAndTime', () => {
+  it("combines a date's Y/M/D with an HH:mm time into one local Date", () => {
+    const date = new Date(2026, 6, 9)
+    const result = combineDateAndTime(date, '14:30')
+    expect(result).toEqual(new Date(2026, 6, 9, 14, 30))
+  })
+
+  it('ignores any time-of-day already on the date argument, using only Y/M/D', () => {
+    const date = new Date(2026, 6, 9, 8, 0)
+    const result = combineDateAndTime(date, '00:00')
+    expect(result).toEqual(new Date(2026, 6, 9, 0, 0))
+  })
+
+  it('rejects a malformed time string', () => {
+    expect(combineDateAndTime(new Date(2026, 6, 9), '25:00')).toBeNull()
+    expect(combineDateAndTime(new Date(2026, 6, 9), '10:75')).toBeNull()
+    expect(combineDateAndTime(new Date(2026, 6, 9), 'nope')).toBeNull()
+    expect(combineDateAndTime(new Date(2026, 6, 9), '')).toBeNull()
   })
 })

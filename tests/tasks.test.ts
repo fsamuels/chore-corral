@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   assertCompletedByXorName,
+  assertValidCompletedAt,
   assertValidEstimatedMinutes,
   changeTaskStatus,
   createTask,
@@ -592,6 +593,7 @@ describe('updateTask', () => {
       estimatedMinutes: null,
       completedBy: null,
       completedByName: null,
+      completedAt: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -625,6 +627,7 @@ describe('updateTask', () => {
       estimatedMinutes: null,
       completedBy: null,
       completedByName: null,
+      completedAt: null,
       actorUserId: ACTOR,
       tagNames: ['Fence'],
     })
@@ -652,6 +655,7 @@ describe('updateTask', () => {
       estimatedMinutes: null,
       completedBy: null,
       completedByName: null,
+      completedAt: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -689,6 +693,7 @@ describe('updateTask', () => {
       estimatedMinutes: null,
       completedBy: null,
       completedByName: null,
+      completedAt: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -726,6 +731,7 @@ describe('updateTask', () => {
       estimatedMinutes: null,
       completedBy: null,
       completedByName: null,
+      completedAt: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -762,6 +768,7 @@ describe('updateTask', () => {
       estimatedMinutes: null,
       completedBy: null,
       completedByName: null,
+      completedAt: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -795,6 +802,7 @@ describe('updateTask', () => {
         estimatedMinutes: null,
         completedBy: null,
         completedByName: null,
+        completedAt: null,
         actorUserId: ACTOR,
         tagNames: [],
       }),
@@ -822,6 +830,7 @@ describe('updateTask', () => {
         estimatedMinutes: null,
         completedBy: null,
         completedByName: null,
+        completedAt: null,
         actorUserId: ACTOR,
         tagNames: [],
       }),
@@ -853,6 +862,7 @@ describe('updateTask', () => {
       estimatedMinutes: null,
       completedBy: null,
       completedByName: null,
+      completedAt: null,
       actorUserId: ACTOR,
       tagNames: ['Gate', 'Barn'],
     })
@@ -885,6 +895,7 @@ describe('updateTask', () => {
       estimatedMinutes: null,
       completedBy: null,
       completedByName: null,
+      completedAt: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -904,6 +915,7 @@ describe('updateTask', () => {
       estimatedMinutes: null,
       completedBy: null,
       completedByName: null,
+      completedAt: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -923,6 +935,7 @@ describe('updateTask', () => {
       estimatedMinutes: null,
       completedBy: null,
       completedByName: null,
+      completedAt: null,
       actorUserId: ACTOR,
       tagNames: [],
     })
@@ -949,6 +962,7 @@ describe('updateTask', () => {
       lng: null,
       completedBy: null as string | null,
       completedByName: null as string | null,
+      completedAt: null as string | null,
       actorUserId: ACTOR,
       tagNames: [],
     }
@@ -994,6 +1008,7 @@ describe('updateTask', () => {
         estimatedMinutes: 0,
         completedBy: null,
         completedByName: null,
+        completedAt: null,
         actorUserId: ACTOR,
         tagNames: [],
       }),
@@ -1025,6 +1040,7 @@ describe('updateTask', () => {
         estimatedMinutes: null,
         completedBy: null,
         completedByName: null,
+        completedAt: null,
         actorUserId: ACTOR,
         tagNames: [],
       }),
@@ -1049,6 +1065,7 @@ describe('updateTask', () => {
       lat: null,
       lng: null,
       estimatedMinutes: null,
+      completedAt: null,
       actorUserId: ACTOR,
       tagNames: [],
     }
@@ -1081,6 +1098,65 @@ describe('updateTask', () => {
     expect(fake.getTable('activity_log')).toHaveLength(0)
   })
 
+  it('edits completed_at independently of status, logging nothing', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1', status: 'done', completed_at: null })],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await updateTask(supabase, {
+      farmId: FARM_A,
+      taskId: 'task-1',
+      title: 'Fix the gate',
+      categoryId: null,
+      priority: 'soon',
+      dueDate: null,
+      notes: null,
+      lat: null,
+      lng: null,
+      estimatedMinutes: null,
+      completedBy: null,
+      completedByName: null,
+      completedAt: '2026-07-09T14:30:00.000Z',
+      actorUserId: ACTOR,
+      tagNames: [],
+    })
+
+    expect(result.completed_at).toBe('2026-07-09T14:30:00.000Z')
+    expect(fake.getTable('activity_log')).toHaveLength(0)
+  })
+
+  it('rejects an invalid completed_at, leaving the task unchanged', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1', status: 'done', completed_at: null })],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    await expect(
+      updateTask(supabase, {
+        farmId: FARM_A,
+        taskId: 'task-1',
+        title: 'Fix the gate',
+        categoryId: null,
+        priority: 'soon',
+        dueDate: null,
+        notes: null,
+        lat: null,
+        lng: null,
+        estimatedMinutes: null,
+        completedBy: null,
+        completedByName: null,
+        completedAt: 'not a date',
+        actorUserId: ACTOR,
+        tagNames: [],
+      }),
+    ).rejects.toThrow('Completed date/time is invalid')
+
+    expect((fake.getTable('tasks')[0] as TaskRow).completed_at).toBeNull()
+  })
+
   it('rejects setting both a member and a free-text name, leaving the task unchanged', async () => {
     const fake = new FakeSupabaseClient({
       tasks: [task({ id: 'task-1' })],
@@ -1102,6 +1178,7 @@ describe('updateTask', () => {
         estimatedMinutes: null,
         completedBy: 'user-9',
         completedByName: 'Hired hand',
+        completedAt: null,
         actorUserId: ACTOR,
         tagNames: [],
       }),
@@ -1354,6 +1431,21 @@ describe('assertCompletedByXorName', () => {
   it('rejects setting both a member and a free-text name', () => {
     expect(() => assertCompletedByXorName('user-9', 'Hired hand')).toThrow(
       'A task has either a completing member or a free-text name, not both',
+    )
+  })
+})
+
+describe('assertValidCompletedAt', () => {
+  it('accepts null and a valid ISO timestamp', () => {
+    expect(() => assertValidCompletedAt(null)).not.toThrow()
+    expect(() =>
+      assertValidCompletedAt('2026-07-09T14:30:00.000Z'),
+    ).not.toThrow()
+  })
+
+  it('rejects an unparseable timestamp', () => {
+    expect(() => assertValidCompletedAt('not a date')).toThrow(
+      'Completed date/time is invalid',
     )
   })
 })

@@ -150,6 +150,7 @@ type EditableField =
   | 'tags'
   | 'location'
   | 'completedBy'
+  | 'completedAt'
 const fieldSaving = ref<EditableField | null>(null)
 const fieldSaveError = ref<string | null>(null)
 
@@ -168,6 +169,7 @@ async function saveTaskField(
     locationId: string | null
     completedBy: string | null
     completedByName: string | null
+    completedAt: string | null
   }>,
 ): Promise<boolean> {
   const current = task.value
@@ -188,6 +190,7 @@ async function saveTaskField(
       locationId: current.location_id,
       completedBy: current.completed_by,
       completedByName: current.completed_by_name,
+      completedAt: current.completed_at,
       tagNames: current.tags.map((tag) => tag.name),
       ...patch,
     })
@@ -458,6 +461,58 @@ async function onCompletedByClear() {
     })
   )
     completedByMenu.value = false
+}
+
+// --- Completed at (date/time) — only surfaced when the task is done ---
+// Auto-set to "now" on the move to done (see changeTaskStatus), but
+// independently editable here for a task marked done after the fact or at
+// the wrong moment. A v-date-picker (date) and a time text field (time of
+// day) are combined into one timestamp on save.
+const completedAtMenu = ref(false)
+const completedAtDateDraft = ref<Date | null>(null)
+const completedAtTimeDraft = ref('')
+
+watch(completedAtMenu, (open) => {
+  if (!open) return
+  const completedAt = task.value?.completed_at
+  const current = completedAt ? new Date(completedAt) : new Date()
+  completedAtDateDraft.value = new Date(
+    current.getFullYear(),
+    current.getMonth(),
+    current.getDate(),
+  )
+  completedAtTimeDraft.value = formatTimeForInput(current)
+})
+
+function onCompletedAtDatePick(value: unknown) {
+  if (value instanceof Date) completedAtDateDraft.value = value
+}
+
+const completedAtLabel = computed(() => {
+  const completedAt = task.value?.completed_at
+  if (!completedAt) return null
+  return new Date(completedAt).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+})
+
+async function onCompletedAtSave() {
+  if (!completedAtDateDraft.value) return
+  const combined = combineDateAndTime(
+    completedAtDateDraft.value,
+    completedAtTimeDraft.value,
+  )
+  if (!combined) return
+  const completedAt = combined.toISOString()
+  if (task.value?.completed_at === completedAt) {
+    completedAtMenu.value = false
+    return
+  }
+  if (await saveTaskField('completedAt', { completedAt }))
+    completedAtMenu.value = false
 }
 
 // --- Delete (moved here from the retired Edit page) ---
@@ -910,6 +965,62 @@ const taskLocation = computed(() =>
                   color="primary"
                   :loading="fieldSaving === 'completedBy'"
                   @click="onCompletedBySave"
+                >
+                  Save
+                </v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-menu>
+        </div>
+
+        <div v-if="task.status === 'done'" class="mb-6">
+          <div class="cc-eyebrow mb-2">Completed at</div>
+          <v-menu v-model="completedAtMenu" :close-on-content-click="false">
+            <template #activator="{ props: activatorProps }">
+              <button
+                type="button"
+                v-bind="activatorProps"
+                class="cc-pill-btn cc-pill-btn--sm"
+                :class="
+                  completedAtLabel !== null
+                    ? 'cc-pill-btn--surface'
+                    : 'cc-pill-btn--ghost'
+                "
+                :disabled="fieldSaving !== null"
+              >
+                <v-icon icon="mdi-calendar-clock" size="16" />
+                {{
+                  completedAtLabel !== null
+                    ? `Completed ${completedAtLabel}`
+                    : 'Set completion date'
+                }}
+                <v-icon icon="mdi-menu-down" size="16" />
+              </button>
+            </template>
+            <v-card min-width="280">
+              <v-date-picker
+                :model-value="completedAtDateDraft"
+                hide-header
+                show-adjacent-months
+                @update:model-value="onCompletedAtDatePick"
+              />
+              <v-card-text class="pt-0">
+                <v-text-field
+                  v-model="completedAtTimeDraft"
+                  type="time"
+                  label="Time"
+                  density="comfortable"
+                  variant="outlined"
+                  hide-details
+                />
+              </v-card-text>
+              <v-card-actions>
+                <v-spacer />
+                <v-btn @click="completedAtMenu = false">Cancel</v-btn>
+                <v-btn
+                  color="primary"
+                  :loading="fieldSaving === 'completedAt'"
+                  @click="onCompletedAtSave"
                 >
                   Save
                 </v-btn>
