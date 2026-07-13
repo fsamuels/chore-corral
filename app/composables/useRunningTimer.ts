@@ -1,23 +1,35 @@
 import type { Database } from '~/types/database.types'
-import { getRunningEntry, type TimeEntrySummary } from '~/services/time-entries'
+import {
+  getRunningEntry,
+  stopTimer,
+  type TimeEntrySummary,
+} from '~/services/time-entries'
 import { getTaskTitle } from '~/services/tasks'
 
 /**
  * The acting user's running timer, if any, plus the title of the task it's
- * on — for the global floating timer button (`FloatingTimerButton.vue`),
- * which needs this on every page, not just a task's own detail page.
+ * on — app-wide shared state (`useState`) behind the running-timer dock bar
+ * (`RunningTimerBar.vue`), the home page's card play/stop buttons, and
+ * `useTaskTimer`. One shared entry means starting or stopping a timer
+ * anywhere updates every consumer at once — the dock bar appears the moment
+ * a home-card play button is tapped, and a task page's "running on another
+ * task" caption clears the moment the bar's stop button is used.
  *
- * There's no realtime push here, so this refetches on every route change
- * (covers "started/stopped a timer on one page, navigated to another") and
- * leaves the moment-to-moment elapsed-time display to the caller.
+ * There's no realtime push, so the default layout refreshes this on every
+ * route change ("started/stopped a timer on one page, navigated to
+ * another") and every mutation path (`stop` here, `useTaskTimer`'s
+ * start/stop, the home page's toggle) refreshes it directly.
  */
 export function useRunningTimer() {
   const supabase = useSupabaseClient<Database>()
   const user = useSupabaseUser()
-  const route = useRoute()
 
-  const runningEntry = ref<TimeEntrySummary | null>(null)
-  const taskTitle = ref<string | null>(null)
+  const runningEntry = useState<TimeEntrySummary | null>(
+    'running-timer-entry',
+    () => null,
+  )
+  const taskTitle = useState<string | null>('running-timer-title', () => null)
+  const stopping = useState<boolean>('running-timer-stopping', () => false)
 
   async function refresh(): Promise<void> {
     const actorUserId = getActorUserId(user.value)
@@ -33,14 +45,33 @@ export function useRunningTimer() {
         ? await getTaskTitle(supabase, entry.task_id)
         : null
     } catch {
-      // Floating chrome, not a page's primary content — a failed fetch just
-      // means no button this navigation rather than a page-level error.
+      // Global chrome, not a page's primary content — a failed fetch just
+      // means no dock bar until the next refresh rather than a page error.
       runningEntry.value = null
       taskTitle.value = null
     }
   }
 
-  watch(() => route.path, refresh, { immediate: true })
+  /**
+   * Stop the running timer from the dock bar. A failure resyncs instead of
+   * surfacing an error: the realistic failure ("Timer is not running" after
+   * a double-tap or a stop from another tab) means the bar is stale, and
+   * refreshing hides it.
+   */
+  async function stop(): Promise<void> {
+    const entry = runningEntry.value
+    if (!entry || stopping.value) return
+    stopping.value = true
+    try {
+      await stopTimer(supabase, entry.id)
+      runningEntry.value = null
+      taskTitle.value = null
+    } catch {
+      await refresh()
+    } finally {
+      stopping.value = false
+    }
+  }
 
-  return { runningEntry, taskTitle, refresh }
+  return { runningEntry, taskTitle, stopping, refresh, stop }
 }

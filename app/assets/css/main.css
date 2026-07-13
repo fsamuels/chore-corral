@@ -65,6 +65,11 @@
   /* Card shape */
   --cc-radius: 16px;
   --cc-shadow: 0 1px 3px rgba(43, 33, 24, 0.06);
+
+  /* Running-timer dock bar height — shared by the bar itself
+     (RunningTimerBar.vue), the layout's content spacer, and NewTaskFab's
+     lifted position, so the three can never drift apart. */
+  --cc-timer-bar-h: 64px;
 }
 
 /* Base typography: sans body, slab headings. */
