@@ -156,7 +156,12 @@ async function signOut() {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 20px 16px 4px;
+  /* Add the notch/safe-area insets so the header clears the status bar when
+     installed to the home screen (viewport-fit=cover). env() is 0 in a normal
+     browser tab, so this is a no-op there. */
+  padding: calc(20px + env(safe-area-inset-top, 0px))
+    calc(16px + env(safe-area-inset-right, 0px)) 4px
+    calc(16px + env(safe-area-inset-left, 0px));
   max-width: 900px;
   margin: 0 auto;
 }
@@ -206,6 +211,10 @@ async function signOut() {
   left: 0 !important;
   right: 0 !important;
   width: 100% !important;
+  /* Grow the bar by the home-indicator inset so the tab row sits above it
+     when installed to the home screen. No-op in a normal browser tab. */
+  height: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .app-bottom-nav .v-btn {

@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Chore Corral barn">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fdf3dd" />
+      <stop offset="1" stop-color="#f8e2b8" />
+    </linearGradient>
+    <linearGradient id="hill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9bb079" />
+      <stop offset="1" stop-color="#7f9760" />
+    </linearGradient>
+    <linearGradient id="barnBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#cf4a2c" />
+      <stop offset="1" stop-color="#b5361c" />
+    </linearGradient>
+    <linearGradient id="roof" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8a4322" />
+      <stop offset="1" stop-color="#6f3116" />
+    </linearGradient>
+    <linearGradient id="sun" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd24a" />
+      <stop offset="1" stop-color="#f2b705" />
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded-square background sky -->
+  <rect width="512" height="512" rx="112" fill="url(#sky)" />
+
+  <!-- Sun, top-left -->
+  <circle cx="132" cy="132" r="46" fill="url(#sun)" />
+  <g stroke="#f2b705" stroke-width="12" stroke-linecap="round">
+    <line x1="132" y1="52" x2="132" y2="70" />
+    <line x1="72" y1="72" x2="85" y2="85" />
+    <line x1="52" y1="132" x2="70" y2="132" />
+    <line x1="192" y1="72" x2="179" y2="85" />
+  </g>
+
+  <!-- Rolling hills -->
+  <path d="M0 372 C110 330 175 372 256 372 C345 372 400 332 512 372 L512 512 L0 512 Z" fill="url(#hill)" />
+  <path d="M0 418 C120 392 190 430 300 414 C390 401 440 420 512 408 L512 512 L0 512 Z" fill="#6f8a53" opacity="0.55" />
+
+  <!-- Silo, peeking to the right of the barn -->
+  <g>
+    <rect x="356" y="222" width="52" height="176" rx="6" fill="#f4ead2" />
+    <path d="M356 222 a26 24 0 0 1 52 0 Z" fill="#c9532e" />
+    <g stroke="#dccaa2" stroke-width="4">
+      <line x1="356" y1="268" x2="408" y2="268" />
+      <line x1="356" y1="316" x2="408" y2="316" />
+      <line x1="356" y1="364" x2="408" y2="364" />
+    </g>
+  </g>
+
+  <!-- Barn -->
+  <g>
+    <!-- Classic gambrel gable front -->
+    <path d="M128 250 L128 224 L164 182 L256 150 L348 182 L384 224 L384 250 Z" fill="url(#roof)" />
+    <!-- Cupola with weathervane -->
+    <line x1="256" y1="150" x2="256" y2="108" stroke="#6f3116" stroke-width="7" stroke-linecap="round" />
+    <path d="M256 116 l22 8 l-22 8 Z" fill="#f2b705" />
+    <rect x="242" y="128" width="28" height="26" rx="4" fill="#f4ead2" />
+    <path d="M242 128 L256 110 L270 128 Z" fill="#6f3116" />
+    <!-- Body -->
+    <rect x="140" y="250" width="232" height="146" rx="8" fill="url(#barnBody)" />
+    <rect x="140" y="250" width="232" height="146" rx="8" fill="none" stroke="#f4ead2" stroke-width="8" />
+    <!-- Hay loft window -->
+    <circle cx="256" cy="252" r="15" fill="#ffd24a" stroke="#f4ead2" stroke-width="6" />
+    <!-- Doors with barn-red X bracing -->
+    <rect x="212" y="290" width="88" height="106" rx="6" fill="#f4ead2" />
+    <path d="M212 290 L300 396 M300 290 L212 396" stroke="#c9532e" stroke-width="7" fill="none" />
+    <line x1="256" y1="290" x2="256" y2="396" stroke="#c9532e" stroke-width="6" />
+  </g>
+</svg>
