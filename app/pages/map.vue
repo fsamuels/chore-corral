@@ -87,7 +87,7 @@ function onOpen(taskId: string) {
           class="mb-4"
         >
           <v-card-text>
-            No tasks have a location yet. Add one from a task's More details.
+            No tasks have a location yet. Add one from a task's location field.
           </v-card-text>
         </v-card>
 

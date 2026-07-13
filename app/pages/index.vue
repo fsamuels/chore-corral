@@ -5,7 +5,6 @@ import {
   partitionHomeTasks,
   compareUpNext,
   compareBacklog,
-  isCollapsibleBacklogTask,
   toLocalDateString,
   type TaskSummary,
 } from '~/services/tasks'
@@ -52,31 +51,6 @@ const homeGroups = computed(() => {
 })
 const upNext = computed(() => homeGroups.value.upNext)
 const backlog = computed(() => homeGroups.value.backlog)
-
-// The backlog "tail" — lowest priority, no due date — is collapsed by
-// default behind a "Show N more" toggle, unless those tasks are the only
-// tasks on the whole page (nothing else to show instead).
-const backlogVisible = computed(() =>
-  backlog.value.filter((task) => !isCollapsibleBacklogTask(task)),
-)
-const backlogCollapsedTail = computed(() =>
-  backlog.value.filter((task) => isCollapsibleBacklogTask(task)),
-)
-const showAllTasksAreCollapsible = computed(
-  () =>
-    upNext.value.length === 0 &&
-    backlogVisible.value.length === 0 &&
-    backlogCollapsedTail.value.length > 0,
-)
-const tailExpanded = ref(false)
-const backlogDisplayed = computed(() =>
-  showAllTasksAreCollapsible.value || tailExpanded.value
-    ? backlog.value
-    : backlogVisible.value,
-)
-const collapsedCount = computed(() =>
-  showAllTasksAreCollapsible.value ? 0 : backlogCollapsedTail.value.length,
-)
 
 function categoryName(task: TaskSummary): string {
   return categoryDisplayName(task.category_id, categories.value).text
@@ -222,7 +196,7 @@ async function toggleTimer(task: TaskSummary) {
             </div>
           </section>
 
-          <section v-if="backlogDisplayed.length > 0" class="home__section">
+          <section v-if="backlog.length > 0" class="home__section">
             <div class="home__section-heading home__section-heading--row">
               <h2 class="cc-section-title">Backlog</h2>
               <span class="home__section-count">
@@ -232,7 +206,7 @@ async function toggleTimer(task: TaskSummary) {
             </div>
             <div class="home__cards">
               <TaskCard
-                v-for="task in backlogDisplayed"
+                v-for="task in backlog"
                 :key="task.id"
                 :task="task"
                 :category-name="categoryName(task)"
@@ -244,16 +218,6 @@ async function toggleTimer(task: TaskSummary) {
               />
             </div>
           </section>
-
-          <div v-if="collapsedCount > 0" class="mb-4">
-            <button
-              type="button"
-              class="cc-text-link"
-              @click="tailExpanded = !tailExpanded"
-            >
-              {{ tailExpanded ? 'Show less' : `Show ${collapsedCount} more` }}
-            </button>
-          </div>
 
           <div class="text-center mt-4">
             <NuxtLink to="/tasks" class="cc-text-link cc-text-link--muted">

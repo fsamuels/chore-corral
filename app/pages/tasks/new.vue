@@ -56,7 +56,6 @@ const location = ref<TaskLocationValue>({
   lng: null,
 })
 const stagedPhotos = ref<StagedPhoto[]>([])
-const moreDetailsOpen = ref(false)
 
 const creating = ref(false)
 const createError = ref<string | null>(null)
@@ -155,6 +154,26 @@ async function submit() {
           autofocus
         />
         <v-select
+          v-model="priority"
+          :items="priorityItems"
+          label="Priority"
+          :disabled="creating"
+          density="comfortable"
+          variant="outlined"
+          hide-details
+          class="mb-4"
+        />
+        <v-text-field
+          v-model="dueDate"
+          label="Due date"
+          type="date"
+          :disabled="creating"
+          density="comfortable"
+          variant="outlined"
+          hide-details
+          class="mb-4"
+        />
+        <v-select
           v-model="categoryId"
           :items="categoryItems"
           label="Category"
@@ -164,86 +183,54 @@ async function submit() {
           hide-details
           class="mb-4"
         />
-        <v-select
-          v-model="priority"
-          :items="priorityItems"
-          label="Priority"
+        <v-text-field
+          v-model="estimatedMinutes"
+          label="Estimated time (minutes)"
+          type="number"
+          min="1"
+          step="1"
           :disabled="creating"
           density="comfortable"
           variant="outlined"
           hide-details
-          class="mb-2"
+          class="mb-4"
+        />
+        <v-combobox
+          v-model="taskTags"
+          :items="tagSuggestions"
+          label="Tags"
+          multiple
+          chips
+          closable-chips
+          :disabled="creating"
+          density="comfortable"
+          variant="outlined"
+          hide-details
+          class="mb-4"
+        />
+        <p class="cc-eyebrow mb-2">Location</p>
+        <TaskLocationInput
+          v-model="location"
+          :locations="locations ?? []"
+          auto-capture
+          :fallback-center="farmCenter"
+          :disabled="creating"
+          class="mb-4"
         />
 
-        <v-btn
-          variant="text"
-          size="small"
-          :append-icon="moreDetailsOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'"
-          class="mt-2 mb-2"
-          @click="moreDetailsOpen = !moreDetailsOpen"
-        >
-          More details
-        </v-btn>
+        <v-divider class="my-4" />
+        <StagedTaskPhotos v-model:staged="stagedPhotos" />
 
-        <div v-if="moreDetailsOpen">
-          <v-textarea
-            v-model="notes"
-            label="Notes"
-            rows="3"
-            :disabled="creating"
-            density="comfortable"
-            variant="outlined"
-            hide-details
-            class="mb-4"
-          />
-          <v-combobox
-            v-model="taskTags"
-            :items="tagSuggestions"
-            label="Tags"
-            multiple
-            chips
-            closable-chips
-            :disabled="creating"
-            density="comfortable"
-            variant="outlined"
-            hide-details
-            class="mb-4"
-          />
-          <v-text-field
-            v-model="dueDate"
-            label="Due date"
-            type="date"
-            :disabled="creating"
-            density="comfortable"
-            variant="outlined"
-            hide-details
-            class="mb-4"
-          />
-          <v-text-field
-            v-model="estimatedMinutes"
-            label="Estimated time (minutes)"
-            type="number"
-            min="1"
-            step="1"
-            :disabled="creating"
-            density="comfortable"
-            variant="outlined"
-            hide-details
-            class="mb-4"
-          />
-          <p class="cc-eyebrow mb-2">Location</p>
-          <TaskLocationInput
-            v-model="location"
-            :locations="locations ?? []"
-            auto-capture
-            :fallback-center="farmCenter"
-            :disabled="creating"
-            class="mb-4"
-          />
-
-          <v-divider class="my-4" />
-          <StagedTaskPhotos v-model:staged="stagedPhotos" />
-        </div>
+        <v-textarea
+          v-model="notes"
+          label="Notes"
+          rows="3"
+          :disabled="creating"
+          density="comfortable"
+          variant="outlined"
+          hide-details
+          class="mb-4 mt-4"
+        />
 
         <v-alert
           v-if="createError"
