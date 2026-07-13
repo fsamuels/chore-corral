@@ -228,8 +228,6 @@ async function toggleTimer(task: TaskSummary) {
       </template>
     </template>
 
-    <NewTaskFab />
-
     <v-snackbar v-model="showSnackbar" :color="snackbarColor" :timeout="4000">
       {{ snackbarMessage }}
     </v-snackbar>
