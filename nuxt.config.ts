@@ -5,6 +5,9 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
   app: {
     head: {
+      // Cover the notch/safe areas so the standalone (home-screen) app can
+      // paint edge-to-edge; the header/nav already sit inside normal padding.
+      viewport: 'width=device-width, initial-scale=1, viewport-fit=cover',
       link: [
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         {
@@ -16,6 +19,37 @@ export default defineNuxtConfig({
           rel: 'stylesheet',
           href: 'https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap',
         },
+        // PWA / install-to-home-screen assets (files live in /public).
+        { rel: 'manifest', href: '/manifest.webmanifest' },
+        { rel: 'icon', type: 'image/svg+xml', href: '/icon.svg' },
+        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
+        {
+          rel: 'icon',
+          type: 'image/png',
+          sizes: '32x32',
+          href: '/favicon-32x32.png',
+        },
+        {
+          rel: 'icon',
+          type: 'image/png',
+          sizes: '16x16',
+          href: '/favicon-16x16.png',
+        },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+      ],
+      meta: [
+        // Cream status bar to match the app's warm background (Android).
+        { name: 'theme-color', content: '#f7f3ea' },
+        // iOS standalone: run full-screen, dark status-bar text on cream,
+        // and label the home-screen icon.
+        { name: 'apple-mobile-web-app-capable', content: 'yes' },
+        { name: 'mobile-web-app-capable', content: 'yes' },
+        {
+          name: 'apple-mobile-web-app-status-bar-style',
+          content: 'default',
+        },
+        { name: 'apple-mobile-web-app-title', content: 'Chore Corral' },
+        { name: 'application-name', content: 'Chore Corral' },
       ],
     },
   },

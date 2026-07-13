@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Chore Corral barn with completed-chore check">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fdf3dd" /><stop offset="1" stop-color="#f8e2b8" />
+    </linearGradient>
+    <linearGradient id="hill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9bb079" /><stop offset="1" stop-color="#7f9760" />
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#cf4a2c" /><stop offset="1" stop-color="#b5361c" />
+    </linearGradient>
+    <linearGradient id="roof" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8a4322" /><stop offset="1" stop-color="#6f3116" />
+    </linearGradient>
+    <linearGradient id="sun" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd24a" /><stop offset="1" stop-color="#f2b705" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#sky)" />
+  <circle cx="128" cy="126" r="44" fill="url(#sun)" />
+  <g stroke="#f2b705" stroke-width="11" stroke-linecap="round">
+    <line x1="128" y1="52" x2="128" y2="68" />
+    <line x1="72" y1="70" x2="84" y2="82" />
+    <line x1="52" y1="126" x2="68" y2="126" />
+  </g>
+  <path d="M0 380 C110 340 175 380 256 380 C345 380 400 342 512 380 L512 512 L0 512 Z" fill="url(#hill)" />
+
+  <!-- barn (centered, no silo — the done badge takes the right corner) -->
+  <path d="M128 250 L128 224 L164 182 L256 150 L348 182 L384 224 L384 250 Z" fill="url(#roof)" />
+  <line x1="256" y1="150" x2="256" y2="108" stroke="#6f3116" stroke-width="7" stroke-linecap="round" />
+  <path d="M256 116 l22 8 l-22 8 Z" fill="#f2b705" />
+  <rect x="242" y="128" width="28" height="26" rx="4" fill="#f4ead2" />
+  <path d="M242 128 L256 110 L270 128 Z" fill="#6f3116" />
+  <rect x="140" y="250" width="232" height="146" rx="8" fill="url(#body)" />
+  <rect x="140" y="250" width="232" height="146" rx="8" fill="none" stroke="#f4ead2" stroke-width="8" />
+  <circle cx="256" cy="252" r="15" fill="#ffd24a" stroke="#f4ead2" stroke-width="6" />
+  <rect x="212" y="290" width="88" height="106" rx="6" fill="#f4ead2" />
+  <path d="M212 290 L300 396 M300 290 L212 396" stroke="#c9532e" stroke-width="7" fill="none" />
+  <line x1="256" y1="290" x2="256" y2="396" stroke="#c9532e" stroke-width="6" />
+
+  <!-- done badge, pulled inward so a circular mask can't clip it -->
+  <g id="done-badge" transform="translate(-26,-16)">
+    <circle cx="372" cy="366" r="60" fill="#f4ead2" />
+    <circle cx="372" cy="366" r="48" fill="#6e8b46" />
+    <path d="M349 367 l16 16 l30 -34" fill="none" stroke="#ffffff" stroke-width="12"
+      stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+</svg>

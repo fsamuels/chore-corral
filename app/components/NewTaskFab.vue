@@ -22,7 +22,8 @@ const { mobile } = useDisplay()
 .new-task-fab {
   position: fixed;
   right: 24px;
-  bottom: 24px;
+  /* Clear the home-indicator inset when installed to the home screen. */
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   z-index: 10;
   display: inline-flex;
   align-items: center;
@@ -38,6 +39,6 @@ const { mobile } = useDisplay()
 }
 
 .new-task-fab--above-bottom-nav {
-  bottom: 80px;
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
 }
 </style>

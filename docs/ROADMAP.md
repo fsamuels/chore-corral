@@ -34,8 +34,8 @@ A lightweight, directional list of features and phases beyond MVP. This is inten
 
   This needs its own data model — a pasture as an entity with a timestamped event log — kept deliberately separate from the task tracker's single-task structure so the two don't become tangled.
 
-- **Offline support** — relevant given the rural, potentially spotty-connectivity context, but has real architectural implications (PWA offline caching, optimistic UI, sync conflict handling) and is explicitly a "well into the future" item, not a near-term one.
-- **PWA install-to-homescreen** — nice-to-have once the app is otherwise stable.
+- **Offline support** — relevant given the rural, potentially spotty-connectivity context, but has real architectural implications (PWA offline caching, optimistic UI, sync conflict handling) and is explicitly a "well into the future" item, not a near-term one. Note this is distinct from the install-to-homescreen item below (now done): that added the manifest/icons/standalone metadata but no service worker, so there's still no offline caching.
+- **PWA install-to-homescreen** — _done 2026-07-13:_ ranch-themed home-screen icon set, web manifest (`display: standalone`, cream theme color), iOS/Android app-shell meta, and `viewport-fit=cover` safe-area handling. A service worker for true offline was deliberately left to the offline-support item above.
 - **Photo storage management strategy** — revisit if photo volume grows well beyond current projections (see DECISIONS.md for the current cost analysis); could include auto-archival or deletion tied to task completion.
 
 ## Explicit Non-Goals (Not on this roadmap at all)
