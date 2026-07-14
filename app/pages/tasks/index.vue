@@ -56,7 +56,7 @@ const dueDateFilterItems: { title: string; value: DueDateFilter }[] = [
 
 const categoryItems = computed(() =>
   (categories.value ?? []).map((category) => ({
-    title: category.name,
+    title: `${category.emoji ?? '🏷️'} ${category.name}`,
     value: category.id,
   })),
 )
