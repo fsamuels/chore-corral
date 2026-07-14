@@ -29,7 +29,7 @@ const priorityItems: { title: string; value: TaskPriority }[] = [
 const categoryItems = computed(() => [
   { title: 'Uncategorized', value: null },
   ...(categories.value ?? []).map((category) => ({
-    title: category.name,
+    title: `${category.emoji ?? '🏷️'} ${category.name}`,
     value: category.id,
   })),
 ])
