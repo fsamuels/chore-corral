@@ -52,20 +52,35 @@ onUnmounted(() => {
 
 const trackedMs = computed(() => totalTrackedMs(entries.value ?? [], now.value))
 
-// "1h 30m 5s" while running (seconds make the tick visible), "1h 30m" at
-// rest — sub-minute totals always show seconds so a short session isn't
-// rendered as a confusing "0m".
-const trackedLabel = computed(() => {
-  const totalSeconds = Math.floor(trackedMs.value / 1000)
+// Elapsed time of just the currently-running session on this task (the open
+// entry's started_at → now). Zero when no timer is running here — the
+// template only surfaces this counter while running, so it never renders 0.
+const sessionMs = computed(() => {
+  const entry = runningEntry.value
+  if (!entry || entry.task_id !== props.taskId) return 0
+  return totalTrackedMs([entry], now.value)
+})
+
+// "1h 30m 5s" (seconds shown while a timer is ticking or for sub-minute
+// totals, so a short session isn't rendered as a confusing "0m"), "1h 30m"
+// otherwise.
+function formatTracked(ms: number, withSeconds: boolean): string {
+  const totalSeconds = Math.floor(ms / 1000)
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = totalSeconds % 60
-  if (runningHere.value || minutes === 0) {
+  if (withSeconds || minutes === 0) {
     return minutes === 0
       ? `${seconds}s`
       : `${formatEstimatedMinutes(minutes)} ${seconds}s`
   }
   return formatEstimatedMinutes(minutes)
-})
+}
+
+const trackedLabel = computed(() =>
+  formatTracked(trackedMs.value, runningHere.value),
+)
+// The session counter only shows while running, so it always ticks seconds.
+const sessionLabel = computed(() => formatTracked(sessionMs.value, true))
 
 async function onStart(): Promise<void> {
   if (await start()) emit('started')
@@ -107,27 +122,36 @@ async function onStopAndComplete(): Promise<void> {
 
     <template v-else-if="entries">
       <div class="cc-timer-readout mb-3">
-        <span
-          class="cc-timer-time"
-          :class="{ 'cc-timer-time--running': runningHere }"
-        >
-          <template v-if="trackedMs > 0 || runningHere">{{
-            trackedLabel
-          }}</template>
-          <template v-else>0s</template>
-        </span>
-        <span
-          v-if="estimatedMinutes !== null"
-          class="text-body-2 text-medium-emphasis"
-        >
-          of {{ formatEstimatedMinutes(estimatedMinutes) }} estimated
-        </span>
-        <span
-          v-else-if="trackedMs === 0 && !runningHere"
-          class="text-body-2 text-medium-emphasis"
-        >
-          No time tracked yet.
-        </span>
+        <div v-if="runningHere" class="cc-timer-stat">
+          <span class="cc-eyebrow">This session</span>
+          <span class="cc-timer-time cc-timer-time--running">
+            {{ sessionLabel }}
+          </span>
+        </div>
+        <div class="cc-timer-stat">
+          <span class="cc-eyebrow">Total</span>
+          <span
+            class="cc-timer-time"
+            :class="{ 'cc-timer-time--running': runningHere }"
+          >
+            <template v-if="trackedMs > 0 || runningHere">{{
+              trackedLabel
+            }}</template>
+            <template v-else>0s</template>
+          </span>
+          <span
+            v-if="estimatedMinutes !== null"
+            class="text-body-2 text-medium-emphasis"
+          >
+            of {{ formatEstimatedMinutes(estimatedMinutes) }} estimated
+          </span>
+          <span
+            v-else-if="trackedMs === 0 && !runningHere"
+            class="text-body-2 text-medium-emphasis"
+          >
+            No time tracked yet.
+          </span>
+        </div>
       </div>
 
       <div class="cc-timer-actions">
@@ -194,9 +218,18 @@ async function onStopAndComplete(): Promise<void> {
 <style scoped>
 .cc-timer-readout {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px 32px;
+}
+
+/* One labelled counter column ("This session" / "Total"): small eyebrow
+   label stacked over the slab-serif time, with the estimate/empty note (if
+   any) below. */
+.cc-timer-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .cc-timer-time {

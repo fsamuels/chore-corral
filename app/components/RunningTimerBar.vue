@@ -18,8 +18,8 @@ defineEmits<{ stop: [] }>()
 const { mobile } = useDisplay()
 
 // Periodic tick, not a per-second one — the bar's elapsed time doesn't have
-// to be exact (unlike TaskTimer's second-level display), so a 30s interval
-// is plenty and keeps this idle chrome cheap on every page.
+// to be exact (unlike TaskTimer's second-level display), so a 10s interval
+// keeps it reasonably fresh while staying cheap on every page.
 const now = ref(new Date())
 let ticker: ReturnType<typeof setInterval> | undefined
 watch(
@@ -27,7 +27,7 @@ watch(
   (entry) => {
     if (entry && !ticker) {
       now.value = new Date()
-      ticker = setInterval(() => (now.value = new Date()), 30000)
+      ticker = setInterval(() => (now.value = new Date()), 10000)
     } else if (!entry && ticker) {
       clearInterval(ticker)
       ticker = undefined
