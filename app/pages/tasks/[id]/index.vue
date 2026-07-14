@@ -135,7 +135,7 @@ function priorityLabel(priority: TaskPriority): string {
 const categoryItems = computed(() => [
   { title: 'Uncategorized', value: null as string | null },
   ...(categories.value ?? []).map((category) => ({
-    title: category.name,
+    title: `${category.emoji ?? '🏷️'} ${category.name}`,
     value: category.id as string | null,
   })),
 ])
