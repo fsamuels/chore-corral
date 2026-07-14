@@ -1034,6 +1034,7 @@ const taskLocation = computed(() =>
             :task-id="task.id"
             :estimated-minutes="task.estimated_minutes"
             @started="fetchTask"
+            @completed="onStatusChange('done')"
           />
         </div>
 

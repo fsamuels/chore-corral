@@ -12,7 +12,7 @@ const props = defineProps<{
 
 // Starting a timer can flip the task to in_progress server-side — the
 // parent listens to refetch the task so the status select stays true.
-const emit = defineEmits<{ started: [] }>()
+const emit = defineEmits<{ started: []; completed: [] }>()
 
 const {
   entries,
@@ -70,6 +70,11 @@ const trackedLabel = computed(() => {
 async function onStart(): Promise<void> {
   if (await start()) emit('started')
 }
+
+async function onStopAndComplete(): Promise<void> {
+  await stop()
+  if (!mutationError.value) emit('completed')
+}
 </script>
 
 <template>
@@ -100,52 +105,82 @@ async function onStart(): Promise<void> {
       <v-progress-circular indeterminate size="24" color="primary" />
     </div>
 
-    <div v-else-if="entries" class="d-flex align-center flex-wrap ga-3">
-      <button
-        v-if="runningHere"
-        type="button"
-        class="cc-pill-btn cc-pill-btn--danger cc-pill-btn--lg"
-        :disabled="mutating"
-        @click="stop"
-      >
-        <v-progress-circular
-          v-if="mutating"
-          indeterminate
-          size="16"
-          width="2"
-        />
-        <v-icon v-else icon="mdi-stop-circle-outline" size="18" />
-        Stop timer
-      </button>
-      <button
-        v-else
-        type="button"
-        class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--lg"
-        :disabled="mutating"
-        @click="onStart"
-      >
-        <v-progress-circular
-          v-if="mutating"
-          indeterminate
-          size="16"
-          width="2"
-        />
-        <v-icon v-else icon="mdi-play" size="18" />
-        Start timer
-      </button>
+    <template v-else-if="entries">
+      <div class="cc-timer-readout mb-3">
+        <span
+          class="cc-timer-time"
+          :class="{ 'cc-timer-time--running': runningHere }"
+        >
+          <template v-if="trackedMs > 0 || runningHere">{{
+            trackedLabel
+          }}</template>
+          <template v-else>0s</template>
+        </span>
+        <span
+          v-if="estimatedMinutes !== null"
+          class="text-body-2 text-medium-emphasis"
+        >
+          of {{ formatEstimatedMinutes(estimatedMinutes) }} estimated
+        </span>
+        <span
+          v-else-if="trackedMs === 0 && !runningHere"
+          class="text-body-2 text-medium-emphasis"
+        >
+          No time tracked yet.
+        </span>
+      </div>
 
-      <span class="text-body-2" :class="{ 'font-weight-medium': runningHere }">
-        <template v-if="trackedMs > 0 || runningHere">
-          {{ trackedLabel }}
-          <template v-if="estimatedMinutes !== null">
-            <span class="text-medium-emphasis">
-              of {{ formatEstimatedMinutes(estimatedMinutes) }} estimated
-            </span>
-          </template>
+      <div class="cc-timer-actions">
+        <template v-if="runningHere">
+          <button
+            type="button"
+            class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--lg cc-timer-btn"
+            :disabled="mutating"
+            @click="stop"
+          >
+            <v-progress-circular
+              v-if="mutating"
+              indeterminate
+              size="18"
+              width="2"
+            />
+            <v-icon v-else icon="mdi-pause" size="20" />
+            Pause
+          </button>
+          <button
+            type="button"
+            class="cc-pill-btn cc-pill-btn--success cc-pill-btn--lg cc-timer-btn"
+            :disabled="mutating"
+            @click="onStopAndComplete"
+          >
+            <v-progress-circular
+              v-if="mutating"
+              indeterminate
+              size="18"
+              width="2"
+            />
+            <v-icon v-else icon="mdi-check-circle-outline" size="20" />
+            Complete task
+          </button>
         </template>
-        <span v-else class="text-medium-emphasis">No time tracked yet.</span>
-      </span>
-    </div>
+        <button
+          v-else
+          type="button"
+          class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--lg cc-timer-btn cc-pill-btn--full"
+          :disabled="mutating"
+          @click="onStart"
+        >
+          <v-progress-circular
+            v-if="mutating"
+            indeterminate
+            size="18"
+            width="2"
+          />
+          <v-icon v-else icon="mdi-play" size="20" />
+          {{ trackedMs > 0 ? 'Resume timer' : 'Start timer' }}
+        </button>
+      </div>
+    </template>
 
     <p
       v-if="runningElsewhere"
@@ -155,3 +190,35 @@ async function onStart(): Promise<void> {
     </p>
   </div>
 </template>
+
+<style scoped>
+.cc-timer-readout {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cc-timer-time {
+  font-family: var(--cc-font-slab);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--cc-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.cc-timer-time--running {
+  color: var(--cc-accent);
+}
+
+.cc-timer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.cc-timer-btn {
+  flex: 1 1 140px;
+}
+</style>
