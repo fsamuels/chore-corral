@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   combineDateAndTime,
   formatElapsedDuration,
+  formatElapsedWithSeconds,
   formatEstimatedMinutes,
   formatTimeForInput,
   parseEstimatedMinutesInput,
@@ -53,6 +54,18 @@ describe('formatElapsedDuration', () => {
   it('renders whole minutes/hours the same way formatEstimatedMinutes does', () => {
     expect(formatElapsedDuration(60_000)).toBe('1m')
     expect(formatElapsedDuration(90 * 60_000)).toBe('1h 30m')
+  })
+})
+
+describe('formatElapsedWithSeconds', () => {
+  it('renders sub-minute durations as seconds only', () => {
+    expect(formatElapsedWithSeconds(0)).toBe('0s')
+    expect(formatElapsedWithSeconds(45_000)).toBe('45s')
+  })
+
+  it('renders minutes/hours with a trailing seconds component', () => {
+    expect(formatElapsedWithSeconds(65_000)).toBe('1m 5s')
+    expect(formatElapsedWithSeconds(90 * 60_000 + 5_000)).toBe('1h 30m 5s')
   })
 })
 
