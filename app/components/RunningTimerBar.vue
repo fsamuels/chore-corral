@@ -17,10 +17,8 @@ defineEmits<{ stop: [] }>()
 
 const { mobile } = useDisplay()
 
-// Periodic tick, not a per-second one — the bar's elapsed time (shown down
-// to the second) doesn't have to update every second like TaskTimer's
-// display does, so a 10s interval keeps it reasonably fresh while staying
-// cheap on every page.
+// 1s ticker, matching TaskTimer's live display — purely local (recomputes
+// now - entry.started_at below), no Supabase query per tick.
 const now = ref(new Date())
 let ticker: ReturnType<typeof setInterval> | undefined
 watch(
@@ -28,7 +26,7 @@ watch(
   (entry) => {
     if (entry && !ticker) {
       now.value = new Date()
-      ticker = setInterval(() => (now.value = new Date()), 10000)
+      ticker = setInterval(() => (now.value = new Date()), 1000)
     } else if (!entry && ticker) {
       clearInterval(ticker)
       ticker = undefined
