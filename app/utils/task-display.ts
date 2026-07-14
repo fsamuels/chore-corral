@@ -112,15 +112,30 @@ export function formatEstimatedMinutes(minutes: number): string {
 
 /**
  * Compact "1h 30m" rendering of an elapsed duration in milliseconds, for
- * the running-timer dock bar — reuses `formatEstimatedMinutes`'s
- * hour/minute split since the two read identically. The bar's cadence
- * is a periodic tick rather than a per-second one, so anything under a
- * minute renders as "<1m" instead of "0m" (which would look stuck).
+ * progress-page tracked-time summaries — reuses `formatEstimatedMinutes`'s
+ * hour/minute split since the two read identically. These are historical
+ * totals rather than a ticking display, so anything under a minute renders
+ * as "<1m" instead of "0m" (which would look stuck).
  */
 export function formatElapsedDuration(ms: number): string {
   const minutes = Math.floor(ms / 60000)
   if (minutes < 1) return '<1m'
   return formatEstimatedMinutes(minutes)
+}
+
+/**
+ * "1h 30m 5s" / "5m 30s" / "45s" rendering of an elapsed duration in
+ * milliseconds, always including seconds — for the running-timer dock bar,
+ * whose "now playing"-style display reads better with a live-feeling
+ * seconds digit even though it only ticks every 10s.
+ */
+export function formatElapsedWithSeconds(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return minutes === 0
+    ? `${seconds}s`
+    : `${formatEstimatedMinutes(minutes)} ${seconds}s`
 }
 
 /**

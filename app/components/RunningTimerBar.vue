@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TimeEntrySummary } from '~/services/time-entries'
-import { formatElapsedDuration } from '~/utils/task-display'
+import { formatElapsedWithSeconds } from '~/utils/task-display'
 
 // Global "a timer is running" chrome, rendered once from the layout as a
 // "now playing"-style dock bar: fused with the bottom nav on mobile, pinned
@@ -17,9 +17,10 @@ defineEmits<{ stop: [] }>()
 
 const { mobile } = useDisplay()
 
-// Periodic tick, not a per-second one — the bar's elapsed time doesn't have
-// to be exact (unlike TaskTimer's second-level display), so a 10s interval
-// keeps it reasonably fresh while staying cheap on every page.
+// Periodic tick, not a per-second one — the bar's elapsed time (shown down
+// to the second) doesn't have to update every second like TaskTimer's
+// display does, so a 10s interval keeps it reasonably fresh while staying
+// cheap on every page.
 const now = ref(new Date())
 let ticker: ReturnType<typeof setInterval> | undefined
 watch(
@@ -43,7 +44,7 @@ const elapsedLabel = computed(() => {
   if (!props.entry) return ''
   const started = Date.parse(props.entry.started_at)
   if (Number.isNaN(started)) return ''
-  return formatElapsedDuration(now.value.getTime() - started)
+  return formatElapsedWithSeconds(now.value.getTime() - started)
 })
 </script>
 
