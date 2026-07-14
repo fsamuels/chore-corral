@@ -1,15 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import {
   addWeeks,
+  buildActivityDayGroups,
   completedTasksInWeek,
+  entryLocalDay,
   groupByCompletionDay,
   isCompletedInWeek,
   listCompletedTasks,
+  listTaskActivity,
+  trackedMsByDay,
   trackedMsByTask,
   trackedMsForTasks,
   weekDays,
   weekStartFor,
   type CompletedTaskSummary,
+  type TaskActivity,
 } from '../app/services/progress'
 import { FakeSupabaseClient, asSupabaseClient } from './helpers/fake-supabase'
 import type { Database } from '../app/types/database.types'
@@ -69,6 +74,20 @@ function completed(
     completed_at: '2026-01-05T12:00:00.000Z',
     completed_by: ACTOR,
     completed_by_name: null,
+    ...overrides,
+  }
+}
+
+// A TaskActivity (a task with time-entry activity) for the buildActivityDayGroups
+// tests, without going through the DB row shape.
+function activity(overrides: Partial<TaskActivity> = {}): TaskActivity {
+  return {
+    id: 'task-a',
+    title: 'Muck the barn',
+    status: 'in_progress',
+    category_id: 'cat-seed',
+    priority: 'soon',
+    entries: [],
     ...overrides,
   }
 }
@@ -384,5 +403,330 @@ describe('trackedMsByTask', () => {
 
     const result = await trackedMsByTask(supabase, [])
     expect(result.size).toBe(0)
+  })
+})
+
+describe('entryLocalDay', () => {
+  it('returns the local day of started_at', () => {
+    expect(entryLocalDay(localIso(2026, 7, 8, 14, 30))).toBe('2026-07-08')
+  })
+
+  it('attributes a late-evening start to that day, not the next', () => {
+    expect(entryLocalDay(localIso(2026, 7, 6, 23, 30))).toBe('2026-07-06')
+    expect(entryLocalDay(localIso(2026, 7, 7, 0, 30))).toBe('2026-07-07')
+  })
+
+  it('returns null for an unparseable timestamp', () => {
+    expect(entryLocalDay('not-a-date')).toBeNull()
+  })
+})
+
+describe('trackedMsByDay', () => {
+  it('sums durations by the local day each entry started', () => {
+    const byDay = trackedMsByDay([
+      // Two entries on 07-06 (30m + 15m), one on 07-08 (60m).
+      {
+        started_at: localIso(2026, 7, 6, 8),
+        ended_at: localIso(2026, 7, 6, 8, 30),
+      },
+      {
+        started_at: localIso(2026, 7, 6, 10),
+        ended_at: localIso(2026, 7, 6, 10, 15),
+      },
+      {
+        started_at: localIso(2026, 7, 8, 9),
+        ended_at: localIso(2026, 7, 8, 10),
+      },
+    ])
+
+    expect(byDay.get('2026-07-06')).toBe(45 * 60 * 1000)
+    expect(byDay.get('2026-07-08')).toBe(60 * 60 * 1000)
+  })
+
+  it('attributes an entry that runs past midnight entirely to its start day', () => {
+    const byDay = trackedMsByDay([
+      // 11:30pm -> 1:00am (90m) counts wholly on the day it started.
+      {
+        started_at: localIso(2026, 7, 6, 23, 30),
+        ended_at: localIso(2026, 7, 7, 1, 0),
+      },
+    ])
+
+    expect(byDay.get('2026-07-06')).toBe(90 * 60 * 1000)
+    expect(byDay.has('2026-07-07')).toBe(false)
+  })
+
+  it('counts a running entry up to now on its start day', () => {
+    const now = new Date(2026, 6, 8, 8, 10)
+    const byDay = trackedMsByDay(
+      [{ started_at: localIso(2026, 7, 8, 8), ended_at: null }],
+      now,
+    )
+
+    expect(byDay.get('2026-07-08')).toBe(10 * 60 * 1000)
+  })
+
+  it('drops entries with an unparseable start', () => {
+    const byDay = trackedMsByDay([{ started_at: 'nope', ended_at: null }])
+    expect(byDay.size).toBe(0)
+  })
+})
+
+describe('buildActivityDayGroups', () => {
+  const weekStart = '2026-07-06'
+
+  it('renders a completed task as a completed row with its same-day tracked time', () => {
+    const completedTask = completed({
+      id: 'clean',
+      completed_at: localIso(2026, 7, 8, 14),
+    })
+    const act = activity({
+      id: 'clean',
+      status: 'done',
+      entries: [
+        {
+          started_at: localIso(2026, 7, 8, 9),
+          ended_at: localIso(2026, 7, 8, 10),
+        },
+      ],
+    })
+
+    const groups = buildActivityDayGroups(weekStart, [completedTask], [act])
+
+    expect(groups).toHaveLength(1)
+    const group = groups[0]!
+    expect(group.day).toBe('2026-07-08')
+    expect(group.completedCount).toBe(1)
+    expect(group.trackedMs).toBe(60 * 60 * 1000)
+    expect(group.rows).toHaveLength(1)
+    expect(group.rows[0]).toMatchObject({
+      id: 'clean',
+      kind: 'completed',
+      trackedMs: 60 * 60 * 1000,
+    })
+  })
+
+  it('surfaces a worked-on task that is not done as an in-progress row', () => {
+    const act = activity({
+      id: 'muck',
+      status: 'in_progress',
+      entries: [
+        {
+          started_at: localIso(2026, 7, 7, 8),
+          ended_at: localIso(2026, 7, 7, 9),
+        },
+      ],
+    })
+
+    const groups = buildActivityDayGroups(weekStart, [], [act])
+
+    expect(groups).toHaveLength(1)
+    const group = groups[0]!
+    expect(group.day).toBe('2026-07-07')
+    expect(group.completedCount).toBe(0)
+    expect(group.trackedMs).toBe(60 * 60 * 1000)
+    expect(group.rows[0]).toMatchObject({
+      id: 'muck',
+      kind: 'in-progress',
+      trackedMs: 60 * 60 * 1000,
+      completed_by: null,
+    })
+  })
+
+  it('shows a task worked one day but finished a later day under both, as done-later then completed', () => {
+    // Worked Tuesday 07-07, completed Thursday 07-09.
+    const completedTask = completed({
+      id: 'fix',
+      completed_at: localIso(2026, 7, 9, 16),
+    })
+    const act = activity({
+      id: 'fix',
+      status: 'done',
+      entries: [
+        {
+          started_at: localIso(2026, 7, 7, 8),
+          ended_at: localIso(2026, 7, 7, 9),
+        },
+      ],
+    })
+
+    const groups = buildActivityDayGroups(weekStart, [completedTask], [act])
+
+    // Newest day first.
+    expect(groups.map((g) => g.day)).toEqual(['2026-07-09', '2026-07-07'])
+
+    const thursday = groups[0]!
+    expect(thursday.completedCount).toBe(1)
+    expect(thursday.trackedMs).toBe(0) // no entries on Thursday
+    expect(thursday.rows[0]).toMatchObject({ id: 'fix', kind: 'completed' })
+
+    const tuesday = groups[1]!
+    expect(tuesday.completedCount).toBe(0)
+    expect(tuesday.trackedMs).toBe(60 * 60 * 1000)
+    expect(tuesday.rows[0]).toMatchObject({ id: 'fix', kind: 'done-later' })
+  })
+
+  it('de-dups a task worked and completed the same day to the completed row, still counting the day time', () => {
+    const completedTask = completed({
+      id: 'both',
+      completed_at: localIso(2026, 7, 8, 15),
+    })
+    const act = activity({
+      id: 'both',
+      status: 'done',
+      entries: [
+        // 30m on the completion day + 30m the day before.
+        {
+          started_at: localIso(2026, 7, 8, 9),
+          ended_at: localIso(2026, 7, 8, 9, 30),
+        },
+        {
+          started_at: localIso(2026, 7, 7, 9),
+          ended_at: localIso(2026, 7, 7, 9, 30),
+        },
+      ],
+    })
+
+    const groups = buildActivityDayGroups(weekStart, [completedTask], [act])
+    expect(groups.map((g) => g.day)).toEqual(['2026-07-08', '2026-07-07'])
+
+    const completionDay = groups[0]!
+    // Only the completed row (no duplicate worked row), but the day's tracked
+    // total still includes that day's 30m of work.
+    expect(completionDay.rows).toHaveLength(1)
+    expect(completionDay.rows[0]).toMatchObject({
+      id: 'both',
+      kind: 'completed',
+      trackedMs: 30 * 60 * 1000,
+    })
+    expect(completionDay.trackedMs).toBe(30 * 60 * 1000)
+
+    const priorDay = groups[1]!
+    expect(priorDay.rows[0]).toMatchObject({ id: 'both', kind: 'done-later' })
+    expect(priorDay.trackedMs).toBe(30 * 60 * 1000)
+  })
+
+  it('counts a running timer today as in-progress up to now', () => {
+    const now = new Date(2026, 6, 8, 8, 10)
+    const act = activity({
+      id: 'live',
+      status: 'in_progress',
+      entries: [{ started_at: localIso(2026, 7, 8, 8), ended_at: null }],
+    })
+
+    const groups = buildActivityDayGroups(weekStart, [], [act], now)
+
+    expect(groups[0]!.trackedMs).toBe(10 * 60 * 1000)
+    expect(groups[0]!.rows[0]).toMatchObject({
+      id: 'live',
+      kind: 'in-progress',
+      trackedMs: 10 * 60 * 1000,
+    })
+  })
+
+  it('orders completed rows before worked rows within a day', () => {
+    const completedTask = completed({
+      id: 'done-a',
+      completed_at: localIso(2026, 7, 8, 16),
+    })
+    const worked = activity({
+      id: 'worked-b',
+      status: 'in_progress',
+      entries: [
+        {
+          started_at: localIso(2026, 7, 8, 8),
+          ended_at: localIso(2026, 7, 8, 9),
+        },
+      ],
+    })
+
+    const groups = buildActivityDayGroups(weekStart, [completedTask], [worked])
+
+    expect(groups[0]!.rows.map((r) => [r.id, r.kind])).toEqual([
+      ['done-a', 'completed'],
+      ['worked-b', 'in-progress'],
+    ])
+  })
+
+  it('excludes entries whose start falls outside the week', () => {
+    const act = activity({
+      id: 'earlier',
+      status: 'in_progress',
+      entries: [
+        // Sunday before the Monday week start -> not in this week.
+        {
+          started_at: localIso(2026, 7, 5, 10),
+          ended_at: localIso(2026, 7, 5, 11),
+        },
+      ],
+    })
+
+    expect(buildActivityDayGroups(weekStart, [], [act])).toEqual([])
+  })
+})
+
+describe('listTaskActivity', () => {
+  it("returns the farm's tasks that have entries, with identity and entries, dropping entry-less tasks", async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [
+        task({ id: 'has-entries', status: 'in_progress' }),
+        task({ id: 'done-with-entries', status: 'done' }),
+        task({ id: 'no-entries', status: 'not_started' }),
+        task({ id: 'other-farm', farm_id: FARM_B, status: 'in_progress' }),
+      ],
+      task_time_entries: [
+        entry({ id: 'e1', task_id: 'has-entries' }),
+        entry({ id: 'e2', task_id: 'has-entries' }),
+        entry({ id: 'e3', task_id: 'done-with-entries' }),
+        // Belongs to a task in another farm -> excluded (not in FARM_A's ids).
+        entry({ id: 'e4', task_id: 'other-farm' }),
+      ],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listTaskActivity(supabase, FARM_A)
+
+    expect(result.map((a) => a.id)).toEqual([
+      'done-with-entries',
+      'has-entries',
+    ])
+    const withEntries = result.find((a) => a.id === 'has-entries')!
+    expect(withEntries.entries).toHaveLength(2)
+    expect(withEntries.status).toBe('in_progress')
+    expect(withEntries.title).toBe('Fix the gate')
+  })
+
+  it('returns an empty array (without querying entries) when the farm has no tasks', async () => {
+    const fake = new FakeSupabaseClient(
+      { tasks: [] },
+      { table: 'task_time_entries', op: 'select', message: 'should not run' },
+    )
+    const supabase = asSupabaseClient(fake)
+
+    await expect(listTaskActivity(supabase, FARM_A)).resolves.toEqual([])
+  })
+
+  it('propagates a tasks select failure', async () => {
+    const fake = new FakeSupabaseClient(
+      { tasks: [task()] },
+      { table: 'tasks', op: 'select', message: 'tasks boom' },
+    )
+    const supabase = asSupabaseClient(fake)
+
+    await expect(listTaskActivity(supabase, FARM_A)).rejects.toThrow(
+      'tasks boom',
+    )
+  })
+
+  it('propagates a time-entries select failure', async () => {
+    const fake = new FakeSupabaseClient(
+      { tasks: [task({ id: 'has-entries' })], task_time_entries: [] },
+      { table: 'task_time_entries', op: 'select', message: 'entries boom' },
+    )
+    const supabase = asSupabaseClient(fake)
+
+    await expect(listTaskActivity(supabase, FARM_A)).rejects.toThrow(
+      'entries boom',
+    )
   })
 })

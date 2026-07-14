@@ -2,12 +2,14 @@
 import type { Database } from '~/types/database.types'
 import {
   addWeeks,
+  buildActivityDayGroups,
   completedTasksInWeek,
-  groupByCompletionDay,
-  trackedMsByTask,
+  listTaskActivity,
   weekDays,
   weekStartFor,
-  type CompletedTaskSummary,
+  type ActivityDayRow,
+  type ActivityKind,
+  type TaskActivity,
 } from '~/services/progress'
 import { parseLocalDateString } from '~/services/tasks'
 import {
@@ -138,11 +140,34 @@ const weekTasks = computed(() =>
   completedTasksInWeek(completedTasks.value ?? [], shownWeek.value),
 )
 
+// The farm's tasks that have time-entry activity, with their raw entries.
+// Fetched once per farm into a local ref — same direct-service pattern as
+// `members` above — and sliced per week by `buildActivityDayGroups`, so
+// switching weeks never refetches. Backs the "worked on but not completed
+// today" rows and the per-day / per-week tracked-time figures.
+const activities = ref<TaskActivity[]>([])
+async function fetchActivities() {
+  const farmId = activeFarmId.value
+  if (!farmId) {
+    activities.value = []
+    return
+  }
+  try {
+    activities.value = await listTaskActivity(supabase, farmId)
+  } catch {
+    // Activity rows enhance the completed-task list — a failed fetch degrades
+    // the page to "completed tasks only" rather than taking it down.
+    activities.value = []
+  }
+}
+await fetchActivities()
+watch(activeFarmId, () => fetchActivities())
+
 function categoryPill(
-  task: CompletedTaskSummary,
+  categoryId: string | null,
 ): { text: string; emoji: string | null } | null {
-  if (task.category_id === null) return null
-  const category = categories.value?.find((c) => c.id === task.category_id)
+  if (categoryId === null) return null
+  const category = categories.value?.find((c) => c.id === categoryId)
   return {
     text: category?.name ?? '(deleted category)',
     emoji: category?.emoji ?? null,
@@ -152,22 +177,32 @@ function categoryPill(
 // Mirrors the task detail page's `completedByLabel`: a member's resolved
 // email (best-effort — "unknown member" if the id isn't in the fetched
 // list), else the free-text name, else null when neither is set.
-function completedByLabel(task: CompletedTaskSummary): string | null {
-  if (task.completed_by !== null) {
+function completedByLabel(
+  row: Pick<ActivityDayRow, 'completed_by' | 'completed_by_name'>,
+): string | null {
+  if (row.completed_by !== null) {
     return (
-      members.value.find((m) => m.user_id === task.completed_by)?.email ??
+      members.value.find((m) => m.user_id === row.completed_by)?.email ??
       'unknown member'
     )
   }
-  return task.completed_by_name
+  return row.completed_by_name
 }
 
-function completionTime(task: CompletedTaskSummary): string {
-  if (!task.completed_at) return ''
-  return new Date(task.completed_at).toLocaleTimeString('en-US', {
+function formatRowTime(timestamp: string): string {
+  return new Date(timestamp).toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
   })
+}
+
+// The status chip a worked-on row shows so the day reads as "what happened
+// today": a completed row shows none, a task finished on another day reads
+// "done later", and one still open reads "in progress".
+const STATUS_LABELS: Record<ActivityKind, string | null> = {
+  completed: null,
+  'done-later': 'done later',
+  'in-progress': 'in progress',
 }
 
 interface ProgressRow {
@@ -175,6 +210,8 @@ interface ProgressRow {
   title: string
   time: string
   tracked: string | null
+  kind: ActivityKind
+  statusLabel: string | null
   completedBy: string | null
   category: { text: string; emoji: string | null } | null
 }
@@ -182,55 +219,52 @@ interface ProgressRow {
 interface ProgressDayGroup {
   day: string
   heading: string
+  completed: number
+  tracked: string | null
   rows: ProgressRow[]
 }
 
-// Per-task tracked time for the week in view, refetched whenever the set of
-// task ids changes (switching weeks, or the farm's completed-task list
-// refreshing) — a simple watch + ref, not a full composable, since the page
-// is the only consumer. Backs both each row's tracked-time figure and the
-// week-total stat pill.
-const trackedByTask = ref<Map<string, number>>(new Map())
-const weekTaskIds = computed(() => weekTasks.value.map((task) => task.id))
-watch(
-  weekTaskIds,
-  async (ids) => {
-    try {
-      trackedByTask.value = await trackedMsByTask(supabase, ids)
-    } catch {
-      trackedByTask.value = new Map()
-    }
-  },
-  { immediate: true },
+// The week's day-by-day activity: completed tasks merged with worked-on-but-
+// not-completed-today tasks, plus each day's completed count and tracked total
+// (see `buildActivityDayGroups`). Recomputes purely from the two already-
+// fetched lists when the viewed week changes — no refetch.
+const activityGroups = computed(() =>
+  buildActivityDayGroups(shownWeek.value, weekTasks.value, activities.value),
 )
-
-const trackedMs = computed(() =>
-  [...trackedByTask.value.values()].reduce((sum, ms) => sum + ms, 0),
-)
-const trackedText = computed(() => formatElapsedDuration(trackedMs.value))
-
-function rowTrackedText(taskId: string): string | null {
-  const ms = trackedByTask.value.get(taskId)
-  return ms ? formatElapsedDuration(ms) : null
-}
 
 const dayGroups = computed<ProgressDayGroup[]>(() =>
-  groupByCompletionDay(weekTasks.value).map((group) => ({
+  activityGroups.value.map((group) => ({
     day: group.day,
     heading: parseLocalDateString(group.day).toLocaleDateString('en-US', {
       weekday: 'long',
       month: 'long',
       day: 'numeric',
     }),
-    rows: group.tasks.map((task) => ({
-      id: task.id,
-      title: task.title,
-      time: completionTime(task),
-      tracked: rowTrackedText(task.id),
-      completedBy: completedByLabel(task),
-      category: categoryPill(task),
+    completed: group.completedCount,
+    tracked:
+      group.trackedMs > 0 ? formatElapsedDuration(group.trackedMs) : null,
+    rows: group.rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      time: formatRowTime(row.timestamp),
+      tracked: row.trackedMs > 0 ? formatElapsedDuration(row.trackedMs) : null,
+      kind: row.kind,
+      statusLabel: STATUS_LABELS[row.kind],
+      completedBy: row.kind === 'completed' ? completedByLabel(row) : null,
+      category: categoryPill(row.category_id),
     })),
   })),
+)
+
+// Week "tracked" now means time tracked *during* the week — the sum of the
+// per-day totals (entries whose timer started in the week) — rather than the
+// old "time on tasks completed this week". That keeps the week pill equal to
+// the sum of the day headings, and counts work on tasks not finished this week.
+const weekTrackedMs = computed(() =>
+  activityGroups.value.reduce((sum, group) => sum + group.trackedMs, 0),
+)
+const weekTrackedText = computed(() =>
+  formatElapsedDuration(weekTrackedMs.value),
 )
 </script>
 
@@ -297,18 +331,18 @@ const dayGroups = computed<ProgressDayGroup[]>(() =>
           <span class="cc-pill cc-pill--surface">
             {{ weekTasks.length }} completed
           </span>
-          <span v-if="trackedMs > 0" class="cc-pill cc-pill--surface">
-            {{ trackedText }} tracked
+          <span v-if="weekTrackedMs > 0" class="cc-pill cc-pill--surface">
+            {{ weekTrackedText }} tracked
           </span>
         </div>
 
         <div
-          v-if="weekTasks.length === 0"
+          v-if="dayGroups.length === 0"
           class="text-center py-12 text-medium-emphasis"
         >
           <v-icon icon="mdi-progress-check" size="64" class="mb-4" />
           <p class="text-body-1">
-            No tasks completed {{ isCurrentWeek ? 'this week' : 'that week' }}.
+            No activity {{ isCurrentWeek ? 'this week' : 'that week' }}.
           </p>
         </div>
 
@@ -318,22 +352,50 @@ const dayGroups = computed<ProgressDayGroup[]>(() =>
             :key="group.day"
             class="progress-day"
           >
-            <h2 class="cc-section-title progress-day__heading">
-              {{ group.heading }}
-            </h2>
+            <div class="progress-day__head">
+              <h2 class="cc-section-title progress-day__heading">
+                {{ group.heading }}
+              </h2>
+              <div class="progress-day__metrics">
+                <span class="cc-pill cc-pill--muted">
+                  {{ group.completed }} completed
+                </span>
+                <span v-if="group.tracked" class="cc-pill cc-pill--muted">
+                  <v-icon icon="mdi-timer-outline" size="14" />
+                  {{ group.tracked }}
+                </span>
+              </div>
+            </div>
             <div class="progress-day__rows">
               <NuxtLink
                 v-for="row in group.rows"
                 :key="row.id"
                 :to="`/tasks/${row.id}`"
                 class="cc-card progress-row"
+                :class="{ 'progress-row--worked': row.kind !== 'completed' }"
               >
                 <div class="progress-row__time">{{ row.time }}</div>
                 <div class="progress-row__title">{{ row.title }}</div>
                 <div
-                  v-if="row.completedBy || row.category || row.tracked"
+                  v-if="
+                    row.statusLabel ||
+                    row.completedBy ||
+                    row.category ||
+                    row.tracked
+                  "
                   class="progress-row__meta"
                 >
+                  <span
+                    v-if="row.statusLabel"
+                    class="cc-pill progress-row__status"
+                    :class="
+                      row.kind === 'in-progress'
+                        ? 'progress-row__status--active'
+                        : 'cc-pill--muted'
+                    "
+                  >
+                    {{ row.statusLabel }}
+                  </span>
                   <span v-if="row.completedBy" class="progress-row__by">
                     {{ row.completedBy }}
                   </span>
@@ -394,14 +456,45 @@ const dayGroups = computed<ProgressDayGroup[]>(() =>
   gap: 24px;
 }
 
-.progress-day__heading {
+.progress-day__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
   margin-bottom: 12px;
+}
+
+.progress-day__heading {
+  margin-bottom: 0;
+}
+
+.progress-day__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .progress-day__rows {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+/* Worked-on-but-not-completed-today rows: a muted accent rail sets them
+   apart from the day's completed rows without shouting. */
+.progress-row--worked {
+  border-inline-start: 3px solid var(--cc-border);
+}
+
+.progress-row__status {
+  font-size: 0.75rem;
+  padding: 2px 10px;
+}
+
+.progress-row__status--active {
+  background: var(--cc-accent);
+  color: var(--cc-accent-contrast);
 }
 
 .progress-row {
