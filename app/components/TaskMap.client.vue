@@ -73,12 +73,11 @@ const locatedTasks = computed(() =>
 )
 
 // Multiple tasks can legitimately share one defined location's exact
-// coordinates and would otherwise render as a single indistinguishable
-// marker. Rather than building real clustering, tasks sharing a coordinate
-// (rounded to ~1m) get spread in a small deterministic circle around the
-// shared point, keyed on their position within the group — same input order
-// always produces the same layout.
-const JITTER_RADIUS = 0.00006
+// coordinates and would otherwise render as a stack of indistinguishable
+// markers. Rather than building real clustering, tasks sharing a coordinate
+// (rounded to ~1m) are grouped into a single pin at that shared point, with
+// the pin's marker showing the group's task count and its popup listing
+// every task in the group.
 function coordKey(lat: number, lng: number): string {
   return `${lat.toFixed(5)},${lng.toFixed(5)}`
 }
@@ -95,21 +94,15 @@ const pins = computed(() => {
     else groups.set(key, [task])
   }
 
-  const result: { task: TaskSummary; lat: number; lng: number }[] = []
-  for (const group of groups.values()) {
-    if (group.length === 1) {
-      const task = group[0]!
-      result.push({ task, lat: task.lat, lng: task.lng })
-      continue
-    }
-    group.forEach((task, index) => {
-      const angle = (2 * Math.PI * index) / group.length
-      result.push({
-        task,
-        lat: task.lat + JITTER_RADIUS * Math.sin(angle),
-        lng: task.lng + JITTER_RADIUS * Math.cos(angle),
-      })
-    })
+  const result: {
+    id: string
+    lat: number
+    lng: number
+    tasks: (TaskSummary & { lat: number; lng: number })[]
+  }[] = []
+  for (const [key, tasks] of groups) {
+    const first = tasks[0]!
+    result.push({ id: key, lat: first.lat, lng: first.lng, tasks })
   }
   return result
 })
@@ -126,6 +119,21 @@ function locationIcon(name: string): Icon {
     className: 'cc-location-marker',
     html: `<span class="cc-location-marker__dot"></span><span class="cc-location-marker__label">${escapeHtml(name)}</span>`,
     iconAnchor: [6, 6],
+  }) as unknown as Icon
+}
+
+// Badge marker for a pin covering more than one task — shows the group's
+// task count so a shared location doesn't look like a single, unremarkable
+// task marker.
+// vue-leaflet's LMarker types its `icon` prop as Leaflet's `Icon`, but
+// `divIcon()` returns the sibling `DivIcon` class — both implement the same
+// runtime interface Leaflet actually uses (they share the `Icon` base), so
+// this cast is safe; TypeScript just can't see the structural overlap.
+function countIcon(count: number): Icon {
+  return divIcon({
+    className: 'cc-task-count-marker',
+    html: `<span class="cc-task-count-marker__badge">${count}</span>`,
+    iconAnchor: [14, 14],
   }) as unknown as Icon
 }
 
@@ -172,18 +180,29 @@ function openTask(taskId: string) {
 
     <LMarker
       v-for="pin in pins"
-      :key="pin.task.id"
+      :key="pin.id"
       :lat-lng="[pin.lat, pin.lng]"
+      :icon="countIcon(pin.tasks.length)"
     >
       <LPopup>
-        <div class="font-weight-bold">{{ pin.task.title }}</div>
-        <div class="text-body-2 mb-2">
-          {{ priorityDisplay[pin.task.priority].label }} &middot;
-          {{ statusDisplay[pin.task.status] }}
+        <div
+          v-for="(task, index) in pin.tasks"
+          :key="task.id"
+          :style="
+            index > 0
+              ? 'margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(0, 0, 0, 0.12)'
+              : undefined
+          "
+        >
+          <div class="font-weight-bold">{{ task.title }}</div>
+          <div class="text-body-2 mb-2">
+            {{ priorityDisplay[task.priority].label }} &middot;
+            {{ statusDisplay[task.status] }}
+          </div>
+          <v-btn size="small" color="primary" @click="openTask(task.id)">
+            Open task
+          </v-btn>
         </div>
-        <v-btn size="small" color="primary" @click="openTask(pin.task.id)">
-          Open task
-        </v-btn>
       </LPopup>
     </LMarker>
   </FarmMap>
@@ -219,5 +238,27 @@ function openTask(taskId: string) {
   padding: 2px 6px;
   border-radius: 4px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.cc-task-count-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cc-task-count-marker__badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--cc-ink, #2b2118);
+  color: #fff;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  font-family: var(--cc-font-sans, sans-serif);
+  font-weight: 700;
+  font-size: 13px;
 }
 </style>

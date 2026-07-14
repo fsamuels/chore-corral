@@ -19,6 +19,7 @@ const locatedTasks = computed<TaskSummary[]>(() => {
   const byId = new Map((locations.value ?? []).map((l) => [l.id, l]))
   const resolved: TaskSummary[] = []
   for (const task of tasks.value ?? []) {
+    if (task.status === 'done') continue
     if (task.lat !== null && task.lng !== null) {
       resolved.push(task)
       continue
@@ -91,7 +92,7 @@ function onOpen(taskId: string) {
           </v-card-text>
         </v-card>
 
-        <div style="height: calc(100vh - 220px); min-height: 320px">
+        <div style="height: calc((100vh - 220px) * 0.9); min-height: 288px">
           <TaskMap
             :tasks="locatedTasks"
             :locations="locations ?? []"
