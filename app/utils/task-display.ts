@@ -174,10 +174,17 @@ export function combineDateAndTime(date: Date, time: string): Date | null {
 
 export function categoryDisplayName(
   categoryId: string | null,
-  categories: Pick<CategorySummary, 'id' | 'name'>[] | null | undefined,
-): { text: string; deleted: boolean } {
-  if (categoryId === null) return { text: 'Uncategorized', deleted: false }
+  categories:
+    Pick<CategorySummary, 'id' | 'name' | 'emoji'>[] | null | undefined,
+): { text: string; emoji: string; deleted: boolean } {
+  if (categoryId === null)
+    return { text: 'Uncategorized', emoji: '❓', deleted: false }
   const category = categories?.find((c) => c.id === categoryId)
-  if (category) return { text: category.name, deleted: false }
-  return { text: '(deleted category)', deleted: true }
+  if (category)
+    return {
+      text: category.name,
+      emoji: category.emoji ?? '🏷️',
+      deleted: false,
+    }
+  return { text: '(deleted category)', emoji: '🏷️', deleted: true }
 }
