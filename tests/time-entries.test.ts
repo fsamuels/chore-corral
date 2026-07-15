@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  deleteTimeEntry,
   getRunningEntry,
   listTimeEntries,
   startTimer,
   stopTimer,
   totalTrackedMs,
+  updateTimeEntry,
 } from '../app/services/time-entries'
 import { FakeSupabaseClient, asSupabaseClient } from './helpers/fake-supabase'
 import type { Database } from '../app/types/database.types'
@@ -263,6 +265,123 @@ describe('stopTimer', () => {
     await expect(stopTimer(supabase, 'missing')).rejects.toThrow(
       'Timer is not running',
     )
+  })
+})
+
+describe('updateTimeEntry', () => {
+  it("rewrites a closed entry's start and end times and returns it", async () => {
+    const fake = new FakeSupabaseClient({
+      task_time_entries: [entry({ id: 'entry-1' })],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await updateTimeEntry(supabase, {
+      entryId: 'entry-1',
+      startedAt: '2026-01-01T10:00:00.000Z',
+      endedAt: '2026-01-01T11:30:00.000Z',
+    })
+
+    expect(result.started_at).toBe('2026-01-01T10:00:00.000Z')
+    expect(result.ended_at).toBe('2026-01-01T11:30:00.000Z')
+    const row = fake.getTable('task_time_entries')[0]
+    expect(row?.started_at).toBe('2026-01-01T10:00:00.000Z')
+    expect(row?.ended_at).toBe('2026-01-01T11:30:00.000Z')
+  })
+
+  it('refuses to touch a running entry instead of silently closing it', async () => {
+    const originalStart = '2026-01-01T08:00:00.000Z'
+    const fake = new FakeSupabaseClient({
+      task_time_entries: [
+        entry({ id: 'entry-1', started_at: originalStart, ended_at: null }),
+      ],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    await expect(
+      updateTimeEntry(supabase, {
+        entryId: 'entry-1',
+        startedAt: '2026-01-01T10:00:00.000Z',
+        endedAt: '2026-01-01T11:00:00.000Z',
+      }),
+    ).rejects.toThrow('Time entry not found')
+    const row = fake.getTable('task_time_entries')[0]
+    expect(row?.started_at).toBe(originalStart)
+    expect(row?.ended_at).toBeNull()
+  })
+
+  it('throws when the entry does not exist', async () => {
+    const fake = new FakeSupabaseClient({ task_time_entries: [] })
+    const supabase = asSupabaseClient(fake)
+
+    await expect(
+      updateTimeEntry(supabase, {
+        entryId: 'missing',
+        startedAt: '2026-01-01T10:00:00.000Z',
+        endedAt: '2026-01-01T11:00:00.000Z',
+      }),
+    ).rejects.toThrow('Time entry not found')
+  })
+
+  it('propagates an update failure', async () => {
+    const fake = new FakeSupabaseClient(
+      { task_time_entries: [entry({ id: 'entry-1' })] },
+      { table: 'task_time_entries', op: 'update' },
+    )
+    const supabase = asSupabaseClient(fake)
+
+    await expect(
+      updateTimeEntry(supabase, {
+        entryId: 'entry-1',
+        startedAt: '2026-01-01T10:00:00.000Z',
+        endedAt: '2026-01-01T11:00:00.000Z',
+      }),
+    ).rejects.toThrow()
+  })
+})
+
+describe('deleteTimeEntry', () => {
+  it('removes a closed entry', async () => {
+    const fake = new FakeSupabaseClient({
+      task_time_entries: [entry({ id: 'entry-1' }), entry({ id: 'entry-2' })],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    await deleteTimeEntry(supabase, 'entry-1')
+
+    const rows = fake.getTable('task_time_entries')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.id).toBe('entry-2')
+  })
+
+  it('refuses to delete a running entry', async () => {
+    const fake = new FakeSupabaseClient({
+      task_time_entries: [entry({ id: 'entry-1', ended_at: null })],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    await expect(deleteTimeEntry(supabase, 'entry-1')).rejects.toThrow(
+      'Time entry not found',
+    )
+    expect(fake.getTable('task_time_entries')).toHaveLength(1)
+  })
+
+  it('throws when the entry does not exist', async () => {
+    const fake = new FakeSupabaseClient({ task_time_entries: [] })
+    const supabase = asSupabaseClient(fake)
+
+    await expect(deleteTimeEntry(supabase, 'missing')).rejects.toThrow(
+      'Time entry not found',
+    )
+  })
+
+  it('propagates a delete failure', async () => {
+    const fake = new FakeSupabaseClient(
+      { task_time_entries: [entry({ id: 'entry-1' })] },
+      { table: 'task_time_entries', op: 'delete' },
+    )
+    const supabase = asSupabaseClient(fake)
+
+    await expect(deleteTimeEntry(supabase, 'entry-1')).rejects.toThrow()
   })
 })
 

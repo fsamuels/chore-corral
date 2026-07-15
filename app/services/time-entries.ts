@@ -121,6 +121,49 @@ export async function stopTimer(
   return entry
 }
 
+/**
+ * Rewrite a closed entry's start/end times. The `.not('ended_at', 'is',
+ * null)` guard makes editing a still-running entry (a stale UI whose entry
+ * list predates a start elsewhere) a "not found" error rather than silently
+ * closing it — the same rationale as stopTimer's double-stop guard. The
+ * DB's `ended_at > started_at` check constraint backstops an inverted
+ * range; the UI validates it first for a friendlier message.
+ */
+export async function updateTimeEntry(
+  supabase: Client,
+  opts: { entryId: string; startedAt: string; endedAt: string },
+): Promise<TimeEntrySummary> {
+  const { data, error } = await supabase
+    .from('task_time_entries')
+    .update({ started_at: opts.startedAt, ended_at: opts.endedAt })
+    .eq('id', opts.entryId)
+    .not('ended_at', 'is', null)
+    .select(ENTRY_COLUMNS)
+  if (error) throw new Error(error.message)
+  const entry = data[0]
+  if (!entry) throw new Error('Time entry not found')
+  return entry
+}
+
+/**
+ * Delete a closed entry. The same `.not('ended_at', 'is', null)` guard as
+ * updateTimeEntry: the running entry must be paused before it can be
+ * deleted — the UI enforces that, this backstops it.
+ */
+export async function deleteTimeEntry(
+  supabase: Client,
+  entryId: string,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('task_time_entries')
+    .delete()
+    .eq('id', entryId)
+    .not('ended_at', 'is', null)
+    .select(ENTRY_COLUMNS)
+  if (error) throw new Error(error.message)
+  if (!data[0]) throw new Error('Time entry not found')
+}
+
 async function stopRunningEntryIfAny(
   supabase: Client,
   userId: string,

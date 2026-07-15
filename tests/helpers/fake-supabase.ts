@@ -42,6 +42,8 @@ import type { Database } from '../../app/types/database.types'
 //   from('task_time_entries').select(...).in('task_id', [...])
 //   from('task_time_entries').insert(row).select(...).single()
 //   from('task_time_entries').update(row).eq('id', ...).is('ended_at', null).select(...)
+//   from('task_time_entries').update(row).eq('id', ...).not('ended_at', 'is', null).select(...)
+//   from('task_time_entries').delete().eq('id', ...).not('ended_at', 'is', null).select(...)
 //   from('activity_log').select(...).eq('farm_id',...).eq('task_id',...).order('created_at',{ascending:false})
 //   from('farm_member_profiles').select(...).eq('farm_id',...).in('user_id',[...])
 //
@@ -165,6 +167,19 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
 
   is(column: string, value: unknown): this {
     this.filters.push((row) => row[column] === value)
+    return this
+  }
+
+  // Only the negated-is form is needed (`.not('ended_at', 'is', null)`,
+  // time-entries.ts's running-entry guard) — no other `.not()` usage exists
+  // in the services, so no other operator is implemented.
+  not(column: string, operator: string, value: unknown): this {
+    if (operator !== 'is') {
+      throw new Error(
+        `FakeSupabaseClient.not() only supports the 'is' operator (got '${operator}')`,
+      )
+    }
+    this.filters.push((row) => row[column] !== value)
     return this
   }
 
