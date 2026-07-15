@@ -1,9 +1,11 @@
 import type { Ref } from 'vue'
 import type { Database } from '~/types/database.types'
 import {
+  deleteTimeEntry,
   listTimeEntries,
   startTimer,
   stopTimer,
+  updateTimeEntry,
   type TimeEntrySummary,
 } from '~/services/time-entries'
 
@@ -108,6 +110,44 @@ export function useTaskTimer(taskId: Ref<string | null | undefined>) {
     }
   }
 
+  /** Rewrite a closed entry's start/end times. */
+  async function updateEntry(
+    entryId: string,
+    startedAt: string,
+    endedAt: string,
+  ): Promise<boolean> {
+    mutationError.value = null
+    mutating.value = true
+    try {
+      await updateTimeEntry(supabase, { entryId, startedAt, endedAt })
+      await fetchEntries()
+      return true
+    } catch (error) {
+      mutationError.value =
+        error instanceof Error ? error.message : 'Failed to update time entry'
+      return false
+    } finally {
+      mutating.value = false
+    }
+  }
+
+  /** Delete a closed entry (the running entry must be paused first). */
+  async function removeEntry(entryId: string): Promise<boolean> {
+    mutationError.value = null
+    mutating.value = true
+    try {
+      await deleteTimeEntry(supabase, entryId)
+      await fetchEntries()
+      return true
+    } catch (error) {
+      mutationError.value =
+        error instanceof Error ? error.message : 'Failed to delete time entry'
+      return false
+    } finally {
+      mutating.value = false
+    }
+  }
+
   return {
     entries,
     runningEntry,
@@ -118,5 +158,7 @@ export function useTaskTimer(taskId: Ref<string | null | undefined>) {
     fetchEntries,
     start,
     stop,
+    updateEntry,
+    removeEntry,
   }
 }
