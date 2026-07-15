@@ -34,7 +34,7 @@ await fetchFarms()
 await fetchCompletedTasks()
 await fetchCategories()
 
-// Farm members, for resolving `completed_by` uuids to emails. No composable
+// Farm members, for resolving completer `user_id` uuids to emails. No composable
 // exists for this (only the activity/task-detail pages need it), so it's a
 // direct service call into a local ref — same pattern as the task detail
 // page — fetched once per farm and refetched on farm switch.
