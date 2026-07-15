@@ -78,23 +78,23 @@ onUnmounted(() => {
       @change="onFileSelected"
     />
 
-    <div class="d-flex align-center flex-wrap ga-2 mb-2">
-      <v-btn
-        size="small"
-        variant="tonal"
-        prepend-icon="mdi-camera"
+    <div class="photos-actions mb-2">
+      <button
+        type="button"
+        class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm"
         @click="cameraInput?.click()"
       >
+        <v-icon icon="mdi-camera" size="16" />
         Take photo
-      </v-btn>
-      <v-btn
-        size="small"
-        variant="tonal"
-        prepend-icon="mdi-image-multiple"
+      </button>
+      <button
+        type="button"
+        class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm"
         @click="galleryInput?.click()"
       >
-        Choose from gallery
-      </v-btn>
+        <v-icon icon="mdi-image-multiple" size="16" />
+        Gallery
+      </button>
     </div>
 
     <v-alert
@@ -119,19 +119,17 @@ onUnmounted(() => {
             width="140"
             height="140"
             cover
-            class="rounded"
+            class="photos-thumb"
           />
-          <v-btn
-            icon="mdi-close"
-            size="x-small"
-            variant="flat"
-            color="surface"
-            class="position-absolute"
-            style="top: 4px; right: 4px"
+          <button
+            type="button"
+            class="cc-icon-btn cc-icon-btn--sm photos-thumb__remove"
             aria-label="Remove photo"
             title="Remove photo"
             @click="onRemove(photo)"
-          />
+          >
+            <v-icon icon="mdi-close" size="16" />
+          </button>
         </div>
         <v-text-field
           v-model="photo.caption"
@@ -145,3 +143,23 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Two equal-width outlined pills side by side on mobile widths. */
+.photos-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.photos-thumb {
+  border-radius: var(--cc-radius);
+}
+
+/* Remove (x) button overlapping the thumbnail's top-right corner. */
+.photos-thumb__remove {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+}
+</style>

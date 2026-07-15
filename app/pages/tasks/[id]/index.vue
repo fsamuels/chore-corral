@@ -1315,6 +1315,13 @@ const taskLocation = computed(() =>
 </template>
 
 <style scoped>
+/* Each section below is a .cc-card, whose shared 20px padding is more top
+   space than a section needs once its eyebrow label sits right at the
+   top edge — trim just the top side, keep the rest for breathing room. */
+.cc-card {
+  padding-top: 8px;
+}
+
 /* Clickable priority pill (menu activator) — reset button chrome, keep the
    cc-pill look, add a disabled state to match the surrounding v-chips. */
 .cc-pill--pick {
