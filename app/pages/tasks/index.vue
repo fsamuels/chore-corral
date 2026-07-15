@@ -179,7 +179,7 @@ function categoryName(categoryId: string | null): string {
       be reachable.
     </v-alert>
     <template v-else-if="activeFarm">
-      <h1 class="text-h4 mb-1">Tasks</h1>
+      <h1 class="text-h4 mb-1">Chores</h1>
       <p class="cc-eyebrow mb-4">{{ activeFarm.name }}</p>
 
       <v-text-field
@@ -269,7 +269,7 @@ function categoryName(categoryId: string | null): string {
         v-if="tasksError"
         type="error"
         variant="tonal"
-        title="Couldn't load tasks"
+        title="Couldn't load chores"
         class="mb-4"
       >
         {{ tasksError }} — try reloading; if this persists, the database may not
@@ -286,9 +286,9 @@ function categoryName(categoryId: string | null): string {
       >
         <v-icon icon="mdi-clipboard-text-outline" size="64" class="mb-4" />
         <p class="text-body-1 mb-4">
-          No tasks yet. Add one to start tracking work on this farm.
+          No chores yet. Add one to start tracking work on this farm.
         </p>
-        <v-btn color="primary" size="large" to="/tasks/new">New task</v-btn>
+        <v-btn color="primary" size="large" to="/tasks/new">New chore</v-btn>
       </div>
 
       <div
@@ -296,7 +296,7 @@ function categoryName(categoryId: string | null): string {
         class="text-center py-12 text-medium-emphasis"
       >
         <v-icon icon="mdi-filter-variant-remove" size="64" class="mb-4" />
-        <p class="text-body-1">No tasks match the current filters.</p>
+        <p class="text-body-1">No chores match the current filters.</p>
         <v-btn
           v-if="hasActiveFilters"
           variant="text"

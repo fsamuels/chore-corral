@@ -529,7 +529,7 @@ async function performDelete() {
     await navigateTo('/tasks')
   } catch (error) {
     deleteError.value =
-      error instanceof Error ? error.message : 'Failed to delete task'
+      error instanceof Error ? error.message : 'Failed to delete chore'
   } finally {
     deleting.value = false
   }
@@ -576,8 +576,8 @@ function eventLabel(entry: ActivityEntry): string {
     const label = (d: unknown) => (d == null ? 'none' : String(d))
     return `Due date changed: ${label(entry.event_detail.old_due_date)} → ${label(entry.event_detail.new_due_date)}`
   }
-  if (entry.event_type === 'task_created') return 'Task created'
-  if (entry.event_type === 'task_deleted') return 'Task deleted'
+  if (entry.event_type === 'task_created') return 'Chore created'
+  if (entry.event_type === 'task_deleted') return 'Chore deleted'
   return entry.event_type
 }
 
@@ -611,7 +611,7 @@ const taskLocation = computed(() =>
         v-if="taskError"
         type="error"
         variant="tonal"
-        title="Couldn't load task"
+        title="Couldn't load chore"
         class="mb-4"
       >
         {{ taskError }} — try reloading; if this persists, the database may not
@@ -628,10 +628,10 @@ const taskLocation = computed(() =>
       >
         <v-icon icon="mdi-clipboard-alert-outline" size="64" class="mb-4" />
         <p class="text-body-1 mb-4">
-          Task not found. It may have been deleted, or the link may be out of
+          Chore not found. It may have been deleted, or the link may be out of
           date.
         </p>
-        <v-btn color="primary" to="/tasks">Back to tasks</v-btn>
+        <v-btn color="primary" to="/tasks">Back to chores</v-btn>
       </div>
 
       <template v-else-if="task">
@@ -641,7 +641,7 @@ const taskLocation = computed(() =>
           :timeout="8000"
           @update:model-value="(v: boolean) => !v && (photoWarningCount = null)"
         >
-          Task created, but {{ photoWarningCount }} photo(s) failed to upload —
+          Chore created, but {{ photoWarningCount }} photo(s) failed to upload —
           add them again from the Photos section below.
         </v-snackbar>
 
@@ -863,7 +863,7 @@ const taskLocation = computed(() =>
         </v-alert>
 
         <div class="cc-eyebrow mb-2">Status</div>
-        <div class="cc-segmented mb-6" role="group" aria-label="Task status">
+        <div class="cc-segmented mb-6" role="group" aria-label="Chore status">
           <button
             v-for="item in statusItems"
             :key="item.value"
@@ -1271,13 +1271,13 @@ const taskLocation = computed(() =>
             @click="confirmingDelete = true"
           >
             <v-icon icon="mdi-delete-outline" size="18" />
-            Delete task
+            Delete chore
           </button>
         </div>
 
         <v-dialog v-model="confirmingDelete" max-width="420" persistent>
           <v-card>
-            <v-card-title>Delete task?</v-card-title>
+            <v-card-title>Delete chore?</v-card-title>
             <v-card-text>
               Delete "{{ task.title }}"? This can't be undone.
               <v-alert

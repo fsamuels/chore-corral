@@ -148,7 +148,7 @@ async function performDelete() {
     const result = await remove(toDelete.value.id)
     if (!result.deleted) {
       const n = result.activeTaskCount
-      blockedMessage.value = `Can't delete — ${n} active task${
+      blockedMessage.value = `Can't delete — ${n} active chore${
         n === 1 ? '' : 's'
       } still use${n === 1 ? 's' : ''} this category.`
       showBlocked.value = true
@@ -241,7 +241,7 @@ async function performDelete() {
       >
         <v-icon icon="mdi-shape-outline" size="64" class="mb-4" />
         <p class="text-body-1">
-          No categories yet. Add one above to start organizing tasks.
+          No categories yet. Add one above to start organizing chores.
         </p>
       </div>
 
@@ -300,7 +300,7 @@ async function performDelete() {
                 <NuxtLink :to="tasksLink(category)" class="entity-row__title">
                   <span>{{ category.name }}</span>
                   <span class="cc-pill cc-pill--muted entity-row__total">
-                    {{ summaryFor(category)?.taskCount ?? 0 }} task{{
+                    {{ summaryFor(category)?.taskCount ?? 0 }} chore{{
                       (summaryFor(category)?.taskCount ?? 0) === 1 ? '' : 's'
                     }}
                   </span>

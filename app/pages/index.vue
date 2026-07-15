@@ -127,7 +127,7 @@ async function toggleTimer(task: TaskSummary) {
         v-if="tasksError"
         type="error"
         variant="tonal"
-        title="Couldn't load tasks"
+        title="Couldn't load chores"
         class="mb-4"
       >
         {{ tasksError }} — try reloading; if this persists, the database may not
@@ -163,10 +163,10 @@ async function toggleTimer(task: TaskSummary) {
         >
           <v-icon icon="mdi-clipboard-text-outline" size="64" class="mb-4" />
           <p class="text-body-1 mb-4">
-            No tasks yet. Add one to start tracking work on this farm.
+            No chores yet. Add one to start tracking work on this farm.
           </p>
           <v-btn color="primary" variant="tonal" size="large" to="/tasks/new"
-            >New task</v-btn
+            >New chore</v-btn
           >
         </div>
 
@@ -175,7 +175,7 @@ async function toggleTimer(task: TaskSummary) {
           class="text-center py-12 text-medium-emphasis"
         >
           <v-icon icon="mdi-check-circle-outline" size="64" class="mb-4" />
-          <p class="text-body-1">Nothing outstanding — every task is done.</p>
+          <p class="text-body-1">Nothing outstanding — every chore is done.</p>
         </div>
 
         <template v-else>
@@ -221,7 +221,7 @@ async function toggleTimer(task: TaskSummary) {
 
           <div class="text-center mt-4">
             <NuxtLink to="/tasks" class="cc-text-link cc-text-link--muted">
-              View all tasks
+              View all chores
             </NuxtLink>
           </div>
         </template>

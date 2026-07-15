@@ -108,7 +108,7 @@ onUnmounted(() => {
     </v-alert>
 
     <p v-if="staged.length === 0" class="text-body-2 text-medium-emphasis">
-      No photos yet — added photos will upload once the task is created.
+      No photos yet — added photos will upload once the chore is created.
     </p>
 
     <div v-else class="d-flex flex-wrap ga-3">

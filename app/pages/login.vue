@@ -35,7 +35,7 @@ async function signInWithGoogle() {
         <div class="cc-card text-center">
           <p class="cc-eyebrow mb-1">Chore Corral</p>
           <h1 class="cc-slab mb-4" style="font-size: 1.75rem">
-            Farm task tracking
+            Farm chore tracking
           </h1>
           <v-alert
             v-if="errorMessage"

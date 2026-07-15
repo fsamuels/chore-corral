@@ -64,7 +64,9 @@ const elapsedLabel = computed(() => {
           <span class="timer-bar__dot" aria-hidden="true" />
           <span class="timer-bar__text">
             <span class="timer-bar__eyebrow">Timer running</span>
-            <span class="timer-bar__title">{{ taskTitle ?? 'View task' }}</span>
+            <span class="timer-bar__title">{{
+              taskTitle ?? 'View chore'
+            }}</span>
           </span>
           <span class="timer-bar__elapsed">{{ elapsedLabel }}</span>
         </NuxtLink>
