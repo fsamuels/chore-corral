@@ -187,7 +187,7 @@ async function getTaskStatus(
     .eq('farm_id', opts.farmId)
   if (error) throw new Error(error.message)
   const task = data[0]
-  if (!task) throw new Error('Task not found')
+  if (!task) throw new Error('Chore not found')
   return task.status
 }
 

@@ -200,7 +200,7 @@ function openTask(taskId: string) {
             {{ statusDisplay[task.status] }}
           </div>
           <v-btn size="small" color="primary" @click="openTask(task.id)">
-            Open task
+            Open chore
           </v-btn>
         </div>
       </LPopup>

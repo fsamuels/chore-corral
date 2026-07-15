@@ -70,7 +70,7 @@ function onOpen(taskId: string) {
         v-if="tasksError"
         type="error"
         variant="tonal"
-        title="Couldn't load tasks"
+        title="Couldn't load chores"
         class="mb-4"
       >
         {{ tasksError }} — try reloading; if this persists, the database may not
@@ -88,7 +88,8 @@ function onOpen(taskId: string) {
           class="mb-4"
         >
           <v-card-text>
-            No tasks have a location yet. Add one from a task's location field.
+            No chores have a location yet. Add one from a chore's location
+            field.
           </v-card-text>
         </v-card>
 
