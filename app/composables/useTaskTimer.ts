@@ -25,7 +25,7 @@ export function useTaskTimer(taskId: Ref<string | null | undefined>) {
   const supabase = useSupabaseClient<Database>()
   const user = useSupabaseUser()
   const { activeFarmId } = useFarms()
-  const { runningEntry, refresh: refreshRunning } = useRunningTimer()
+  const { runningEntry, taskTitle, fetchRunningEntry } = useRunningTimer()
 
   // null = not fetched yet; [] = fetched, no time tracked.
   const entries = ref<TimeEntrySummary[] | null>(null)
@@ -43,13 +43,19 @@ export function useTaskTimer(taskId: Ref<string | null | undefined>) {
     }
     loading.value = true
     try {
-      const [list] = await Promise.all([
+      const [list, running] = await Promise.all([
         listTimeEntries(supabase, id),
-        refreshRunning(),
+        fetchRunningEntry(),
       ])
+      // The shared running entry is task-independent, so it's applied
+      // regardless of staleness — but always alongside `entries` in this
+      // same synchronous block, so `runningHere`/`showTotal` never see a
+      // tick where one updated and the other hasn't (that gap was flashing
+      // both counters briefly when starting a timer).
+      runningEntry.value = running.entry
+      taskTitle.value = running.title
       // Staleness guard, same as useTaskTools: a slower fetch for a task
       // that's no longer open must not overwrite the current task's state.
-      // (The shared running entry is task-independent, so it needs no guard.)
       if (taskId.value !== id) return
       entries.value = list
       entriesError.value = null
