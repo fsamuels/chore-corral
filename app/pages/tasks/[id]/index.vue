@@ -11,6 +11,7 @@ import {
   listFarmMemberProfiles,
   type FarmMemberProfile,
 } from '~/services/members'
+import { setTaskCompleters, type TaskCompleter } from '~/services/completers'
 import type { TaskLocationValue } from '~/components/TaskLocationInput.vue'
 
 const route = useRoute()
@@ -167,8 +168,6 @@ async function saveTaskField(
     lat: number | null
     lng: number | null
     locationId: string | null
-    completedBy: string | null
-    completedByName: string | null
     completedAt: string | null
   }>,
 ): Promise<boolean> {
@@ -188,8 +187,6 @@ async function saveTaskField(
       lat: current.lat,
       lng: current.lng,
       locationId: current.location_id,
-      completedBy: current.completed_by,
-      completedByName: current.completed_by_name,
       completedAt: current.completed_at,
       tagNames: current.tags.map((tag) => tag.name),
       ...patch,
@@ -394,73 +391,95 @@ async function onLocationSave() {
 }
 
 // --- Completed by (attribution) — only surfaced when the task is done ---
-// Auto-filled to the acting member on completion (see changeTaskStatus), but
-// independently editable here: pick a different member, type a free-text name
-// for someone who isn't an app user, or clear it. Member and free-text name
-// are mutually exclusive (mirrors the DB constraint) — the menu enforces that
-// as you edit, so only one is ever submitted.
+// Now a multi-person set (see services/completers.ts): any number of farm
+// members plus any number of free-text names for people who aren't app users.
+// The acting member is auto-credited on completion when nobody's credited yet
+// (see changeTaskStatus), but the whole set is editable here — add/remove
+// members via the multi-select, add/remove names via the freeform combobox, or
+// Clear to empty it. Save replaces the full set via `setTaskCompleters`.
 const completedByMenu = ref(false)
-const completedByMemberDraft = ref<string | null>(null)
-const completedByNameDraft = ref('')
+const completedByMemberDraft = ref<string[]>([])
+const completedByNamesDraft = ref<string[]>([])
 
 watch(completedByMenu, (open) => {
-  if (open) {
-    completedByMemberDraft.value = task.value?.completed_by ?? null
-    completedByNameDraft.value = task.value?.completed_by_name ?? ''
+  if (open && task.value) {
+    completedByMemberDraft.value = task.value.completers
+      .filter((completer) => completer.user_id !== null)
+      .map((completer) => completer.user_id!)
+    completedByNamesDraft.value = task.value.completers
+      .filter((completer) => completer.completer_name !== null)
+      .map((completer) => completer.completer_name!)
   }
 })
 
-const memberItems = computed(() => [
-  { title: 'No member', value: null as string | null },
-  ...members.value.map((member) => ({
+const memberItems = computed(() =>
+  members.value.map((member) => ({
     title: member.email ?? member.user_id,
-    value: member.user_id as string | null,
+    value: member.user_id,
   })),
-])
+)
 
-// Picking a member clears the free-text draft, and typing a name clears the
-// member draft — one always empties the other so exactly one is submitted.
-function onCompletedByMemberSelect(userId: string | null) {
-  completedByMemberDraft.value = userId
-  if (userId !== null) completedByNameDraft.value = ''
-}
-
-watch(completedByNameDraft, (value) => {
-  if (value.trim() !== '') completedByMemberDraft.value = null
-})
-
-// The current attribution resolved for display: a member's email (best-effort
-// — null if the member is no longer in the fetched list), else the free-text
-// name. `completedByLabel` is null only when the task has no attribution set.
-const completedByLabel = computed(() => {
-  const current = task.value
-  if (!current) return null
-  if (current.completed_by !== null) {
+// One completer resolved to a display label: a member's email (best-effort —
+// "unknown member" if the id is no longer in the fetched list), else the
+// free-text name.
+function completerLabel(completer: TaskCompleter): string {
+  if (completer.user_id !== null) {
     return (
-      members.value.find((m) => m.user_id === current.completed_by)?.email ??
+      members.value.find((m) => m.user_id === completer.user_id)?.email ??
       'unknown member'
     )
   }
-  return current.completed_by_name
+  return completer.completer_name ?? ''
+}
+
+// The full attribution as a comma-joined label for the pill; null when the task
+// has no completers set.
+const completedByLabel = computed(() => {
+  const completers = task.value?.completers ?? []
+  if (completers.length === 0) return null
+  return completers.map(completerLabel).join(', ')
 })
 
+// Save/Clear go straight through `setTaskCompleters` (not `updateTask`) — the
+// completer set is its own table, edited independently of the task's fields.
+async function saveCompleters(completers: TaskCompleter[]): Promise<void> {
+  const current = task.value
+  if (!current) return
+  fieldSaving.value = 'completedBy'
+  fieldSaveError.value = null
+  try {
+    await setTaskCompleters(useSupabaseClient(), {
+      taskId: current.id,
+      completers,
+    })
+    await fetchTask()
+    completedByMenu.value = false
+  } catch (error) {
+    fieldSaveError.value =
+      error instanceof Error ? error.message : 'Failed to save change'
+  } finally {
+    fieldSaving.value = null
+  }
+}
+
 async function onCompletedBySave() {
-  const member = completedByMemberDraft.value
-  const name = completedByNameDraft.value.trim()
-  const patch = member
-    ? { completedBy: member, completedByName: null }
-    : { completedBy: null, completedByName: name || null }
-  if (await saveTaskField('completedBy', patch)) completedByMenu.value = false
+  const names = [
+    ...new Set(
+      completedByNamesDraft.value.map((name) => name.trim()).filter(Boolean),
+    ),
+  ]
+  const completers: TaskCompleter[] = [
+    ...completedByMemberDraft.value.map((userId) => ({
+      user_id: userId,
+      completer_name: null,
+    })),
+    ...names.map((name) => ({ user_id: null, completer_name: name })),
+  ]
+  await saveCompleters(completers)
 }
 
 async function onCompletedByClear() {
-  if (
-    await saveTaskField('completedBy', {
-      completedBy: null,
-      completedByName: null,
-    })
-  )
-    completedByMenu.value = false
+  await saveCompleters([])
 }
 
 // --- Completed at (date/time) — only surfaced when the task is done ---
@@ -928,27 +947,33 @@ const taskLocation = computed(() =>
                 />
               </button>
             </template>
-            <v-card min-width="300">
+            <v-card min-width="320">
               <v-card-text>
                 <v-select
-                  :model-value="completedByMemberDraft"
+                  v-model="completedByMemberDraft"
                   :items="memberItems"
                   item-title="title"
                   item-value="value"
-                  label="Farm member"
+                  label="Farm members"
+                  multiple
+                  chips
+                  closable-chips
                   density="comfortable"
                   variant="outlined"
                   hide-details
-                  @update:model-value="onCompletedByMemberSelect"
                 />
-                <div class="text-caption text-medium-emphasis my-2">or</div>
-                <v-text-field
-                  v-model="completedByNameDraft"
-                  label="Someone else (name)"
+                <div class="text-caption text-medium-emphasis my-2">
+                  and/or others (type a name, press enter)
+                </div>
+                <v-combobox
+                  v-model="completedByNamesDraft"
+                  label="Other names"
+                  multiple
+                  chips
+                  closable-chips
                   density="comfortable"
                   variant="outlined"
                   hide-details
-                  @keydown.enter="onCompletedBySave"
                 />
               </v-card-text>
               <v-card-actions>

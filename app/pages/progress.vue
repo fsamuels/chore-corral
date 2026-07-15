@@ -174,19 +174,21 @@ function categoryPill(
   }
 }
 
-// Mirrors the task detail page's `completedByLabel`: a member's resolved
-// email (best-effort — "unknown member" if the id isn't in the fetched
-// list), else the free-text name, else null when neither is set.
+// Mirrors the task detail page's `completedByLabel`: each completer resolved to
+// a member's email (best-effort — "unknown member" if the id isn't in the
+// fetched list) or its free-text name, comma-joined; null when the set is empty.
 function completedByLabel(
-  row: Pick<ActivityDayRow, 'completed_by' | 'completed_by_name'>,
+  row: Pick<ActivityDayRow, 'completers'>,
 ): string | null {
-  if (row.completed_by !== null) {
-    return (
-      members.value.find((m) => m.user_id === row.completed_by)?.email ??
-      'unknown member'
+  if (row.completers.length === 0) return null
+  return row.completers
+    .map((completer) =>
+      completer.user_id !== null
+        ? (members.value.find((m) => m.user_id === completer.user_id)?.email ??
+          'unknown member')
+        : completer.completer_name,
     )
-  }
-  return row.completed_by_name
+    .join(', ')
 }
 
 function formatRowTime(timestamp: string): string {
