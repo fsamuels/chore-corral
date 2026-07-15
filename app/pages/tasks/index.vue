@@ -68,7 +68,7 @@ const selectedCategory = ref<string | null>(ALL_CATEGORIES)
 
 const categoryFilterItems = computed(() => [
   { title: 'All categories', value: ALL_CATEGORIES },
-  { title: 'Uncategorized', value: null },
+  { title: '❓ Uncategorized', value: null },
   ...categoryItems.value,
 ])
 

@@ -133,7 +133,7 @@ function priorityLabel(priority: TaskPriority): string {
 }
 
 const categoryItems = computed(() => [
-  { title: 'Uncategorized', value: null as string | null },
+  { title: '❓ Uncategorized', value: null as string | null },
   ...(categories.value ?? []).map((category) => ({
     title: `${category.emoji ?? '🏷️'} ${category.name}`,
     value: category.id as string | null,
@@ -734,6 +734,7 @@ const taskLocation = computed(() =>
                   ).deleted,
                 }"
               >
+                {{ categoryDisplay(task.category_id).emoji }}
                 {{ categoryDisplay(task.category_id).text }}
                 <v-icon icon="mdi-menu-down" size="16" />
               </button>
