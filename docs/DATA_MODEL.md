@@ -23,6 +23,7 @@ farm_memberships ──────► farms
                             │          │      ├──► task_shopping_items
                             │          │      ├──► task_tools
                             │          │      ├──► task_time_entries
+                            │          │      ├──► task_completers
                             │          │      └──► task_tags ──► tags
                             │          │
                             │          └──► activity_log
@@ -133,15 +134,13 @@ The core work-item entity.
 | `created_at`        | timestamptz, default now()                                                      |                                                                                                                                                                                                                                                                                             |
 | `created_by`        | uuid, FK → `auth.users.id`, not null                                            | For activity log / attribution, not for access control (all members have equal access)                                                                                                                                                                                                      |
 | `completed_at`      | timestamptz, nullable                                                           | Set when status → done; **cleared** when status moves out of done                                                                                                                                                                                                                           |
-| `completed_by`      | uuid, FK → `auth.users.id`, nullable                                            | Optional completion attribution: auto-set to the acting member when status → done, cleared when status leaves done (mirrors `completed_at`). Independently editable afterwards. Mutually exclusive with `completed_by_name` — see the constraint below.                                     |
-| `completed_by_name` | text, nullable                                                                  | Free-text fallback attribution for whoever finished the task but isn't an app user (a contractor, a kid, a neighbor). Set via a plain edit; never auto-filled.                                                                                                                              |
 | `estimated_minutes` | integer, nullable, `CHECK (estimated_minutes IS NULL OR estimated_minutes > 0)` | Optional user-entered estimate of how long the task should take, in whole minutes, set at create/edit time. Null = no estimate (no backfill, no default). Distinct from a future timer-measured "actual" counterpart (e.g. `actual_minutes`) that a separate feature will add alongside it. |
 
 **No `deleted_at`** — tasks are hard-deleted per SPEC.md. Deletion produces an `activity_log` entry as the only remaining trace.
 
 **Constraint (DB-enforced): a task has a defined location OR a freeform pin, never both.** `CHECK (location_id IS NULL OR (lat IS NULL AND lng IS NULL))` — setting `location_id` requires `lat`/`lng` to be null, and vice versa. The app layer enforces the same rule up front (`assertLocationXorPin` in `services/tasks.ts`) so bad combinations fail with a readable message instead of a Postgres error. The freeform pin remains for ad-hoc spots that aren't worth naming; a defined location is a reusable named place (see `locations`).
 
-**Constraint (DB-enforced): a task is credited to a member OR a free-text name, never both.** `CHECK (completed_by IS NULL OR completed_by_name IS NULL)` (constraint `tasks_completed_by_xor_name`) — attribution is optional (both-null is fine), but at most one of the two is ever set. The app layer enforces the same rule up front (`assertCompletedByXorName` in `services/tasks.ts`) so a bad combination fails with a readable message instead of a Postgres error. On the transition to done, `completed_by` is auto-filled to the acting member (and `completed_by_name` cleared); on the transition out of done both clear — the app keeps these in step with `completed_at`.
+**Completion attribution lives in `task_completers`, not on this table.** `tasks` originally carried `completed_by` (uuid) / `completed_by_name` (text) scalar columns, mutually exclusive via a `tasks_completed_by_xor_name` CHECK, crediting at most one person per task. Migration `20260715120000_task_completers.sql` backfilled both columns into the new `task_completers` join table (below) and dropped them, so a task can now be credited to any number of people. See `task_completers` for the current shape and DECISIONS.md for why.
 
 **On multiple location pins:** the schema currently supports exactly one pin (`lat`/`lng` columns directly on `tasks`). If/when multiple pins per task becomes a real feature (see ROADMAP.md), this will require extracting location into a separate `task_locations` table with a one-to-many relationship — a real migration, not a config change. Worth keeping in mind if location-pin UI is built in a way that assumes a list rather than a single point, to ease that future migration.
 
@@ -168,6 +167,25 @@ Join table for the many-to-many task↔tag relationship.
 | `tag_id`  | uuid, FK → `tags.id`, not null  |       |
 
 Composite PK on (`task_id`, `tag_id`).
+
+### `task_completers`
+
+Who actually did the work — a set, not a single credit. Replaces the two scalar columns described under `tasks` above; a task's completer set may freely mix app members and free-text names.
+
+| Column           | Type                                 | Notes                                                                                                  |
+| ---------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `id`             | uuid, PK                             |                                                                                                        |
+| `task_id`        | uuid, FK → `tasks.id`, not null      | `ON DELETE CASCADE` with the task                                                                      |
+| `user_id`        | uuid, FK → `auth.users.id`, nullable | A farm member credited with finishing the task                                                         |
+| `completer_name` | text, nullable                       | Free-text credit for whoever finished the task but isn't an app user (a contractor, a kid, a neighbor) |
+
+**Per-row XOR: `CHECK ((user_id IS NULL) <> (completer_name IS NULL))`** — every row is exactly one of a member or a free-text name, never both and never neither. The app layer enforces the same rule up front (`assertValidCompleters` in `services/completers.ts`) so a bad combination fails with a readable message before the Postgres constraint fires. This XOR is per-row only — the composition of a task's whole completer set is unconstrained, so mixing members and free-text names on the same task is allowed (unlike the task-level XOR it replaced).
+
+**No duplicates within a task's set**, enforced by two partial unique indexes rather than a single composite one (since `user_id`/`completer_name` are never both non-null on the same row, a shared index couldn't do this): `task_completers_task_user_uniq` on (`task_id`, `user_id`) `WHERE user_id IS NOT NULL`, and `task_completers_task_name_uniq` on (`task_id`, `completer_name`) `WHERE completer_name IS NOT NULL`.
+
+Like the other task-child tables, this table carries no `farm_id`; it is scoped to a farm through its parent task, and its RLS policy joins through `tasks` (`auth.uid()` wrapped in a scalar subselect so it's evaluated once per statement, not once per row — same pattern as elsewhere). `setTaskCompleters` (`services/completers.ts`) replaces a task's whole completer set in one call, patterned on how `task_tags` is written.
+
+**Auto-credit behavior:** marking a task done credits the acting member only if the task has zero completers already; leaving done deletes the whole set. Attribution stays optional — a done task may legitimately have zero completers. See DECISIONS.md.
 
 ### `task_photos`
 

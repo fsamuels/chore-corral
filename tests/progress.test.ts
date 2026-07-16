@@ -42,8 +42,6 @@ function task(overrides: Partial<TaskRow> = {}): TaskRow {
     created_at: '2026-01-01T00:00:00.000Z',
     created_by: ACTOR,
     completed_at: '2026-01-05T12:00:00.000Z',
-    completed_by: ACTOR,
-    completed_by_name: null,
     estimated_minutes: null,
     ...overrides,
   }
@@ -72,8 +70,7 @@ function completed(
     category_id: 'cat-seed',
     priority: 'soon',
     completed_at: '2026-01-05T12:00:00.000Z',
-    completed_by: ACTOR,
-    completed_by_name: null,
+    completers: [],
     ...overrides,
   }
 }
@@ -282,6 +279,31 @@ describe('listCompletedTasks', () => {
     expect(result.map((t) => t.id)).toEqual(['done-newer', 'done-older'])
   })
 
+  it('attaches each task’s completer set (members and free-text names)', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [
+        task({ id: 'done-1', completed_at: '2026-07-08T10:00:00.000Z' }),
+        task({ id: 'done-2', completed_at: '2026-07-06T10:00:00.000Z' }),
+      ],
+      task_completers: [
+        { id: 'c1', task_id: 'done-1', user_id: ACTOR, completer_name: null },
+        { id: 'c2', task_id: 'done-1', user_id: null, completer_name: 'Kaleb' },
+      ],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listCompletedTasks(supabase, FARM_A)
+
+    const one = result.find((t) => t.id === 'done-1')!
+    // Members sort before free-text names.
+    expect(one.completers).toEqual([
+      { user_id: ACTOR, completer_name: null },
+      { user_id: null, completer_name: 'Kaleb' },
+    ])
+    const two = result.find((t) => t.id === 'done-2')!
+    expect(two.completers).toEqual([])
+  })
+
   it('propagates a select failure', async () => {
     const fake = new FakeSupabaseClient(
       { tasks: [] },
@@ -475,10 +497,14 @@ describe('trackedMsByDay', () => {
 describe('buildActivityDayGroups', () => {
   const weekStart = '2026-07-06'
 
-  it('renders a completed task as a completed row with its same-day tracked time', () => {
+  it('renders a completed task as a completed row with its same-day tracked time and completer set', () => {
     const completedTask = completed({
       id: 'clean',
       completed_at: localIso(2026, 7, 8, 14),
+      completers: [
+        { user_id: ACTOR, completer_name: null },
+        { user_id: null, completer_name: 'Kaleb' },
+      ],
     })
     const act = activity({
       id: 'clean',
@@ -499,6 +525,10 @@ describe('buildActivityDayGroups', () => {
     expect(group.completedCount).toBe(1)
     expect(group.trackedMs).toBe(60 * 60 * 1000)
     expect(group.rows).toHaveLength(1)
+    expect(group.rows[0]!.completers).toEqual([
+      { user_id: ACTOR, completer_name: null },
+      { user_id: null, completer_name: 'Kaleb' },
+    ])
     expect(group.rows[0]).toMatchObject({
       id: 'clean',
       kind: 'completed',
@@ -529,7 +559,7 @@ describe('buildActivityDayGroups', () => {
       id: 'muck',
       kind: 'in-progress',
       trackedMs: 60 * 60 * 1000,
-      completed_by: null,
+      completers: [],
     })
   })
 

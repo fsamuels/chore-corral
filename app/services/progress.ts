@@ -6,6 +6,7 @@ import {
   type TaskPriority,
   type TaskStatus,
 } from './tasks'
+import { listCompletersForTasks, type TaskCompleter } from './completers'
 import { totalTrackedMs } from './time-entries'
 
 type Client = SupabaseClient<Database>
@@ -13,9 +14,9 @@ type Client = SupabaseClient<Database>
 /**
  * The subset of a completed (status='done') task the Progress page renders —
  * no tags/photos, since the weekly list only needs identity, priority, and
- * completion attribution. `completed_at` is typed `string | null` to match the
- * underlying row; in practice a done task always has one, and the read path
- * (`listCompletedTasks`) drops the nulls.
+ * completion attribution (the completer set, attached separately). `completed_at`
+ * is typed `string | null` to match the underlying row; in practice a done task
+ * always has one, and the read path (`listCompletedTasks`) drops the nulls.
  */
 export interface CompletedTaskSummary {
   id: string
@@ -23,12 +24,10 @@ export interface CompletedTaskSummary {
   category_id: string | null
   priority: TaskPriority
   completed_at: string | null
-  completed_by: string | null
-  completed_by_name: string | null
+  completers: TaskCompleter[]
 }
 
-const COMPLETED_TASK_COLUMNS =
-  'id, title, category_id, priority, completed_at, completed_by, completed_by_name'
+const COMPLETED_TASK_COLUMNS = 'id, title, category_id, priority, completed_at'
 
 /**
  * The local-calendar-date string ("YYYY-MM-DD") of the Monday that starts the
@@ -168,7 +167,9 @@ function compareByCompletionDesc(
  * query — this fetches every done task server-filtered by farm and status and
  * leaves week selection to the pure functions above (`completedTasksInWeek`).
  * That's fine at this app's scale (a single farm's done tasks). Rows with a
- * null `completed_at` are dropped: they can't be placed in any week.
+ * null `completed_at` are dropped: they can't be placed in any week. Each task's
+ * completer set is attached via a second `.in()` query (`listCompletersForTasks`),
+ * the same two-query shape as tags — the test fake supports no joins.
  */
 export async function listCompletedTasks(
   supabase: Client,
@@ -180,8 +181,17 @@ export async function listCompletedTasks(
     .eq('farm_id', farmId)
     .eq('status', 'done')
   if (error) throw new Error(error.message)
-  return data
-    .filter((task) => task.completed_at !== null)
+
+  const done = data.filter((task) => task.completed_at !== null)
+  const completersByTask = await listCompletersForTasks(
+    supabase,
+    done.map((task) => task.id),
+  )
+  return done
+    .map((task) => ({
+      ...task,
+      completers: completersByTask.get(task.id) ?? [],
+    }))
     .sort(compareByCompletionDesc)
 }
 
@@ -292,9 +302,8 @@ export interface ActivityDayRow {
   // on other days.
   trackedMs: number
   // Completion attribution, populated only for `completed` rows (mirrors
-  // CompletedTaskSummary); null on worked rows, which weren't finished today.
-  completed_by: string | null
-  completed_by_name: string | null
+  // CompletedTaskSummary); empty on worked rows, which weren't finished today.
+  completers: TaskCompleter[]
 }
 
 /**
@@ -362,8 +371,7 @@ function toCompletedRow(
     kind: 'completed',
     timestamp: task.completed_at!,
     trackedMs,
-    completed_by: task.completed_by,
-    completed_by_name: task.completed_by_name,
+    completers: task.completers,
   }
 }
 
@@ -470,8 +478,7 @@ export function buildActivityDayGroups(
           kind: activity.status === 'done' ? 'done-later' : 'in-progress',
           timestamp: info.firstStart,
           trackedMs: info.trackedMs,
-          completed_by: null,
-          completed_by_name: null,
+          completers: [],
         })
       }
       workedRows.sort((a, b) => {

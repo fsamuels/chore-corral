@@ -67,7 +67,7 @@ function statusEntries(tag: TagSummaryWithCount) {
       >
         <v-icon icon="mdi-tag-multiple-outline" size="64" class="mb-4" />
         <p class="text-body-1">
-          No tags yet. Tags are created by adding them to a task.
+          No tags yet. Tags are created by adding them to a chore.
         </p>
       </div>
 
@@ -77,7 +77,7 @@ function statusEntries(tag: TagSummaryWithCount) {
             <v-icon icon="mdi-tag-outline" size="20" class="tag-row__icon" />
             <span class="tag-row__name">{{ tag.name }}</span>
             <span class="cc-pill cc-pill--muted tag-row__total">
-              {{ tag.taskCount }} task{{ tag.taskCount === 1 ? '' : 's' }}
+              {{ tag.taskCount }} chore{{ tag.taskCount === 1 ? '' : 's' }}
             </span>
           </NuxtLink>
 

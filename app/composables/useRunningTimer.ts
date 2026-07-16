@@ -31,25 +31,33 @@ export function useRunningTimer() {
   const taskTitle = useState<string | null>('running-timer-title', () => null)
   const stopping = useState<boolean>('running-timer-stopping', () => false)
 
-  async function refresh(): Promise<void> {
+  /**
+   * Fetch the running entry (and its task title) without touching shared
+   * state. Lets a caller that's also fetching other data (`useTaskTimer`)
+   * assign everything in one synchronous block, so dependent computeds
+   * never see a tick where only one side has updated.
+   */
+  async function fetchRunningEntry(): Promise<{
+    entry: TimeEntrySummary | null
+    title: string | null
+  }> {
     const actorUserId = getActorUserId(user.value)
-    if (!actorUserId) {
-      runningEntry.value = null
-      taskTitle.value = null
-      return
-    }
+    if (!actorUserId) return { entry: null, title: null }
     try {
       const entry = await getRunningEntry(supabase, actorUserId)
-      runningEntry.value = entry
-      taskTitle.value = entry
-        ? await getTaskTitle(supabase, entry.task_id)
-        : null
+      const title = entry ? await getTaskTitle(supabase, entry.task_id) : null
+      return { entry, title }
     } catch {
       // Global chrome, not a page's primary content — a failed fetch just
       // means no dock bar until the next refresh rather than a page error.
-      runningEntry.value = null
-      taskTitle.value = null
+      return { entry: null, title: null }
     }
+  }
+
+  async function refresh(): Promise<void> {
+    const { entry, title } = await fetchRunningEntry()
+    runningEntry.value = entry
+    taskTitle.value = title
   }
 
   /**
@@ -73,5 +81,5 @@ export function useRunningTimer() {
     }
   }
 
-  return { runningEntry, taskTitle, stopping, refresh, stop }
+  return { runningEntry, taskTitle, stopping, refresh, fetchRunningEntry, stop }
 }

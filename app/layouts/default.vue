@@ -53,7 +53,7 @@ async function signOut() {
         />
         <v-divider class="mb-1" />
         <v-list-item
-          title="Tasks"
+          title="Chores"
           prepend-icon="mdi-format-list-checks"
           to="/tasks"
           @click="drawer = false"

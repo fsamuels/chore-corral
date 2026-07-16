@@ -107,7 +107,7 @@ Fixed, multi-state (not binary).
 - **In Progress**
 - **Done**
 
-Moving to Done sets `completed_at`. Moving out of Done (reopening a task) **clears** `completed_at` — no historical record of prior completion times is kept beyond the Activity Log's "status changed" event. `completed_at` (and completion attribution) can also be edited independently afterward, e.g. to correct a task marked done well after it was actually finished.
+Moving to Done sets `completed_at`. Moving out of Done (reopening a task) **clears** `completed_at` — no historical record of prior completion times is kept beyond the Activity Log's "status changed" event. `completed_at` (and completion attribution, which may credit more than one person) can also be edited independently afterward, e.g. to correct a task marked done well after it was actually finished.
 
 Completed tasks remain visible and filterable in the task list (not hidden/archived).
 
@@ -223,7 +223,7 @@ Each task's activity history is shown in-app, on that task's View page (see belo
 - Top-level page (`/progress`), sitting between Home and Map in the primary navigation (mobile bottom nav and desktop header buttons).
 - Shows one week at a time — Monday-start weeks, computed in the viewer's local timezone — with back/forward arrows to step between weeks; forward navigation is capped at the current week, which is also the default. The selected week is reflected in the URL (`?week=<Monday's date>`) so a view is shareable and back-button-friendly.
 - Weekly summary stats: count of tasks completed that week, and total tracked time (summed timer sessions) across those tasks.
-- Below the stats, the week's completed tasks (source of truth: `tasks.completed_at` — a task later deleted or reopened drops out of history) grouped by completion day, newest day first, each row showing the completion time, title, time tracked on that task (when it has any), who completed it (via the completed-by attribution), and category.
+- Below the stats, the week's completed tasks (source of truth: `tasks.completed_at` — a task later deleted or reopened drops out of history) grouped by completion day, newest day first, each row showing the completion time, title, time tracked on that task (when it has any), who completed it (via the task's completer attribution — one or more people, a mix of members and free-text names), and category.
 - Deferred follow-ons (per-person and per-category breakdowns, filters, finer-grained organization) are listed in ROADMAP.md.
 
 ### Map View

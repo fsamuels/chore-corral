@@ -161,7 +161,7 @@ async function performDelete() {
     const result = await remove(toDelete.value.id)
     if (!result.deleted) {
       const n = result.activeTaskCount
-      blockedMessage.value = `Can't delete — ${n} active task${
+      blockedMessage.value = `Can't delete — ${n} active chore${
         n === 1 ? '' : 's'
       } still use${n === 1 ? 's' : ''} this location.`
       showBlocked.value = true
@@ -256,7 +256,7 @@ async function performDelete() {
       >
         <v-icon icon="mdi-map-marker-multiple-outline" size="64" class="mb-4" />
         <p class="text-body-1">
-          No locations yet. Add one above to start pinning tasks to named
+          No locations yet. Add one above to start pinning chores to named
           places.
         </p>
       </div>
@@ -309,7 +309,7 @@ async function performDelete() {
                 <NuxtLink :to="tasksLink(location)" class="entity-row__title">
                   <span>{{ location.name }}</span>
                   <span class="cc-pill cc-pill--muted entity-row__total">
-                    {{ summaryFor(location)?.taskCount ?? 0 }} task{{
+                    {{ summaryFor(location)?.taskCount ?? 0 }} chore{{
                       (summaryFor(location)?.taskCount ?? 0) === 1 ? '' : 's'
                     }}
                   </span>

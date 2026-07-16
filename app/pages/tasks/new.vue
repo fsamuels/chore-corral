@@ -27,7 +27,7 @@ const priorityItems: { title: string; value: TaskPriority }[] = [
 ]
 
 const categoryItems = computed(() => [
-  { title: 'Uncategorized', value: null },
+  { title: '❓ Uncategorized', value: null },
   ...(categories.value ?? []).map((category) => ({
     title: `${category.emoji ?? '🏷️'} ${category.name}`,
     value: category.id,
@@ -109,7 +109,7 @@ async function submit() {
     )
   } catch (error) {
     createError.value =
-      error instanceof Error ? error.message : 'Failed to create task'
+      error instanceof Error ? error.message : 'Failed to create chore'
   } finally {
     creating.value = false
   }
@@ -136,10 +136,10 @@ async function submit() {
         to="/tasks"
         class="mb-2"
       >
-        Back to tasks
+        Back to chores
       </v-btn>
 
-      <h1 class="text-h4 mb-4">New task</h1>
+      <h1 class="text-h4 mb-4">New chore</h1>
 
       <v-form class="cc-card" @submit.prevent="submit">
         <v-text-field

@@ -11,6 +11,7 @@ import {
   listFarmMemberProfiles,
   type FarmMemberProfile,
 } from '~/services/members'
+import { setTaskCompleters, type TaskCompleter } from '~/services/completers'
 import type { TaskLocationValue } from '~/components/TaskLocationInput.vue'
 
 const route = useRoute()
@@ -133,7 +134,7 @@ function priorityLabel(priority: TaskPriority): string {
 }
 
 const categoryItems = computed(() => [
-  { title: 'Uncategorized', value: null as string | null },
+  { title: '❓ Uncategorized', value: null as string | null },
   ...(categories.value ?? []).map((category) => ({
     title: `${category.emoji ?? '🏷️'} ${category.name}`,
     value: category.id as string | null,
@@ -167,8 +168,6 @@ async function saveTaskField(
     lat: number | null
     lng: number | null
     locationId: string | null
-    completedBy: string | null
-    completedByName: string | null
     completedAt: string | null
   }>,
 ): Promise<boolean> {
@@ -188,8 +187,6 @@ async function saveTaskField(
       lat: current.lat,
       lng: current.lng,
       locationId: current.location_id,
-      completedBy: current.completed_by,
-      completedByName: current.completed_by_name,
       completedAt: current.completed_at,
       tagNames: current.tags.map((tag) => tag.name),
       ...patch,
@@ -394,73 +391,95 @@ async function onLocationSave() {
 }
 
 // --- Completed by (attribution) — only surfaced when the task is done ---
-// Auto-filled to the acting member on completion (see changeTaskStatus), but
-// independently editable here: pick a different member, type a free-text name
-// for someone who isn't an app user, or clear it. Member and free-text name
-// are mutually exclusive (mirrors the DB constraint) — the menu enforces that
-// as you edit, so only one is ever submitted.
+// Now a multi-person set (see services/completers.ts): any number of farm
+// members plus any number of free-text names for people who aren't app users.
+// The acting member is auto-credited on completion when nobody's credited yet
+// (see changeTaskStatus), but the whole set is editable here — add/remove
+// members via the multi-select, add/remove names via the freeform combobox, or
+// Clear to empty it. Save replaces the full set via `setTaskCompleters`.
 const completedByMenu = ref(false)
-const completedByMemberDraft = ref<string | null>(null)
-const completedByNameDraft = ref('')
+const completedByMemberDraft = ref<string[]>([])
+const completedByNamesDraft = ref<string[]>([])
 
 watch(completedByMenu, (open) => {
-  if (open) {
-    completedByMemberDraft.value = task.value?.completed_by ?? null
-    completedByNameDraft.value = task.value?.completed_by_name ?? ''
+  if (open && task.value) {
+    completedByMemberDraft.value = task.value.completers
+      .filter((completer) => completer.user_id !== null)
+      .map((completer) => completer.user_id!)
+    completedByNamesDraft.value = task.value.completers
+      .filter((completer) => completer.completer_name !== null)
+      .map((completer) => completer.completer_name!)
   }
 })
 
-const memberItems = computed(() => [
-  { title: 'No member', value: null as string | null },
-  ...members.value.map((member) => ({
+const memberItems = computed(() =>
+  members.value.map((member) => ({
     title: member.email ?? member.user_id,
-    value: member.user_id as string | null,
+    value: member.user_id,
   })),
-])
+)
 
-// Picking a member clears the free-text draft, and typing a name clears the
-// member draft — one always empties the other so exactly one is submitted.
-function onCompletedByMemberSelect(userId: string | null) {
-  completedByMemberDraft.value = userId
-  if (userId !== null) completedByNameDraft.value = ''
-}
-
-watch(completedByNameDraft, (value) => {
-  if (value.trim() !== '') completedByMemberDraft.value = null
-})
-
-// The current attribution resolved for display: a member's email (best-effort
-// — null if the member is no longer in the fetched list), else the free-text
-// name. `completedByLabel` is null only when the task has no attribution set.
-const completedByLabel = computed(() => {
-  const current = task.value
-  if (!current) return null
-  if (current.completed_by !== null) {
+// One completer resolved to a display label: a member's email (best-effort —
+// "unknown member" if the id is no longer in the fetched list), else the
+// free-text name.
+function completerLabel(completer: TaskCompleter): string {
+  if (completer.user_id !== null) {
     return (
-      members.value.find((m) => m.user_id === current.completed_by)?.email ??
+      members.value.find((m) => m.user_id === completer.user_id)?.email ??
       'unknown member'
     )
   }
-  return current.completed_by_name
+  return completer.completer_name ?? ''
+}
+
+// The full attribution as a comma-joined label for the pill; null when the task
+// has no completers set.
+const completedByLabel = computed(() => {
+  const completers = task.value?.completers ?? []
+  if (completers.length === 0) return null
+  return completers.map(completerLabel).join(', ')
 })
 
+// Save/Clear go straight through `setTaskCompleters` (not `updateTask`) — the
+// completer set is its own table, edited independently of the task's fields.
+async function saveCompleters(completers: TaskCompleter[]): Promise<void> {
+  const current = task.value
+  if (!current) return
+  fieldSaving.value = 'completedBy'
+  fieldSaveError.value = null
+  try {
+    await setTaskCompleters(useSupabaseClient(), {
+      taskId: current.id,
+      completers,
+    })
+    await fetchTask()
+    completedByMenu.value = false
+  } catch (error) {
+    fieldSaveError.value =
+      error instanceof Error ? error.message : 'Failed to save change'
+  } finally {
+    fieldSaving.value = null
+  }
+}
+
 async function onCompletedBySave() {
-  const member = completedByMemberDraft.value
-  const name = completedByNameDraft.value.trim()
-  const patch = member
-    ? { completedBy: member, completedByName: null }
-    : { completedBy: null, completedByName: name || null }
-  if (await saveTaskField('completedBy', patch)) completedByMenu.value = false
+  const names = [
+    ...new Set(
+      completedByNamesDraft.value.map((name) => name.trim()).filter(Boolean),
+    ),
+  ]
+  const completers: TaskCompleter[] = [
+    ...completedByMemberDraft.value.map((userId) => ({
+      user_id: userId,
+      completer_name: null,
+    })),
+    ...names.map((name) => ({ user_id: null, completer_name: name })),
+  ]
+  await saveCompleters(completers)
 }
 
 async function onCompletedByClear() {
-  if (
-    await saveTaskField('completedBy', {
-      completedBy: null,
-      completedByName: null,
-    })
-  )
-    completedByMenu.value = false
+  await saveCompleters([])
 }
 
 // --- Completed at (date/time) — only surfaced when the task is done ---
@@ -529,7 +548,7 @@ async function performDelete() {
     await navigateTo('/tasks')
   } catch (error) {
     deleteError.value =
-      error instanceof Error ? error.message : 'Failed to delete task'
+      error instanceof Error ? error.message : 'Failed to delete chore'
   } finally {
     deleting.value = false
   }
@@ -576,8 +595,8 @@ function eventLabel(entry: ActivityEntry): string {
     const label = (d: unknown) => (d == null ? 'none' : String(d))
     return `Due date changed: ${label(entry.event_detail.old_due_date)} → ${label(entry.event_detail.new_due_date)}`
   }
-  if (entry.event_type === 'task_created') return 'Task created'
-  if (entry.event_type === 'task_deleted') return 'Task deleted'
+  if (entry.event_type === 'task_created') return 'Chore created'
+  if (entry.event_type === 'task_deleted') return 'Chore deleted'
   return entry.event_type
 }
 
@@ -611,7 +630,7 @@ const taskLocation = computed(() =>
         v-if="taskError"
         type="error"
         variant="tonal"
-        title="Couldn't load task"
+        title="Couldn't load chore"
         class="mb-4"
       >
         {{ taskError }} — try reloading; if this persists, the database may not
@@ -628,10 +647,10 @@ const taskLocation = computed(() =>
       >
         <v-icon icon="mdi-clipboard-alert-outline" size="64" class="mb-4" />
         <p class="text-body-1 mb-4">
-          Task not found. It may have been deleted, or the link may be out of
+          Chore not found. It may have been deleted, or the link may be out of
           date.
         </p>
-        <v-btn color="primary" to="/tasks">Back to tasks</v-btn>
+        <v-btn color="primary" to="/tasks">Back to chores</v-btn>
       </div>
 
       <template v-else-if="task">
@@ -641,7 +660,7 @@ const taskLocation = computed(() =>
           :timeout="8000"
           @update:model-value="(v: boolean) => !v && (photoWarningCount = null)"
         >
-          Task created, but {{ photoWarningCount }} photo(s) failed to upload —
+          Chore created, but {{ photoWarningCount }} photo(s) failed to upload —
           add them again from the Photos section below.
         </v-snackbar>
 
@@ -734,6 +753,7 @@ const taskLocation = computed(() =>
                   ).deleted,
                 }"
               >
+                {{ categoryDisplay(task.category_id).emoji }}
                 {{ categoryDisplay(task.category_id).text }}
                 <v-icon icon="mdi-menu-down" size="16" />
               </button>
@@ -862,7 +882,7 @@ const taskLocation = computed(() =>
         </v-alert>
 
         <div class="cc-eyebrow mb-2">Status</div>
-        <div class="cc-segmented mb-6" role="group" aria-label="Task status">
+        <div class="cc-segmented mb-6" role="group" aria-label="Chore status">
           <button
             v-for="item in statusItems"
             :key="item.value"
@@ -927,27 +947,33 @@ const taskLocation = computed(() =>
                 />
               </button>
             </template>
-            <v-card min-width="300">
+            <v-card min-width="320">
               <v-card-text>
                 <v-select
-                  :model-value="completedByMemberDraft"
+                  v-model="completedByMemberDraft"
                   :items="memberItems"
                   item-title="title"
                   item-value="value"
-                  label="Farm member"
+                  label="Farm members"
+                  multiple
+                  chips
+                  closable-chips
                   density="comfortable"
                   variant="outlined"
                   hide-details
-                  @update:model-value="onCompletedByMemberSelect"
                 />
-                <div class="text-caption text-medium-emphasis my-2">or</div>
-                <v-text-field
-                  v-model="completedByNameDraft"
-                  label="Someone else (name)"
+                <div class="text-caption text-medium-emphasis my-2">
+                  and/or others (type a name, press enter)
+                </div>
+                <v-combobox
+                  v-model="completedByNamesDraft"
+                  label="Other names"
+                  multiple
+                  chips
+                  closable-chips
                   density="comfortable"
                   variant="outlined"
                   hide-details
-                  @keydown.enter="onCompletedBySave"
                 />
               </v-card-text>
               <v-card-actions>
@@ -1270,13 +1296,13 @@ const taskLocation = computed(() =>
             @click="confirmingDelete = true"
           >
             <v-icon icon="mdi-delete-outline" size="18" />
-            Delete task
+            Delete chore
           </button>
         </div>
 
         <v-dialog v-model="confirmingDelete" max-width="420" persistent>
           <v-card>
-            <v-card-title>Delete task?</v-card-title>
+            <v-card-title>Delete chore?</v-card-title>
             <v-card-text>
               Delete "{{ task.title }}"? This can't be undone.
               <v-alert
