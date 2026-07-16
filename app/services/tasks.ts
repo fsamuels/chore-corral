@@ -6,6 +6,11 @@ import {
   listTagsForTasks,
   type TagSummary,
 } from './tags'
+import {
+  setTaskCompleters,
+  listCompletersForTasks,
+  type TaskCompleter,
+} from './completers'
 
 export type TaskPriority = Database['public']['Enums']['task_priority']
 export type TaskStatus = Database['public']['Enums']['task_status']
@@ -23,15 +28,14 @@ export interface TaskSummary {
   location_id: string | null
   created_at: string
   completed_at: string | null
-  completed_by: string | null
-  completed_by_name: string | null
   estimated_minutes: number | null
   tags: TagSummary[]
+  completers: TaskCompleter[]
   photo_count: number
 }
 
 const TASK_COLUMNS =
-  'id, title, category_id, priority, status, due_date, notes, lat, lng, location_id, created_at, completed_at, completed_by, completed_by_name, estimated_minutes'
+  'id, title, category_id, priority, status, due_date, notes, lat, lng, location_id, created_at, completed_at, estimated_minutes'
 
 // listTasks alone embeds the photo count (a `task_photos(count)` relation),
 // since it's the only read path that needs it for the home-screen list;
@@ -264,24 +268,6 @@ export function assertLocationXorPin(
 }
 
 /**
- * A task is credited to EITHER a completing member (`completed_by`) OR a
- * free-text name (`completed_by_name`), never both — the app-layer complement
- * to the DB check constraint `tasks_completed_by_xor_name`. The UI only ever
- * sends one with the other nulled; this is the defensive backstop so a caller
- * can't set both and trip the constraint with an opaque Postgres error.
- */
-export function assertCompletedByXorName(
-  completedBy: string | null,
-  completedByName: string | null,
-): void {
-  if (completedBy !== null && completedByName !== null) {
-    throw new Error(
-      'A chore has either a completing member or a free-text name, not both',
-    )
-  }
-}
-
-/**
  * Validate a manually-edited completion timestamp: null is always valid (a
  * task that isn't done has none), and a set value must parse as a real
  * instant — `Date.parse` rejects malformed strings before they reach an
@@ -343,13 +329,13 @@ export async function listTasks(
   if (error) throw new Error(error.message)
   const sorted = data.sort(compareTasks)
 
-  const tagsByTaskId = await listTagsForTasks(
-    supabase,
-    sorted.map((task) => task.id),
-  )
+  const taskIds = sorted.map((task) => task.id)
+  const tagsByTaskId = await listTagsForTasks(supabase, taskIds)
+  const completersByTaskId = await listCompletersForTasks(supabase, taskIds)
   return sorted.map((task) => ({
     ...task,
     tags: tagsByTaskId.get(task.id) ?? [],
+    completers: completersByTaskId.get(task.id) ?? [],
     photo_count: extractPhotoCount(task),
   }))
 }
@@ -373,9 +359,11 @@ export async function getTask(
   if (!task) return null
 
   const tagsByTaskId = await listTagsForTasks(supabase, [task.id])
+  const completersByTaskId = await listCompletersForTasks(supabase, [task.id])
   return {
     ...task,
     tags: tagsByTaskId.get(task.id) ?? [],
+    completers: completersByTaskId.get(task.id) ?? [],
     photo_count: extractPhotoCount(task),
   }
 }
@@ -453,8 +441,6 @@ export async function createTask(
       estimated_minutes: input.estimatedMinutes ?? null,
       created_by: input.actorUserId,
       completed_at: null,
-      completed_by: null,
-      completed_by_name: null,
     })
     .select(TASK_COLUMNS)
     .single()
@@ -472,8 +458,9 @@ export async function createTask(
   })
 
   // A just-created task has no task_photos rows yet, so 0 is exact, not a
-  // placeholder — no need to query the embed for a fresh insert.
-  return { ...data, tags: sortTagsByName(tags), photo_count: 0 }
+  // placeholder — no need to query the embed for a fresh insert. It has no
+  // completers either (attribution is only added on the move to done).
+  return { ...data, tags: sortTagsByName(tags), completers: [], photo_count: 0 }
 }
 
 export interface UpdateTaskInput {
@@ -489,8 +476,6 @@ export interface UpdateTaskInput {
   locationId: string | null
   estimatedMinutes: number | null
   completedAt: string | null
-  completedBy: string | null
-  completedByName: string | null
   actorUserId: string
   tagNames: string[]
 }
@@ -505,6 +490,10 @@ export interface UpdateTaskInput {
  * (see DECISIONS.md). The two exceptions are priority and due date: a change
  * to either logs a `task_priority_changed` / `task_due_date_changed` event
  * with the old/new pair, read-before-write to capture the prior value.
+ *
+ * Completion attribution is deliberately not edited here — the completer set
+ * lives in `task_completers` and is replaced via `setTaskCompleters`, not this
+ * full-field write. `completed_at` (a plain column) stays editable here.
  */
 export async function updateTask(
   supabase: Client,
@@ -515,7 +504,6 @@ export async function updateTask(
   assertValidLocation(input.lat, input.lng)
   assertLocationXorPin(input.locationId ?? null, input.lat, input.lng)
   assertValidEstimatedMinutes(input.estimatedMinutes)
-  assertCompletedByXorName(input.completedBy, input.completedByName)
   assertValidCompletedAt(input.completedAt)
 
   const { data: current, error: readError } = await supabase
@@ -543,8 +531,6 @@ export async function updateTask(
       location_id: input.locationId ?? null,
       estimated_minutes: input.estimatedMinutes,
       completed_at: input.completedAt,
-      completed_by: input.completedBy,
-      completed_by_name: input.completedByName,
     })
     .eq('id', input.taskId)
     .eq('farm_id', input.farmId)
@@ -575,17 +561,27 @@ export async function updateTask(
     tagIds: tags.map((tag) => tag.id),
   })
 
-  return { ...task, tags: sortTagsByName(tags), photo_count: photoCount }
+  // Completers aren't touched by a field edit — carry the task's current set
+  // through so the returned summary is complete.
+  const completersByTask = await listCompletersForTasks(supabase, [task.id])
+  return {
+    ...task,
+    tags: sortTagsByName(tags),
+    completers: completersByTask.get(task.id) ?? [],
+    photo_count: photoCount,
+  }
 }
 
 /**
- * Transition a task's status, keeping `completed_at` and the completion
- * attribution consistent: on the move to done, `completed_at` is set and
- * `completed_by` credited to the actor; on the move out of done both clear
- * (SPEC: no record of prior completion survives a reopen). `completed_by_name`
- * (the free-text fallback) is always cleared on a status change — the actor
- * auto-fill wins. Logs `task_status_changed` with the old/new pair; a no-op
- * transition (same status) skips both the write and the log entry.
+ * Transition a task's status, keeping `completed_at` and the completer set
+ * consistent: on the move to done, `completed_at` is set and — only if the task
+ * has no completers yet — the acting member is added as a completer; on any
+ * move to a non-done status `completed_at` clears and the whole completer set is
+ * deleted (SPEC: no record of prior completion survives a reopen). The
+ * "only if empty" rule means a task whose completers were edited by hand before
+ * being marked done keeps that set rather than having the actor bolted on. Logs
+ * `task_status_changed` with the old/new pair; a no-op transition (same status)
+ * skips the write, the log entry, and the completer changes.
  */
 export async function changeTaskStatus(
   supabase: Client,
@@ -613,7 +609,11 @@ export async function changeTaskStatus(
     (await listTagsForTasks(supabase, [opts.taskId])).get(opts.taskId) ?? []
 
   if (before.status === opts.status) {
-    return { ...before, tags, photo_count: photoCount }
+    const completers =
+      (await listCompletersForTasks(supabase, [opts.taskId])).get(
+        opts.taskId,
+      ) ?? []
+    return { ...before, tags, completers, photo_count: photoCount }
   }
 
   const { data, error } = await supabase
@@ -621,8 +621,6 @@ export async function changeTaskStatus(
     .update({
       status: opts.status,
       completed_at: opts.status === 'done' ? new Date().toISOString() : null,
-      completed_by: opts.status === 'done' ? opts.actorUserId : null,
-      completed_by_name: null,
     })
     .eq('id', opts.taskId)
     .eq('farm_id', opts.farmId)
@@ -631,11 +629,36 @@ export async function changeTaskStatus(
   const task = data[0]
   if (!task) throw new Error('Chore not found')
 
+  // Keep the completer set in step with the transition. Into done: credit the
+  // actor, but only when nobody's credited yet (a hand-edited set wins). Out of
+  // done (any non-done target): clear the whole set.
+  if (opts.status === 'done') {
+    const existing =
+      (await listCompletersForTasks(supabase, [opts.taskId])).get(
+        opts.taskId,
+      ) ?? []
+    if (existing.length === 0) {
+      await setTaskCompleters(supabase, {
+        taskId: opts.taskId,
+        completers: [{ user_id: opts.actorUserId, completer_name: null }],
+      })
+    }
+  } else {
+    await setTaskCompleters(supabase, {
+      taskId: opts.taskId,
+      completers: [],
+    })
+  }
+
   await logTaskEvent(supabase, 'task_status_changed', task, opts, {
     old_status: before.status,
     new_status: task.status,
   })
-  return { ...task, tags, photo_count: photoCount }
+
+  const completers =
+    (await listCompletersForTasks(supabase, [opts.taskId])).get(opts.taskId) ??
+    []
+  return { ...task, tags, completers, photo_count: photoCount }
 }
 
 /**

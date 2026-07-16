@@ -159,8 +159,6 @@ export interface Database {
           created_at: string
           created_by: string
           completed_at: string | null
-          completed_by: string | null
-          completed_by_name: string | null
           estimated_minutes: number | null
         }
         Insert: {
@@ -178,8 +176,6 @@ export interface Database {
           created_at?: string
           created_by: string
           completed_at?: string | null
-          completed_by?: string | null
-          completed_by_name?: string | null
           estimated_minutes?: number | null
         }
         Update: {
@@ -197,8 +193,6 @@ export interface Database {
           created_at?: string
           created_by?: string
           completed_at?: string | null
-          completed_by?: string | null
-          completed_by_name?: string | null
           estimated_minutes?: number | null
         }
         Relationships: [
@@ -280,6 +274,35 @@ export interface Database {
             columns: ['tag_id']
             isOneToOne: false
             referencedRelation: 'tags'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      task_completers: {
+        Row: {
+          id: string
+          task_id: string
+          user_id: string | null
+          completer_name: string | null
+        }
+        Insert: {
+          id?: string
+          task_id: string
+          user_id?: string | null
+          completer_name?: string | null
+        }
+        Update: {
+          id?: string
+          task_id?: string
+          user_id?: string | null
+          completer_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'task_completers_task_id_fkey'
+            columns: ['task_id']
+            isOneToOne: false
+            referencedRelation: 'tasks'
             referencedColumns: ['id']
           },
         ]
