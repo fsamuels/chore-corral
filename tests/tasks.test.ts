@@ -140,7 +140,7 @@ describe('createTask', () => {
         priority: 'soon',
         actorUserId: ACTOR,
       }),
-    ).rejects.toThrow('Task title is required')
+    ).rejects.toThrow('Chore title is required')
 
     expect(fake.getTable('tasks')).toHaveLength(0)
     expect(fake.getTable('activity_log')).toHaveLength(0)
@@ -594,7 +594,7 @@ describe('changeTaskStatus', () => {
     expect(fake.getTable('activity_log')).toHaveLength(0)
   })
 
-  it('throws Task not found when the task belongs to a different farm, writing no log entry', async () => {
+  it('throws Chore not found when the chore belongs to a different farm, writing no log entry', async () => {
     const fake = new FakeSupabaseClient({
       tasks: [task({ id: 'task-1', farm_id: FARM_B, status: 'not_started' })],
       activity_log: [],
@@ -608,7 +608,7 @@ describe('changeTaskStatus', () => {
         status: 'done',
         actorUserId: ACTOR,
       }),
-    ).rejects.toThrow('Task not found')
+    ).rejects.toThrow('Chore not found')
 
     expect(fake.getTable('activity_log')).toHaveLength(0)
   })
@@ -834,10 +834,10 @@ describe('updateTask', () => {
         actorUserId: ACTOR,
         tagNames: [],
       }),
-    ).rejects.toThrow('Task title is required')
+    ).rejects.toThrow('Chore title is required')
   })
 
-  it('throws Task not found for a wrong-farm task id', async () => {
+  it('throws Chore not found for a wrong-farm task id', async () => {
     const fake = new FakeSupabaseClient({
       tasks: [task({ id: 'task-1', farm_id: FARM_B })],
       activity_log: [],
@@ -860,7 +860,7 @@ describe('updateTask', () => {
         actorUserId: ACTOR,
         tagNames: [],
       }),
-    ).rejects.toThrow('Task not found')
+    ).rejects.toThrow('Chore not found')
   })
 
   it("replaces a task's tags, adding, removing, and changing the set", async () => {
@@ -1142,7 +1142,7 @@ describe('deleteTask', () => {
     })
   })
 
-  it('throws Task not found for a missing or wrong-farm task, writing no log entry', async () => {
+  it('throws Chore not found for a missing or wrong-farm task, writing no log entry', async () => {
     const fake = new FakeSupabaseClient({
       tasks: [task({ id: 'task-1', farm_id: FARM_B })],
       activity_log: [],
@@ -1155,7 +1155,7 @@ describe('deleteTask', () => {
         taskId: 'task-1',
         actorUserId: ACTOR,
       }),
-    ).rejects.toThrow('Task not found')
+    ).rejects.toThrow('Chore not found')
 
     expect(fake.getTable('tasks')).toHaveLength(1)
     expect(fake.getTable('activity_log')).toHaveLength(0)

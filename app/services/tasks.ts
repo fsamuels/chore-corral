@@ -262,7 +262,7 @@ export function assertLocationXorPin(
 ): void {
   if (locationId !== null && (lat !== null || lng !== null)) {
     throw new Error(
-      'A task has either a defined location or a map pin, not both',
+      'A chore has either a defined location or a map pin, not both',
     )
   }
 }
@@ -414,7 +414,7 @@ export async function createTask(
   input: CreateTaskInput,
 ): Promise<TaskSummary> {
   const title = input.title.trim()
-  if (!title) throw new Error('Task title is required')
+  if (!title) throw new Error('Chore title is required')
   assertValidLocation(input.lat ?? null, input.lng ?? null)
   assertLocationXorPin(
     input.locationId ?? null,
@@ -500,7 +500,7 @@ export async function updateTask(
   input: UpdateTaskInput,
 ): Promise<TaskSummary> {
   const title = input.title.trim()
-  if (!title) throw new Error('Task title is required')
+  if (!title) throw new Error('Chore title is required')
   assertValidLocation(input.lat, input.lng)
   assertLocationXorPin(input.locationId ?? null, input.lat, input.lng)
   assertValidEstimatedMinutes(input.estimatedMinutes)
@@ -513,7 +513,7 @@ export async function updateTask(
     .eq('farm_id', input.farmId)
   if (readError) throw new Error(readError.message)
   const before = current[0]
-  if (!before) throw new Error('Task not found')
+  if (!before) throw new Error('Chore not found')
   // Field edits never touch task_photos — carry the pre-update count through
   // rather than re-querying the embed after the update below.
   const photoCount = extractPhotoCount(before)
@@ -537,7 +537,7 @@ export async function updateTask(
     .select(TASK_COLUMNS)
   if (error) throw new Error(error.message)
   const task = data[0]
-  if (!task) throw new Error('Task not found')
+  if (!task) throw new Error('Chore not found')
 
   if (before.priority !== task.priority) {
     await logTaskEvent(supabase, 'task_priority_changed', task, input, {
@@ -599,7 +599,7 @@ export async function changeTaskStatus(
     .eq('farm_id', opts.farmId)
   if (readError) throw new Error(readError.message)
   const before = current[0]
-  if (!before) throw new Error('Task not found')
+  if (!before) throw new Error('Chore not found')
   // Status changes don't touch task_photos — carry the count through as-is.
   const photoCount = extractPhotoCount(before)
 
@@ -627,7 +627,7 @@ export async function changeTaskStatus(
     .select(TASK_COLUMNS)
   if (error) throw new Error(error.message)
   const task = data[0]
-  if (!task) throw new Error('Task not found')
+  if (!task) throw new Error('Chore not found')
 
   // Keep the completer set in step with the transition. Into done: credit the
   // actor, but only when nobody's credited yet (a hand-edited set wins). Out of
@@ -678,7 +678,7 @@ export async function deleteTask(
     .select('id, title')
   if (error) throw new Error(error.message)
   const task = data[0]
-  if (!task) throw new Error('Task not found')
+  if (!task) throw new Error('Chore not found')
 
   await logTaskEvent(supabase, 'task_deleted', task, opts)
 }

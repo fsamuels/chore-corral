@@ -40,12 +40,12 @@ export function assertValidCompleters(completers: TaskCompleter[]): void {
     }
     if (hasUser) {
       if (seenUsers.has(completer.user_id!)) {
-        throw new Error('A task cannot list the same completer twice')
+        throw new Error('A chore cannot list the same completer twice')
       }
       seenUsers.add(completer.user_id!)
     } else {
       if (seenNames.has(completer.completer_name!)) {
-        throw new Error('A task cannot list the same completer twice')
+        throw new Error('A chore cannot list the same completer twice')
       }
       seenNames.add(completer.completer_name!)
     }

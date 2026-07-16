@@ -318,7 +318,7 @@ async function performDeleteEntry(): Promise<void> {
               width="2"
             />
             <v-icon v-else icon="mdi-check-circle-outline" size="20" />
-            Complete task
+            Complete chore
           </button>
         </template>
         <button
@@ -499,7 +499,7 @@ async function performDeleteEntry(): Promise<void> {
       v-if="runningElsewhere"
       class="text-caption text-medium-emphasis mt-1 mb-0"
     >
-      You have a timer running on another task — starting here will stop it.
+      You have a timer running on another chore — starting here will stop it.
     </p>
   </div>
 </template>

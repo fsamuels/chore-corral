@@ -15,7 +15,7 @@ async function selectFarm(farmId: string) {
   <v-container max-width="600">
     <h1 class="text-h4 mb-1">Change farm</h1>
     <p class="text-body-2 text-medium-emphasis mb-4">
-      Everything in the app — tasks, categories, the map — is scoped to the
+      Everything in the app — chores, categories, the map — is scoped to the
       selected farm.
     </p>
 

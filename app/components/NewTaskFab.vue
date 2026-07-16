@@ -63,11 +63,11 @@ watch(
       'new-task-fab--collapsed': collapsed,
       'new-task-fab--lifted': lifted,
     }"
-    aria-label="New task"
-    title="New task"
+    aria-label="New chore"
+    title="New chore"
   >
     <v-icon icon="mdi-plus" size="32" />
-    <span class="new-task-fab__label">New task</span>
+    <span class="new-task-fab__label">New chore</span>
   </NuxtLink>
 </template>
 

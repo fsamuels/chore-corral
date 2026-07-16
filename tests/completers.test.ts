@@ -61,7 +61,7 @@ describe('assertValidCompleters', () => {
         { user_id: ACTOR, completer_name: null },
         { user_id: ACTOR, completer_name: null },
       ]),
-    ).toThrow('A task cannot list the same completer twice')
+    ).toThrow('A chore cannot list the same completer twice')
   })
 
   it('rejects a duplicate free-text name', () => {
@@ -70,7 +70,7 @@ describe('assertValidCompleters', () => {
         { user_id: null, completer_name: 'Kaleb' },
         { user_id: null, completer_name: 'Kaleb' },
       ]),
-    ).toThrow('A task cannot list the same completer twice')
+    ).toThrow('A chore cannot list the same completer twice')
   })
 })
 
@@ -184,7 +184,7 @@ describe('setTaskCompleters', () => {
           { user_id: ACTOR, completer_name: null },
         ],
       }),
-    ).rejects.toThrow('A task cannot list the same completer twice')
+    ).rejects.toThrow('A chore cannot list the same completer twice')
 
     expect(fake.getTable('task_completers')).toHaveLength(0)
   })
