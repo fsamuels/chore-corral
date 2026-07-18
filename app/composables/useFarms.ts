@@ -27,6 +27,10 @@ export function useFarms() {
     default: () => null,
     maxAge: ACTIVE_FARM_COOKIE_MAX_AGE,
   })
+  // Whether this session has already swept pending invites (see
+  // membership.global.ts). Lives here so resetFarms() clears it on sign-out
+  // and the next account's session gets its own sweep.
+  const invitesChecked = useState<boolean>('invites-checked', () => false)
 
   async function fetchFarms(): Promise<FarmSummary[] | null> {
     if (farms.value !== null) return farms.value
@@ -71,6 +75,19 @@ export function useFarms() {
     farmsError.value = null
     mostRecentFarmId.value = null
     activeFarmCookie.value = null
+    invitesChecked.value = false
+  }
+
+  /**
+   * Drop the cached farm list and refetch — for after the membership set
+   * changes mid-session (created a farm, auto-joined via invite). Unlike
+   * resetFarms(), the saved active-farm selection is kept: if it's still a
+   * valid membership it should survive the refresh.
+   */
+  async function refreshFarms(): Promise<FarmSummary[] | null> {
+    farms.value = null
+    farmsError.value = null
+    return fetchFarms()
   }
 
   const activeFarmId = computed(() =>
@@ -92,7 +109,9 @@ export function useFarms() {
     farms,
     farmsError,
     fetchFarms,
+    refreshFarms,
     resetFarms,
+    invitesChecked,
     activeFarm,
     activeFarmId,
     setActiveFarm,

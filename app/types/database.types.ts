@@ -46,23 +46,67 @@ export interface Database {
           id: string
           farm_id: string
           user_id: string
+          role: Database['public']['Enums']['farm_role']
           created_at: string
         }
         Insert: {
           id?: string
           farm_id: string
           user_id: string
+          role?: Database['public']['Enums']['farm_role']
           created_at?: string
         }
         Update: {
           id?: string
           farm_id?: string
           user_id?: string
+          role?: Database['public']['Enums']['farm_role']
           created_at?: string
         }
         Relationships: [
           {
             foreignKeyName: 'farm_memberships_farm_id_fkey'
+            columns: ['farm_id']
+            isOneToOne: false
+            referencedRelation: 'farms'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      farm_invites: {
+        Row: {
+          id: string
+          farm_id: string
+          email: string
+          role: Database['public']['Enums']['farm_role']
+          invited_by: string
+          created_at: string
+          accepted_at: string | null
+          accepted_by: string | null
+        }
+        Insert: {
+          id?: string
+          farm_id: string
+          email: string
+          role?: Database['public']['Enums']['farm_role']
+          invited_by: string
+          created_at?: string
+          accepted_at?: string | null
+          accepted_by?: string | null
+        }
+        Update: {
+          id?: string
+          farm_id?: string
+          email?: string
+          role?: Database['public']['Enums']['farm_role']
+          invited_by?: string
+          created_at?: string
+          accepted_at?: string | null
+          accepted_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'farm_invites_farm_id_fkey'
             columns: ['farm_id']
             isOneToOne: false
             referencedRelation: 'farms'
@@ -483,6 +527,7 @@ export interface Database {
           farm_id: string
           user_id: string
           email: string | null
+          role: Database['public']['Enums']['farm_role']
         }
         Relationships: []
       }
@@ -494,8 +539,18 @@ export interface Database {
         Relationships: []
       }
     }
-    Functions: Record<string, never>
+    Functions: {
+      accept_farm_invites: {
+        Args: Record<string, never>
+        Returns: string[]
+      }
+      create_farm: {
+        Args: { farm_name: string; farm_address?: string | null }
+        Returns: string
+      }
+    }
     Enums: {
+      farm_role: 'owner' | 'member'
       task_priority: 'whenever' | 'soon' | 'urgent'
       task_status: 'not_started' | 'in_progress' | 'done'
     }

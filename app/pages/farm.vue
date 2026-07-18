@@ -1,6 +1,16 @@
 <script setup lang="ts">
-const { farms, farmsError, fetchFarms, activeFarmId, setActiveFarm } =
-  useFarms()
+import type { Database } from '~/types/database.types'
+import { createFarm, FARM_NAME_MAX_LENGTH } from '~/services/farms'
+
+const supabase = useSupabaseClient<Database>()
+const {
+  farms,
+  farmsError,
+  fetchFarms,
+  refreshFarms,
+  activeFarmId,
+  setActiveFarm,
+} = useFarms()
 
 await fetchFarms()
 
@@ -8,6 +18,28 @@ async function selectFarm(farmId: string) {
   if (farmId === activeFarmId.value) return
   setActiveFarm(farmId)
   await navigateTo('/')
+}
+
+const showNewFarmForm = ref(false)
+const newFarmName = ref('')
+const creating = ref(false)
+const createError = ref<string | null>(null)
+
+async function createNewFarm() {
+  if (creating.value) return
+  creating.value = true
+  createError.value = null
+  try {
+    const farmId = await createFarm(supabase, newFarmName.value)
+    setActiveFarm(farmId)
+    await refreshFarms()
+    await navigateTo('/')
+  } catch (error) {
+    createError.value =
+      error instanceof Error ? error.message : 'Something went wrong.'
+  } finally {
+    creating.value = false
+  }
 }
 </script>
 
@@ -54,6 +86,47 @@ async function selectFarm(farmId: string) {
       >
         You belong to one farm, so there's nothing to switch — you're all set.
       </p>
+    </div>
+
+    <div class="mt-6">
+      <v-btn
+        v-if="!showNewFarmForm"
+        variant="tonal"
+        color="primary"
+        prepend-icon="mdi-plus"
+        @click="showNewFarmForm = true"
+      >
+        New farm
+      </v-btn>
+
+      <template v-else>
+        <h2 class="text-h6 mb-2">New farm</h2>
+        <v-alert v-if="createError" type="error" variant="tonal" class="mb-3">
+          {{ createError }}
+        </v-alert>
+        <v-form class="d-flex ga-2" @submit.prevent="createNewFarm">
+          <v-text-field
+            v-model="newFarmName"
+            label="Farm name"
+            density="comfortable"
+            :maxlength="FARM_NAME_MAX_LENGTH"
+            hide-details
+            autofocus
+          />
+          <v-btn
+            type="submit"
+            color="primary"
+            height="48"
+            :loading="creating"
+            :disabled="newFarmName.trim().length === 0"
+          >
+            Create
+          </v-btn>
+        </v-form>
+        <p class="text-body-2 text-medium-emphasis mt-2 mb-0">
+          You'll be the new farm's owner, and it becomes your active farm.
+        </p>
+      </template>
     </div>
   </v-container>
 </template>

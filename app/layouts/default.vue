@@ -78,6 +78,12 @@ async function signOut() {
         />
         <v-divider class="my-1" />
         <v-list-item
+          title="Farm members"
+          prepend-icon="mdi-account-multiple-outline"
+          to="/members"
+          @click="drawer = false"
+        />
+        <v-list-item
           title="Change farm"
           prepend-icon="mdi-barn"
           to="/farm"
