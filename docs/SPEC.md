@@ -10,8 +10,7 @@ Chore Corral is a mobile-first web app for tracking maintenance and upkeep tasks
 - Spray-compliance / audit reporting
 - Recurring/repeating tasks
 - Named/saved locations (freeform pins only for now)
-- Role-based permissions (all farm members have equal access)
-- In-app farm invite flow (farm membership is provisioned manually via database)
+- Fine-grained role-based permissions on tasks (the owner/member distinction gates invite management only — see Farm Membership below; every member still has equal, full task-level access)
 - Offline support
 - PWA install-to-homescreen
 - Multiple location pins per task (single pin only for MVP)
@@ -28,7 +27,7 @@ The top-level tenant boundary. Each farm is a separate property/workspace.
 - **Default map center** — lat/lng, manually set at farm creation for MVP (future: derived from address via geocoding, or user-dropped pin)
 - Farms can be **orphaned** (all members leave) — this is an explicit non-goal; no cleanup logic is built for MVP.
 
-For MVP, farms are created directly in the database (no in-app farm-creation flow). The first two farms are:
+Any authenticated user can create a farm — via the `/welcome` page (shown to a signed-in user with no farm) or the "New farm" form on `/farm` — and becomes its owner. The first two farms were created directly in the database, before self-serve creation existed:
 
 1. **Reign Cloud Ranch** (production/primary)
 2. **Clarkson's Farm** (testing/feature review)
@@ -39,8 +38,9 @@ Many-to-many relationship between users and farms.
 
 - A user can belong to multiple farms.
 - A farm can have multiple users.
-- No roles for MVP — every member has full access (create, edit, complete, delete any task).
-- Membership is provisioned manually via the database for MVP (no invite flow).
+- Every member has full task-level access (create, edit, complete, delete any task) regardless of role.
+- Each membership carries a role, **owner** or **member**, that gates one thing only: invite management (see below). Creating a farm makes you its owner; every other membership starts as a member.
+- Membership is granted by creating a farm, or by accepting an invite: a farm owner records an invitee's email address (from the Farm members page), and whoever next signs in with Google using that exact address is automatically added as a member — no email is sent, and there's no other in-app way to add someone to a farm.
 
 ### Task
 
@@ -240,16 +240,16 @@ Each task's activity history is shown in-app, on that task's View page (see belo
 
 ## Authentication
 
-- **OAuth via Google** (through Supabase Auth).
-- **Invite-only, no public signup** — there is no self-service account creation.
-- **Unrecognized logins are blocked.** If a user authenticates via Google but is not a member of any farm, they see a clear error message explaining the situation and how to resolve it (e.g. "Your account isn't linked to any farm yet — contact [owner] to be added.") rather than a generic failure or blank state.
+- **OAuth via Google** (through Supabase Auth) — the only sign-in method; other providers remain future work.
+- **Self-serve signup.** Any Google account can sign in; there's no separate account-creation step or allow-list. A user who isn't yet a member of any farm lands on `/welcome`, where they can create their own farm (becoming its owner) or wait to be invited — their signed-in email is shown so they can share it with a farm owner.
+- **Invited users auto-join.** A farm owner can pre-authorize an email address (see Farm Membership above); once that address signs in with Google, the app joins them to the farm automatically, with no separate acceptance step.
 
 ## Multi-Tenancy Model
 
 - **Farm** is the top-level tenant boundary.
 - All farm-scoped data (tasks, categories, tags) is isolated per farm via Postgres Row Level Security (RLS), enforced at the database level.
 - A user's access to a farm's data is determined by farm membership (many-to-many).
-- No roles/permissions tiering for MVP — every member of a farm has equal, full access to that farm's data.
+- Membership carries an owner/member role, but it gates invite management only (see Farm Membership above) — every member of a farm has equal, full access to that farm's data.
 
 ## Deferred / Future Features
 
@@ -258,8 +258,8 @@ See ROADMAP.md for the full list and rough sequencing. Referenced here for compl
 - Named/saved locations, evolving into boundary polygons (PostGIS)
 - Multiple location pins per task
 - Recurring/repeating tasks
-- Roles and permissions within a farm
-- In-app farm invite flow
+- Finer-grained roles and permissions within a farm (owner/member currently gates invite management only)
+- Other OAuth providers (Google remains the only sign-in method)
 - Pasture maintenance tracking module (separate data model — see ROADMAP.md)
 - Offline support
 - PWA install-to-homescreen
