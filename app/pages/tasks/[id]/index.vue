@@ -422,6 +422,7 @@ const memberItems = computed(() =>
   members.value.map((member) => ({
     title: memberLabels.value.get(member.user_id) ?? member.user_id,
     value: member.user_id,
+    avatarUrl: member.avatar_url,
   })),
 )
 
@@ -964,7 +965,31 @@ const taskLocation = computed(() =>
                   density="comfortable"
                   variant="outlined"
                   hide-details
-                />
+                >
+                  <template #item="{ props: itemProps, item }">
+                    <v-list-item v-bind="itemProps">
+                      <template #prepend>
+                        <MemberAvatar
+                          :src="item.avatarUrl"
+                          :size="28"
+                          class="mr-3"
+                        />
+                      </template>
+                    </v-list-item>
+                  </template>
+                  <template #chip="{ props: chipProps, item }">
+                    <v-chip v-bind="chipProps">
+                      <template #prepend>
+                        <MemberAvatar
+                          :src="item.avatarUrl"
+                          :size="20"
+                          class="mr-1"
+                        />
+                      </template>
+                      {{ item.title }}
+                    </v-chip>
+                  </template>
+                </v-select>
                 <div class="text-caption text-medium-emphasis my-2">
                   and/or others (type a name, press enter)
                 </div>

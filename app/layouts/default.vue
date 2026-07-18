@@ -35,6 +35,14 @@ const farmName = computed(() => activeFarm.value?.name ?? 'Chore Corral')
 
 const drawer = ref(false)
 
+// The drawer's account header shows the signed-in user's Google profile
+// (photo + name) straight from the JWT's `user_metadata` claim — same
+// source the `farm_member_profiles` view reads for other members, no DB
+// round-trip. Email stays visible as the subtitle: it identifies *which*
+// Google account is signed in, which a bare first name can't.
+const accountName = computed(() => getUserDisplayName(user.value))
+const accountAvatarUrl = computed(() => getUserAvatarUrl(user.value))
+
 async function signOut() {
   drawer.value = false
   await supabase.auth.signOut()
@@ -48,9 +56,13 @@ async function signOut() {
     <v-navigation-drawer v-if="user" v-model="drawer" location="end" temporary>
       <v-list density="compact" nav>
         <v-list-item
-          :title="user?.email ?? 'Account'"
-          prepend-icon="mdi-account-circle"
-        />
+          :title="accountName ?? user?.email ?? 'Account'"
+          :subtitle="accountName ? (user?.email ?? undefined) : undefined"
+        >
+          <template #prepend>
+            <MemberAvatar :src="accountAvatarUrl" :size="36" class="mr-3" />
+          </template>
+        </v-list-item>
         <v-divider class="mb-1" />
         <v-list-item
           title="Chores"

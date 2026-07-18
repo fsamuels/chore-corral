@@ -122,8 +122,10 @@ async function revoke(invite: FarmInvite) {
             :subtitle="
               member.display_name ? (member.email ?? undefined) : undefined
             "
-            prepend-icon="mdi-account-circle"
           >
+            <template #prepend>
+              <MemberAvatar :src="member.avatar_url" class="mr-3" />
+            </template>
             <template #append>
               <v-chip
                 v-if="member.user_id === myUserId"

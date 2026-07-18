@@ -30,6 +30,7 @@ function profile(overrides: Partial<ProfileRow> = {}): ProfileRow {
     user_id: ACTOR,
     email: 'forrest@example.com',
     display_name: null,
+    avatar_url: null,
     ...overrides,
   }
 }
