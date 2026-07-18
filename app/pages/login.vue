@@ -55,8 +55,9 @@ async function signInWithGoogle() {
             Sign in with Google
           </v-btn>
           <p class="text-body-2 text-medium-emphasis mt-4 mb-0">
-            Access is invite-only — sign in with the Google account your farm
-            owner added.
+            Invited to a farm? Sign in with the Google account the owner invited
+            and you'll be added automatically. New here? You can create your own
+            farm after signing in.
           </p>
         </div>
       </v-col>

@@ -52,16 +52,42 @@ No `deleted_at` or soft-delete column — farm deletion/orphan handling is expli
 
 Join table for the many-to-many user↔farm relationship.
 
-| Column       | Type                                 | Notes                       |
-| ------------ | ------------------------------------ | --------------------------- |
-| `id`         | uuid, PK                             |                             |
-| `farm_id`    | uuid, FK → `farms.id`, not null      |                             |
-| `user_id`    | uuid, FK → `auth.users.id`, not null | Supabase-managed auth table |
-| `created_at` | timestamptz, default now()           |                             |
+| Column       | Type                                           | Notes                               |
+| ------------ | ---------------------------------------------- | ----------------------------------- |
+| `id`         | uuid, PK                                       |                                     |
+| `farm_id`    | uuid, FK → `farms.id`, not null                |                                     |
+| `user_id`    | uuid, FK → `auth.users.id`, not null           | Supabase-managed auth table         |
+| `role`       | `farm_role` enum, not null, default `'member'` | `'owner'` or `'member'` — see below |
+| `created_at` | timestamptz, default now()                     |                                     |
 
 Unique constraint on (`farm_id`, `user_id`) — a user can't be added to the same farm twice.
 
-No `role` column for MVP (see SPEC.md — no roles/permissions tiering). Adding a `role` column later is a straightforward additive migration when that feature is prioritized.
+`role` (migration `20260718120000_farm_invites_roles_and_signup.sql`) is a Postgres enum:
+
+```sql
+CREATE TYPE farm_role AS ENUM ('owner', 'member');
+```
+
+It gates one thing only — invite management via `farm_invites` (below); task-level access is unaffected by role and stays equal for every member (SPEC.md). Every membership row that predated this migration was backfilled to `'owner'`, since those rows were provisioned by hand and are the de facto owners of their farms. `create_farm()` grants `'owner'` to a farm's creator; `accept_farm_invites()` grants whatever role the accepted invite specifies (currently always `'member'` — see `farm_invites`).
+
+### `farm_invites`
+
+Email pre-authorization for joining a farm — no invite emails are sent. An owner records an email address; whoever next signs in with Google using that exact address is auto-joined via `accept_farm_invites()` (see Functions below).
+
+| Column        | Type                                           | Notes                                                                                                                                                                                                  |
+| ------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`          | uuid, PK                                       |                                                                                                                                                                                                        |
+| `farm_id`     | uuid, FK → `farms.id`, not null                |                                                                                                                                                                                                        |
+| `email`       | text, not null                                 | Stored trimmed + lowercased (the app normalizes before insert; `CHECK`s backstop both the normalization and a minimal `@`/length shape), so acceptance is a plain equality match against the JWT email |
+| `role`        | `farm_role` enum, not null, default `'member'` | Role the invitee joins with once accepted                                                                                                                                                              |
+| `invited_by`  | uuid, FK → `auth.users.id`, not null           |                                                                                                                                                                                                        |
+| `created_at`  | timestamptz, default now()                     |                                                                                                                                                                                                        |
+| `accepted_at` | timestamptz, nullable                          | Null = pending. `CHECK` requires `accepted_at`/`accepted_by` to be both null or both set                                                                                                               |
+| `accepted_by` | uuid, FK → `auth.users.id`, nullable           |                                                                                                                                                                                                        |
+
+**At most one pending invite per (`farm_id`, `email`)**, via a partial unique index on `(farm_id, email) WHERE accepted_at IS NULL` — accepted invites are kept as history and don't block re-inviting the same address later (e.g. after a member is removed). A second partial index on `email WHERE accepted_at IS NULL` keeps `accept_farm_invites()`'s per-session lookup off a sequential scan.
+
+**RLS:** owners of the farm (`role = 'owner'` in `farm_memberships`) can `SELECT`/`INSERT` invites for their farm, and `DELETE` (= revoke) a _pending_ invite only — accepted invites can't be deleted from the client. There is no `UPDATE` policy at all; acceptance happens exclusively inside the `accept_farm_invites()` security-definer function below, never via a client-side update.
 
 ### `categories`
 
@@ -272,15 +298,16 @@ Major-event-only log, per SPEC.md (not a full audit trail).
 
 ### `farm_member_profiles`
 
-Not a table — a view joining `farm_memberships` to `auth.users`, exposing just enough of `auth.users` (id, email) to attribute `activity_log` entries to a person. `auth.users` itself is never exposed directly via PostgREST.
+Not a table — a view joining `farm_memberships` to `auth.users`, exposing just enough of `auth.users` (id, email) to attribute `activity_log` entries to a person, plus the membership's `role`. `auth.users` itself is never exposed directly via PostgREST.
 
-| Column    | Type           | Notes                           |
-| --------- | -------------- | ------------------------------- |
-| `farm_id` | uuid           | From `farm_memberships`         |
-| `user_id` | uuid           | From `farm_memberships.user_id` |
-| `email`   | text, nullable | From `auth.users.email`         |
+| Column    | Type             | Notes                                                                                                                                                                      |
+| --------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `farm_id` | uuid             | From `farm_memberships`                                                                                                                                                    |
+| `user_id` | uuid             | From `farm_memberships.user_id`                                                                                                                                            |
+| `email`   | text, nullable   | From `auth.users.email`                                                                                                                                                    |
+| `role`    | `farm_role` enum | From `farm_memberships.role` — powers the members page's owner/you chips and its client-side "invites are owner-only" gate (RLS on `farm_invites` is the real enforcement) |
 
-The view runs with its owner's privileges (the Postgres default for views — the owner can read `auth.users` and isn't subject to `farm_memberships`' RLS), and carries its membership scoping in its own definition: a `where` clause restricts output to farms the querying user (`auth.uid()`) belongs to, and `security_barrier` keeps caller-supplied predicates from being evaluated ahead of that filter. Only `authenticated` holds a SELECT grant on the view. A view can't carry its own `create policy` the way a table can, so the in-view predicate is the equivalent mechanism. It was originally created as a `security_invoker` view instead, which failed in production — see DECISIONS.md for why that didn't work. One row per `(farm_id, user_id)` pair — a user who belongs to multiple farms appears once per farm, which is expected since callers always filter by a specific `farm_id`.
+The view was recreated by `20260718120000_farm_invites_roles_and_signup.sql` to add `role`, keeping the same shape otherwise. It runs with its owner's privileges (the Postgres default for views — the owner can read `auth.users` and isn't subject to `farm_memberships`' RLS), and carries its membership scoping in its own definition: a `where` clause restricts output to farms the querying user (`auth.uid()`) belongs to, and `security_barrier` keeps caller-supplied predicates from being evaluated ahead of that filter. Only `authenticated` holds a SELECT grant on the view. A view can't carry its own `create policy` the way a table can, so the in-view predicate is the equivalent mechanism. It was originally created as a `security_invoker` view instead, which failed in production — see DECISIONS.md for why that didn't work. One row per `(farm_id, user_id)` pair — a user who belongs to multiple farms appears once per farm, which is expected since callers always filter by a specific `farm_id`.
 
 ### `farm_recent_activity`
 
@@ -292,6 +319,18 @@ Not a table — a view over `tasks`, one row per farm, giving the timestamp of t
 | `last_activity_at` | timestamptz | `max(greatest(created_at, coalesce(completed_at, created_at)))` per farm — the newer of each task's creation or completion |
 
 Unlike `farm_member_profiles`, this view is `security_invoker`: it only reads `tasks`, which `authenticated` already has an ordinary table-level grant on (the app queries `tasks` directly everywhere else), so it inherits `tasks`' existing farm-membership RLS as-is with no in-view scoping needed. A farm with no tasks at all has no row here, which is fine — the fallback chain in `resolveActiveFarmId` moves on to the alphabetically-first farm in that case.
+
+## Functions
+
+Two security-definer Postgres functions perform the only writes to `farms`/`farm_memberships` — neither table has a client-side INSERT/UPDATE/DELETE policy (see RLS below), so both actions have to go through server-side logic that can deliberately and safely bypass RLS on the caller's behalf.
+
+### `accept_farm_invites()`
+
+Called by the app once per session, right after sign-in (`app/middleware/membership.global.ts`). Matches the caller's own JWT email (lowercased) against pending `farm_invites` rows, inserts a `farm_memberships` row for each match (`on conflict do nothing` — the membership may already exist), marks those invites accepted, and returns the ids of the farms joined. Scoping comes entirely from `auth.uid()`/the JWT's email claim, never from anything caller-supplied, so a caller can only ever accept invites addressed to their own verified email.
+
+### `create_farm(farm_name, farm_address default null)`
+
+Self-serve farm creation. Validates `farm_name` (trimmed, 1–120 characters), inserts the `farms` row and the caller's `'owner'` `farm_memberships` row in one transaction, and returns the new farm's id. Backs both the `/welcome` first-farm flow and the "New farm" form on `/farm`.
 
 ## Row Level Security (RLS) Policy Intent
 
@@ -311,7 +350,7 @@ USING (
 
 This same pattern applies across every farm-scoped table — a user can only see/modify rows whose `farm_id` corresponds to a farm they're a member of, via `farm_memberships`.
 
-`farms` itself needs a policy allowing a user to see farms they belong to (via a subquery against `farm_memberships`), and `farm_memberships` needs a policy allowing a user to see their own membership rows.
+`farms` itself needs a policy allowing a user to see farms they belong to (via a subquery against `farm_memberships`), and `farm_memberships` needs a policy allowing a user to see their own membership rows. Neither table has an INSERT/UPDATE/DELETE policy for `authenticated` — all writes to `farms` and `farm_memberships` go through the `create_farm()`/`accept_farm_invites()` security-definer functions above instead of a client-side write path.
 
 Since Chore Corral is using **both** RLS and application-layer checks (a deliberate choice — see DECISIONS.md), RLS here functions as the defense-in-depth backstop: even if application code has a bug in its farm-scoping logic, RLS prevents cross-farm data leakage at the database level. Application code should not rely on RLS alone for business-logic enforcement (e.g. the "can't delete a category with active tasks" rule is application logic, not something RLS is well-suited to express).
 

@@ -32,8 +32,8 @@ Additional ways to express "this task matters more than that one," beyond status
 
 - **Property boundaries & area measurement** — draw pasture/field/property boundaries and calculate area. Requires PostGIS on the database side and Leaflet.draw + Turf.js on the frontend (both already anticipated in ARCHITECTURE.md).
 - **Recurring/repeating tasks** — farm work often repeats (mow every 2 weeks, check fence monthly). Deferred from MVP to keep the initial task model simple.
-- **Roles & permissions within a farm** — currently all farm members have equal access; owner/member distinction (e.g. who can remove people from a farm) may become relevant if farms grow beyond two trusted users.
-- **In-app farm invite flow** — generate an invite link/code so new members can join a farm without manual database provisioning.
+- **Roles & permissions within a farm** — owner/member now exists (2026-07-18), but it gates invite management only; every member still has equal, full task-level access. Further tiering (e.g. who can remove people from a farm) may become relevant if farms grow beyond a couple of trusted users.
+- **In-app farm invite flow** — _done 2026-07-18:_ an owner records an invitee's email on the new `/members` page; no email is sent — whoever next signs in with Google using that address is auto-joined via a security-definer `accept_farm_invites()` RPC, and a still-pending invite can be revoked.
 
 ## Longer-Term / Exploratory
 

@@ -49,6 +49,10 @@ import type { Database } from '../../app/types/database.types'
 //   from('task_time_entries').delete().eq('id', ...).not('ended_at', 'is', null).select(...)
 //   from('activity_log').select(...).eq('farm_id',...).eq('task_id',...).order('created_at',{ascending:false})
 //   from('farm_member_profiles').select(...).eq('farm_id',...).in('user_id',[...])
+//   from('farm_invites').select(...).eq('farm_id',...).is('accepted_at', null).order('created_at')
+//   from('farm_invites').insert(row).select(...).single()
+//   from('farm_invites').delete().eq('id',...).is('accepted_at', null)
+//   rpc('create_farm', {...}) / rpc('accept_farm_invites')   // via onRpc() handlers
 //
 // It is not a general PostgREST emulator: no joins, no or(), no partial
 // filter operators beyond eq/is/in. Keep it that way — generalizing further
@@ -73,6 +77,7 @@ type TableName =
   | 'task_tools'
   | 'task_time_entries'
   | 'farm_member_profiles'
+  | 'farm_invites'
 type Row = Record<string, unknown>
 
 export interface FakeSupabaseSeed {
@@ -90,6 +95,7 @@ export interface FakeSupabaseSeed {
   // Not a real table (it's a view), but the fake doesn't need to model that
   // distinction — it just needs queryable rows.
   farm_member_profiles?: Database['public']['Views']['farm_member_profiles']['Row'][]
+  farm_invites?: Database['public']['Tables']['farm_invites']['Row'][]
 }
 
 export interface FailSpec {
@@ -305,7 +311,23 @@ export class FakeSupabaseClient {
     task_tools: 0,
     task_time_entries: 0,
     farm_member_profiles: 0,
+    farm_invites: 0,
   }
+
+  // RPC fakes: tests register per-function handlers with onRpc(); calls to
+  // unregistered functions come back as errors (matching PostgREST's
+  // "function does not exist"), and every call is recorded for assertions.
+  private readonly rpcHandlers = new Map<
+    string,
+    (args?: Record<string, unknown>) => {
+      data?: unknown
+      error?: { message: string } | null
+    }
+  >()
+  private readonly rpcCalls: Array<{
+    fn: string
+    args?: Record<string, unknown>
+  }> = []
 
   constructor(
     seed: FakeSupabaseSeed = {},
@@ -335,6 +357,9 @@ export class FakeSupabaseClient {
       farm_member_profiles: cloneRows(
         seed.farm_member_profiles as unknown as Row[] | undefined,
       ),
+      farm_invites: cloneRows(
+        seed.farm_invites as unknown as Row[] | undefined,
+      ),
     }
     const specs = failOn ? (Array.isArray(failOn) ? failOn : [failOn]) : []
     this.failSpecs = specs.map((s) => ({
@@ -363,6 +388,38 @@ export class FakeSupabaseClient {
   /** Test-only escape hatch for asserting on the fake's internal state. */
   getTable(table: TableName): Row[] {
     return this.store[table]
+  }
+
+  /** Register a fake handler for `rpc(fn, ...)` calls. */
+  onRpc(
+    fn: string,
+    handler: (args?: Record<string, unknown>) => {
+      data?: unknown
+      error?: { message: string } | null
+    },
+  ): void {
+    this.rpcHandlers.set(fn, handler)
+  }
+
+  /** Test-only escape hatch: every rpc() call made, in order. */
+  getRpcCalls(): Array<{ fn: string; args?: Record<string, unknown> }> {
+    return [...this.rpcCalls]
+  }
+
+  async rpc(
+    fn: string,
+    args?: Record<string, unknown>,
+  ): Promise<{ data: unknown; error: { message: string } | null }> {
+    this.rpcCalls.push({ fn, args })
+    const handler = this.rpcHandlers.get(fn)
+    if (!handler) {
+      return {
+        data: null,
+        error: { message: `No fake RPC handler registered for '${fn}'` },
+      }
+    }
+    const result = handler(args)
+    return { data: result.data ?? null, error: result.error ?? null }
   }
 
   /** Test-only escape hatch: paths currently "uploaded" in the fake bucket. */

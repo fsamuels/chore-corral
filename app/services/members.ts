@@ -4,15 +4,16 @@ import type { Database } from '~/types/database.types'
 export interface FarmMemberProfile {
   user_id: string
   email: string | null
+  role: Database['public']['Enums']['farm_role']
 }
 
 type Client = SupabaseClient<Database>
 
 /**
- * A farm's members (user id + email), ordered by email — the source list for
- * the task "Completed by" member picker. `farm_member_profiles` exposes only
- * `user_id` and `email` (there's no display-name concept in the schema), so
- * that's all this returns. Throws on error like the other services.
+ * A farm's members (user id + email + role), ordered by email — the source
+ * list for the task "Completed by" member picker and the members page.
+ * `farm_member_profiles` exposes only these columns (there's no display-name
+ * concept in the schema). Throws on error like the other services.
  */
 export async function listFarmMemberProfiles(
   supabase: Client,
@@ -20,7 +21,7 @@ export async function listFarmMemberProfiles(
 ): Promise<FarmMemberProfile[]> {
   const { data, error } = await supabase
     .from('farm_member_profiles')
-    .select('user_id, email')
+    .select('user_id, email, role')
     .eq('farm_id', farmId)
     .order('email')
   if (error) throw new Error(error.message)
