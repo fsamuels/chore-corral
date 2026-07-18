@@ -13,6 +13,7 @@ function profile(overrides: Partial<ProfileRow> = {}): ProfileRow {
     farm_id: FARM_A,
     user_id: 'user-1',
     email: 'forrest@example.com',
+    display_name: null,
     role: 'member',
     ...overrides,
   }

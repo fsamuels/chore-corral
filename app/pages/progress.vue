@@ -17,6 +17,7 @@ import {
   type FarmMemberProfile,
 } from '~/services/members'
 import { formatElapsedDuration } from '~/utils/task-display'
+import { memberShortLabels } from '~/utils/member-display'
 
 const route = useRoute()
 const router = useRouter()
@@ -34,7 +35,7 @@ await fetchFarms()
 await fetchCompletedTasks()
 await fetchCategories()
 
-// Farm members, for resolving completer `user_id` uuids to emails. No composable
+// Farm members, for resolving completer `user_id` uuids to names. No composable
 // exists for this (only the activity/task-detail pages need it), so it's a
 // direct service call into a local ref — same pattern as the task detail
 // page — fetched once per farm and refetched on farm switch.
@@ -174,9 +175,14 @@ function categoryPill(
   }
 }
 
-// Mirrors the task detail page's `completedByLabel`: each completer resolved to
-// a member's email (best-effort — "unknown member" if the id isn't in the
-// fetched list) or its free-text name, comma-joined; null when the set is empty.
+// Short display labels for the farm's members (see memberShortLabels),
+// shared across every row's attribution.
+const memberLabels = computed(() => memberShortLabels(members.value))
+
+// Mirrors the task detail page's `completedByLabel`: each completer resolved
+// to a member's short label (best-effort — "unknown member" if the id isn't
+// in the fetched list) or its free-text name, comma-joined; null when the
+// set is empty.
 function completedByLabel(
   row: Pick<ActivityDayRow, 'completers'>,
 ): string | null {
@@ -184,8 +190,7 @@ function completedByLabel(
   return row.completers
     .map((completer) =>
       completer.user_id !== null
-        ? (members.value.find((m) => m.user_id === completer.user_id)?.email ??
-          'unknown member')
+        ? (memberLabels.value.get(completer.user_id) ?? 'unknown member')
         : completer.completer_name,
     )
     .join(', ')

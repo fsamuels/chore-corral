@@ -12,6 +12,7 @@ import {
   type FarmMemberProfile,
 } from '~/services/members'
 import { setTaskCompleters, type TaskCompleter } from '~/services/completers'
+import { memberShortLabels } from '~/utils/member-display'
 import type { TaskLocationValue } from '~/components/TaskLocationInput.vue'
 
 const route = useRoute()
@@ -412,22 +413,24 @@ watch(completedByMenu, (open) => {
   }
 })
 
+// Short display labels (first name; last initial or more only when needed
+// to disambiguate — see memberShortLabels) for every farm member, shared by
+// the picker items and the completed-by pill.
+const memberLabels = computed(() => memberShortLabels(members.value))
+
 const memberItems = computed(() =>
   members.value.map((member) => ({
-    title: member.email ?? member.user_id,
+    title: memberLabels.value.get(member.user_id) ?? member.user_id,
     value: member.user_id,
   })),
 )
 
-// One completer resolved to a display label: a member's email (best-effort —
-// "unknown member" if the id is no longer in the fetched list), else the
-// free-text name.
+// One completer resolved to a display label: a member's short label
+// (best-effort — "unknown member" if the id is no longer in the fetched
+// list), else the free-text name.
 function completerLabel(completer: TaskCompleter): string {
   if (completer.user_id !== null) {
-    return (
-      members.value.find((m) => m.user_id === completer.user_id)?.email ??
-      'unknown member'
-    )
+    return memberLabels.value.get(completer.user_id) ?? 'unknown member'
   }
   return completer.completer_name ?? ''
 }
@@ -1280,8 +1283,8 @@ const taskLocation = computed(() =>
               <div class="text-body-2">{{ eventLabel(entry) }}</div>
               <div class="text-caption text-medium-emphasis">
                 {{ formatTimestamp(entry.created_at) }}
-                <template v-if="entry.actor_email">
-                  · by {{ entry.actor_email }}
+                <template v-if="entry.actor_label">
+                  · by {{ entry.actor_label }}
                 </template>
               </div>
             </v-timeline-item>

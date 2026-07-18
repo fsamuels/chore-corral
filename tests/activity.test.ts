@@ -29,6 +29,7 @@ function profile(overrides: Partial<ProfileRow> = {}): ProfileRow {
     farm_id: FARM_A,
     user_id: ACTOR,
     email: 'forrest@example.com',
+    display_name: null,
     ...overrides,
   }
 }
@@ -85,7 +86,46 @@ describe('listActivityForTask', () => {
     ])
   })
 
-  it("attaches the actor's email when a profile row exists", async () => {
+  it("attaches the actor's first name when their profile has a display name", async () => {
+    const fake = new FakeSupabaseClient({
+      activity_log: [entry({ id: 'entry-1', actor_user_id: ACTOR })],
+      farm_member_profiles: [
+        profile({ user_id: ACTOR, display_name: 'Forrest Samuels' }),
+      ],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listActivityForTask(supabase, {
+      farmId: FARM_A,
+      taskId: TASK_A,
+    })
+
+    expect(result[0]?.actor_label).toBe('Forrest')
+  })
+
+  it('disambiguates against the whole farm, not just the entry actors', async () => {
+    const fake = new FakeSupabaseClient({
+      activity_log: [entry({ id: 'entry-1', actor_user_id: ACTOR })],
+      farm_member_profiles: [
+        profile({ user_id: ACTOR, display_name: 'Steve Adams' }),
+        profile({
+          user_id: 'user-2',
+          email: 'other-steve@example.com',
+          display_name: 'Steve Brown',
+        }),
+      ],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listActivityForTask(supabase, {
+      farmId: FARM_A,
+      taskId: TASK_A,
+    })
+
+    expect(result[0]?.actor_label).toBe('Steve A.')
+  })
+
+  it("falls back to the actor's email when their profile has no display name", async () => {
     const fake = new FakeSupabaseClient({
       activity_log: [entry({ id: 'entry-1', actor_user_id: ACTOR })],
       farm_member_profiles: [
@@ -99,7 +139,7 @@ describe('listActivityForTask', () => {
       taskId: TASK_A,
     })
 
-    expect(result[0]?.actor_email).toBe('forrest@example.com')
+    expect(result[0]?.actor_label).toBe('forrest@example.com')
   })
 
   it('falls back to null when the actor has no resolvable profile row', async () => {
@@ -114,7 +154,7 @@ describe('listActivityForTask', () => {
       taskId: TASK_A,
     })
 
-    expect(result[0]?.actor_email).toBeNull()
+    expect(result[0]?.actor_label).toBeNull()
   })
 
   it('returns [] for a task with no activity', async () => {

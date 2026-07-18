@@ -527,6 +527,7 @@ export interface Database {
           farm_id: string
           user_id: string
           email: string | null
+          display_name: string | null
           role: Database['public']['Enums']['farm_role']
         }
         Relationships: []
