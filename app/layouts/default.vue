@@ -121,8 +121,17 @@ async function signOut() {
       <header class="app-header">
         <div class="app-header__text">
           <NuxtLink to="/" class="app-header__link">
-            <div class="cc-eyebrow">Chore Corral</div>
-            <h1 class="app-header__farm">{{ farmName }}</h1>
+            <img
+              src="/icon.svg"
+              alt=""
+              class="app-header__logo"
+              width="44"
+              height="44"
+            />
+            <div class="app-header__title-group">
+              <div class="cc-eyebrow">Chore Corral</div>
+              <h1 class="app-header__farm">{{ farmName }}</h1>
+            </div>
           </NuxtLink>
         </div>
         <div v-if="user" class="app-header__actions">
@@ -217,8 +226,16 @@ async function signOut() {
 }
 
 .app-header__link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   text-decoration: none;
   color: inherit;
+}
+
+.app-header__logo {
+  flex-shrink: 0;
+  border-radius: 22%;
 }
 
 .app-header__farm {
