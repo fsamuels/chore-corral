@@ -118,9 +118,14 @@ async function revoke(invite: FarmInvite) {
           <v-list-item
             v-for="member in members"
             :key="member.user_id"
-            :title="member.email ?? member.user_id"
-            prepend-icon="mdi-account-circle"
+            :title="member.display_name ?? member.email ?? member.user_id"
+            :subtitle="
+              member.display_name ? (member.email ?? undefined) : undefined
+            "
           >
+            <template #prepend>
+              <MemberAvatar :src="member.avatar_url" class="mr-3" />
+            </template>
             <template #append>
               <v-chip
                 v-if="member.user_id === myUserId"

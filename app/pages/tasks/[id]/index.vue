@@ -12,6 +12,7 @@ import {
   type FarmMemberProfile,
 } from '~/services/members'
 import { setTaskCompleters, type TaskCompleter } from '~/services/completers'
+import { memberShortLabels } from '~/utils/member-display'
 import type { TaskLocationValue } from '~/components/TaskLocationInput.vue'
 
 const route = useRoute()
@@ -412,22 +413,25 @@ watch(completedByMenu, (open) => {
   }
 })
 
+// Short display labels (first name; last initial or more only when needed
+// to disambiguate — see memberShortLabels) for every farm member, shared by
+// the picker items and the completed-by pill.
+const memberLabels = computed(() => memberShortLabels(members.value))
+
 const memberItems = computed(() =>
   members.value.map((member) => ({
-    title: member.email ?? member.user_id,
+    title: memberLabels.value.get(member.user_id) ?? member.user_id,
     value: member.user_id,
+    avatarUrl: member.avatar_url,
   })),
 )
 
-// One completer resolved to a display label: a member's email (best-effort —
-// "unknown member" if the id is no longer in the fetched list), else the
-// free-text name.
+// One completer resolved to a display label: a member's short label
+// (best-effort — "unknown member" if the id is no longer in the fetched
+// list), else the free-text name.
 function completerLabel(completer: TaskCompleter): string {
   if (completer.user_id !== null) {
-    return (
-      members.value.find((m) => m.user_id === completer.user_id)?.email ??
-      'unknown member'
-    )
+    return memberLabels.value.get(completer.user_id) ?? 'unknown member'
   }
   return completer.completer_name ?? ''
 }
@@ -961,7 +965,31 @@ const taskLocation = computed(() =>
                   density="comfortable"
                   variant="outlined"
                   hide-details
-                />
+                >
+                  <template #item="{ props: itemProps, item }">
+                    <v-list-item v-bind="itemProps">
+                      <template #prepend>
+                        <MemberAvatar
+                          :src="item.avatarUrl"
+                          :size="28"
+                          class="mr-3"
+                        />
+                      </template>
+                    </v-list-item>
+                  </template>
+                  <template #chip="{ props: chipProps, item }">
+                    <v-chip v-bind="chipProps">
+                      <template #prepend>
+                        <MemberAvatar
+                          :src="item.avatarUrl"
+                          :size="20"
+                          class="mr-1"
+                        />
+                      </template>
+                      {{ item.title }}
+                    </v-chip>
+                  </template>
+                </v-select>
                 <div class="text-caption text-medium-emphasis my-2">
                   and/or others (type a name, press enter)
                 </div>
@@ -1280,8 +1308,8 @@ const taskLocation = computed(() =>
               <div class="text-body-2">{{ eventLabel(entry) }}</div>
               <div class="text-caption text-medium-emphasis">
                 {{ formatTimestamp(entry.created_at) }}
-                <template v-if="entry.actor_email">
-                  · by {{ entry.actor_email }}
+                <template v-if="entry.actor_label">
+                  · by {{ entry.actor_label }}
                 </template>
               </div>
             </v-timeline-item>
