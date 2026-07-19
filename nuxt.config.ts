@@ -108,6 +108,12 @@ export default defineNuxtConfig({
       // means no Mapbox layers — the map falls back to OSM-only (see
       // app/utils/map-tiles.ts).
       mapboxToken: '',
+      // Web Push VAPID public key, set via NUXT_PUBLIC_VAPID_PUBLIC_KEY —
+      // public like the Mapbox token above (it's handed to PushManager.subscribe
+      // client-side; the matching private key is a Supabase Edge Function
+      // secret, never here). Empty means chore reminders stay unavailable
+      // (see usePushNotifications.ts).
+      vapidPublicKey: '',
     },
   },
   supabase: {

@@ -49,6 +49,38 @@ async function signOut() {
   resetFarms()
   await navigateTo('/login')
 }
+
+// --- Chore reminders (push notifications) drawer entry ---
+const {
+  supported: pushSupported,
+  needsInstall: pushNeedsInstall,
+  enabled: pushEnabled,
+  mutating: pushMutating,
+  mutationError: pushError,
+  enable: enablePush,
+  disable: disablePush,
+} = usePushNotifications()
+
+const pushIcon = computed(() =>
+  pushEnabled.value ? 'mdi-bell-check-outline' : 'mdi-bell-outline',
+)
+
+const pushSubtitle = computed(() => {
+  if (!pushSupported.value) {
+    return pushNeedsInstall.value
+      ? 'Add to Home Screen first to turn on'
+      : 'Not supported on this browser'
+  }
+  return pushEnabled.value ? 'On — tap to turn off' : 'Off — tap to turn on'
+})
+
+// Unsupported browsers still show the item (with the install hint above) but
+// tapping it is a no-op — there's nothing to toggle.
+async function onPushToggle() {
+  if (!pushSupported.value || pushMutating.value) return
+  if (pushEnabled.value) await disablePush()
+  else await enablePush()
+}
 </script>
 
 <template>
@@ -101,6 +133,24 @@ async function signOut() {
           to="/farm"
           @click="drawer = false"
         />
+        <v-divider class="my-1" />
+        <v-list-item
+          title="Chore reminders"
+          :subtitle="pushSubtitle"
+          :prepend-icon="pushIcon"
+          @click="onPushToggle"
+        >
+          <template v-if="pushMutating" #append>
+            <v-progress-circular indeterminate size="18" width="2" />
+          </template>
+        </v-list-item>
+        <p
+          v-if="pushError"
+          class="text-caption text-error px-4 mt-n1 mb-1"
+          style="max-width: 260px"
+        >
+          {{ pushError }}
+        </p>
         <v-divider class="my-1" />
         <v-list-item
           title="UI components demo"
