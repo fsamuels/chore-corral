@@ -385,6 +385,13 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+# The send-reminders function is called by pg_cron/pg_net, not by a signed-in
+# user, so it can't present a Supabase JWT. Disable JWT verification here; the
+# shared `x-cron-secret` header (checked inside the function against the
+# SEND_REMINDERS_SECRET secret) is its authentication instead.
+[functions.send-reminders]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
