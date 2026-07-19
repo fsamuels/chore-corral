@@ -580,8 +580,10 @@ export async function updateTask(
  * deleted (SPEC: no record of prior completion survives a reopen). The
  * "only if empty" rule means a task whose completers were edited by hand before
  * being marked done keeps that set rather than having the actor bolted on. Logs
- * `task_status_changed` with the old/new pair; a no-op transition (same status)
- * skips the write, the log entry, and the completer changes.
+ * `task_status_changed` with the old/new pair, plus an optional trimmed `note`
+ * in the event's `event_detail` when one is provided (blank/whitespace-only
+ * notes are treated as absent); a no-op transition (same status) skips the
+ * write, the log entry, and the completer changes.
  */
 export async function changeTaskStatus(
   supabase: Client,
@@ -590,6 +592,7 @@ export async function changeTaskStatus(
     taskId: string
     status: TaskStatus
     actorUserId: string
+    note?: string | null
   },
 ): Promise<TaskSummary> {
   const { data: current, error: readError } = await supabase
@@ -650,9 +653,11 @@ export async function changeTaskStatus(
     })
   }
 
+  const note = opts.note?.trim() || null
   await logTaskEvent(supabase, 'task_status_changed', task, opts, {
     old_status: before.status,
     new_status: task.status,
+    ...(note ? { note } : {}),
   })
 
   const completers =

@@ -612,6 +612,95 @@ describe('changeTaskStatus', () => {
 
     expect(fake.getTable('activity_log')).toHaveLength(0)
   })
+
+  it('records an optional note in the status-changed event_detail when provided', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1', status: 'in_progress' })],
+      task_completers: [],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    await changeTaskStatus(supabase, {
+      farmId: FARM_A,
+      taskId: 'task-1',
+      status: 'done',
+      actorUserId: ACTOR,
+      note: '  went smoothly  ',
+    })
+
+    const log = fake.getTable('activity_log')
+    expect(log).toHaveLength(1)
+    expect(log[0]).toMatchObject({
+      event_type: 'task_status_changed',
+      event_detail: {
+        old_status: 'in_progress',
+        new_status: 'done',
+        note: 'went smoothly',
+      },
+    })
+  })
+
+  it('omits the note key when the note is blank/whitespace/absent', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [
+        task({ id: 'task-1', status: 'in_progress' }),
+        task({ id: 'task-2', status: 'in_progress' }),
+      ],
+      task_completers: [],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    await changeTaskStatus(supabase, {
+      farmId: FARM_A,
+      taskId: 'task-1',
+      status: 'done',
+      actorUserId: ACTOR,
+      note: '   ',
+    })
+    await changeTaskStatus(supabase, {
+      farmId: FARM_A,
+      taskId: 'task-2',
+      status: 'done',
+      actorUserId: ACTOR,
+    })
+
+    const log = fake.getTable('activity_log') as {
+      event_detail: Record<string, unknown>
+    }[]
+    expect(log).toHaveLength(2)
+    expect('note' in log[0].event_detail).toBe(false)
+    expect('note' in log[1].event_detail).toBe(false)
+  })
+
+  it('records a note on a non-done transition too (generic data-layer support)', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1', status: 'not_started' })],
+      task_completers: [],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    await changeTaskStatus(supabase, {
+      farmId: FARM_A,
+      taskId: 'task-1',
+      status: 'in_progress',
+      actorUserId: ACTOR,
+      note: 'starting now',
+    })
+
+    const log = fake.getTable('activity_log')
+    expect(log).toHaveLength(1)
+    expect(log[0]).toMatchObject({
+      event_type: 'task_status_changed',
+      event_detail: {
+        old_status: 'not_started',
+        new_status: 'in_progress',
+        note: 'starting now',
+      },
+    })
+  })
 })
 
 describe('updateTask', () => {
