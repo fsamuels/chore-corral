@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~/types/database.types'
+import { isValidSnoozeMinutes, snoozeTargetIso } from '../utils/reminder-snooze'
 
 type Client = SupabaseClient<Database>
 
@@ -80,4 +81,38 @@ export async function removeReminder(
     .delete()
     .eq('id', reminderId)
   if (error) throw new Error(error.message)
+}
+
+/**
+ * Snooze an already-sent reminder: push `remind_at` out by `minutes` and
+ * clear `sent_at` back to null, so the same row re-fires through the
+ * every-minute send-reminders pipeline as if it were freshly scheduled. This
+ * is the client-side (in-app "Snooze 10 min" / "Snooze 1 hr" buttons) twin
+ * of server/api/reminders/snooze.post.ts, which the service worker's
+ * notification action buttons call instead — that route exists only because
+ * the worker has no Supabase session, not because the logic differs; both
+ * paths write the exact same columns and are equally subject to RLS.
+ *
+ * Follows `updateTaskPhotoCaption`'s pattern rather than chaining `.single()`
+ * after `.update()`: the fake (and PostgREST in practice, per this
+ * codebase's other services) doesn't support that combination, so this
+ * takes `.select()`'s array and reads the first element instead.
+ */
+export async function snoozeReminder(
+  supabase: Client,
+  reminderId: string,
+  minutes: unknown,
+): Promise<ReminderSummary> {
+  if (!isValidSnoozeMinutes(minutes)) {
+    throw new Error('Snooze must be 10 minutes or 1 hour.')
+  }
+  const { data, error } = await supabase
+    .from('task_reminders')
+    .update({ remind_at: snoozeTargetIso(minutes), sent_at: null })
+    .eq('id', reminderId)
+    .select(REMINDER_COLUMNS)
+  if (error) throw new Error(error.message)
+  const reminder = data[0]
+  if (!reminder) throw new Error('Reminder not found')
+  return reminder
 }

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { parseLocalDateString } from '~/services/tasks'
 import type { ReminderSummary } from '~/services/reminders'
+import { SNOOZE_OPTIONS, type SnoozeMinutes } from '~/utils/reminder-snooze'
 
 // Only rendered once a task exists (parent guards with v-if="task"), so a
 // task id is always present.
@@ -14,6 +15,7 @@ const {
   mutationError,
   add,
   remove,
+  snooze,
 } = useTaskReminders(toRef(props, 'taskId'))
 
 // "Jan 5, 8:00 AM" — same shape as the View page's completed-at label.
@@ -53,8 +55,9 @@ async function onAdd(): Promise<void> {
   }
 }
 
-// Per-reminder in-flight tracking so only the affected row's delete button
-// disables (matches TaskShoppingList/TaskTools).
+// Per-reminder in-flight tracking so only the affected row's buttons disable
+// (matches TaskShoppingList/TaskTools) — shared between delete and snooze
+// since only one action per row makes sense at a time.
 const pendingIds = ref<Set<string>>(new Set())
 
 async function onRemove(reminder: ReminderSummary): Promise<void> {
@@ -63,6 +66,22 @@ async function onRemove(reminder: ReminderSummary): Promise<void> {
   pendingIds.value = next
   try {
     await remove(reminder)
+  } finally {
+    const done = new Set(pendingIds.value)
+    done.delete(reminder.id)
+    pendingIds.value = done
+  }
+}
+
+async function onSnooze(
+  reminder: ReminderSummary,
+  minutes: SnoozeMinutes,
+): Promise<void> {
+  const next = new Set(pendingIds.value)
+  next.add(reminder.id)
+  pendingIds.value = next
+  try {
+    await snooze(reminder.id, minutes)
   } finally {
     const done = new Set(pendingIds.value)
     done.delete(reminder.id)
@@ -100,7 +119,7 @@ async function onRemove(reminder: ReminderSummary): Promise<void> {
       <div
         v-for="reminder in reminders"
         :key="reminder.id"
-        class="d-flex align-center justify-space-between ga-2 py-1"
+        class="d-flex align-center justify-space-between ga-2 py-1 flex-wrap"
       >
         <span
           class="text-body-2"
@@ -111,22 +130,40 @@ async function onRemove(reminder: ReminderSummary): Promise<void> {
             (sent)
           </span>
         </span>
-        <button
-          type="button"
-          class="cc-icon-btn cc-icon-btn--sm"
-          aria-label="Remove reminder"
-          title="Remove reminder"
-          :disabled="pendingIds.has(reminder.id)"
-          @click="onRemove(reminder)"
-        >
-          <v-progress-circular
-            v-if="pendingIds.has(reminder.id)"
-            indeterminate
-            size="16"
-            width="2"
-          />
-          <v-icon v-else icon="mdi-delete-outline" size="18" />
-        </button>
+        <div class="d-flex align-center ga-1 reminder-actions">
+          <!-- Already-sent reminders can be snoozed back to upcoming — the
+               in-app twin of the notification's own Snooze action buttons
+               (see public/sw.js), and the only surface iOS gets since iOS
+               web push doesn't render notification actions at all. -->
+          <template v-if="reminder.sent_at !== null">
+            <button
+              v-for="option in SNOOZE_OPTIONS"
+              :key="option.minutes"
+              type="button"
+              class="cc-pill-btn cc-pill-btn--outline reminder-snooze-btn"
+              :disabled="pendingIds.has(reminder.id)"
+              @click="onSnooze(reminder, option.minutes)"
+            >
+              {{ option.label }}
+            </button>
+          </template>
+          <button
+            type="button"
+            class="cc-icon-btn cc-icon-btn--sm"
+            aria-label="Remove reminder"
+            title="Remove reminder"
+            :disabled="pendingIds.has(reminder.id)"
+            @click="onRemove(reminder)"
+          >
+            <v-progress-circular
+              v-if="pendingIds.has(reminder.id)"
+              indeterminate
+              size="16"
+              width="2"
+            />
+            <v-icon v-else icon="mdi-delete-outline" size="18" />
+          </button>
+        </div>
       </div>
     </div>
 
@@ -179,5 +216,19 @@ async function onRemove(reminder: ReminderSummary): Promise<void> {
 
 .reminder-add-row > .v-input {
   flex: 1 1 130px;
+}
+
+.reminder-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Shrunk below cc-pill-btn's standard 44px touch target — these sit two-up
+   next to the delete button on an already-sent reminder's row, and at full
+   size they'd blow up the row on mobile. */
+.reminder-snooze-btn {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 0.8125rem;
 }
 </style>

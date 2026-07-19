@@ -4,6 +4,7 @@ import {
   assertValidReminderTime,
   listReminders,
   removeReminder,
+  snoozeReminder,
   type ReminderSummary,
 } from '../app/services/reminders'
 import { FakeSupabaseClient, asSupabaseClient } from './helpers/fake-supabase'
@@ -154,6 +155,91 @@ describe('removeReminder', () => {
     const supabase = asSupabaseClient(fake)
 
     await expect(removeReminder(supabase, 'r1')).rejects.toThrow('delete boom')
+  })
+})
+
+describe('snoozeReminder', () => {
+  it('moves remind_at forward and clears sent_at', async () => {
+    const fake = new FakeSupabaseClient({
+      task_reminders: [
+        reminder({ id: 'r1', task_id: 'task-1', sent_at: pastIso() }),
+      ],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const updated = await snoozeReminder(supabase, 'r1', 10)
+
+    expect(updated.id).toBe('r1')
+    expect(updated.sent_at).toBeNull()
+    const targetMs = new Date(updated.remind_at).getTime()
+    expect(targetMs).toBeGreaterThan(Date.now() + 9 * 60_000)
+    expect(targetMs).toBeLessThan(Date.now() + 11 * 60_000)
+
+    const rows = fake.getTable('task_reminders') as ReminderRow[]
+    expect(rows[0]!.sent_at).toBeNull()
+  })
+
+  it('supports the 1-hour option too', async () => {
+    const fake = new FakeSupabaseClient({
+      task_reminders: [
+        reminder({ id: 'r1', task_id: 'task-1', sent_at: pastIso() }),
+      ],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const updated = await snoozeReminder(supabase, 'r1', 60)
+
+    const targetMs = new Date(updated.remind_at).getTime()
+    expect(targetMs).toBeGreaterThan(Date.now() + 59 * 60_000)
+    expect(targetMs).toBeLessThan(Date.now() + 61 * 60_000)
+  })
+
+  it('rejects a minutes value outside the whitelist with a readable message', async () => {
+    const seedRow = reminder({ id: 'r1' })
+    const fake = new FakeSupabaseClient({ task_reminders: [seedRow] })
+    const supabase = asSupabaseClient(fake)
+
+    await expect(snoozeReminder(supabase, 'r1', 15)).rejects.toThrow(
+      'Snooze must be 10 minutes or 1 hour.',
+    )
+
+    // Nothing was written — the row is untouched.
+    const rows = fake.getTable('task_reminders') as ReminderRow[]
+    expect(rows[0]!.remind_at).toBe(seedRow.remind_at)
+  })
+
+  it('rejects a non-numeric minutes value', async () => {
+    const fake = new FakeSupabaseClient({
+      task_reminders: [reminder({ id: 'r1' })],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    await expect(snoozeReminder(supabase, 'r1', '10')).rejects.toThrow(
+      'Snooze must be 10 minutes or 1 hour.',
+    )
+  })
+
+  it('propagates an injected update failure', async () => {
+    const fake = new FakeSupabaseClient(
+      { task_reminders: [reminder({ id: 'r1' })] },
+      { table: 'task_reminders', op: 'update', message: 'update boom' },
+    )
+    const supabase = asSupabaseClient(fake)
+
+    await expect(snoozeReminder(supabase, 'r1', 10)).rejects.toThrow(
+      'update boom',
+    )
+  })
+
+  it('throws "Reminder not found" when no row matches the id', async () => {
+    const fake = new FakeSupabaseClient({
+      task_reminders: [reminder({ id: 'other-id' })],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    await expect(snoozeReminder(supabase, 'missing-id', 10)).rejects.toThrow(
+      'Reminder not found',
+    )
   })
 })
 

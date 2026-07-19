@@ -4,6 +4,7 @@ import {
   addReminder,
   listReminders,
   removeReminder,
+  snoozeReminder,
   type ReminderSummary,
 } from '~/services/reminders'
 
@@ -95,6 +96,31 @@ export function useTaskReminders(taskId: Ref<string | null | undefined>) {
     }
   }
 
+  /**
+   * Snooze an already-sent reminder — flips it back to upcoming in place
+   * (same row, new `remind_at`, `sent_at` cleared), matching add/remove's
+   * shape: mutate local state on success, surface a message via
+   * `mutationError` on failure. Returns whether it succeeded, same as `add`.
+   */
+  async function snooze(
+    reminderId: string,
+    minutes: 10 | 60,
+  ): Promise<boolean> {
+    mutationError.value = null
+    try {
+      const updated = await snoozeReminder(supabase, reminderId, minutes)
+      reminders.value =
+        reminders.value
+          ?.map((r) => (r.id === reminderId ? updated : r))
+          .sort((a, b) => a.remind_at.localeCompare(b.remind_at)) ?? null
+      return true
+    } catch (error) {
+      mutationError.value =
+        error instanceof Error ? error.message : 'Failed to snooze reminder'
+      return false
+    }
+  }
+
   return {
     reminders,
     remindersError,
@@ -104,5 +130,6 @@ export function useTaskReminders(taskId: Ref<string | null | undefined>) {
     fetchReminders,
     add,
     remove,
+    snooze,
   }
 }

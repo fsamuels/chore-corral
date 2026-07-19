@@ -59,6 +59,11 @@ interface ReminderPayload {
   body: string
   url: string
   tag: string
+  // The claimed row's id, so the service worker's notification action
+  // buttons (Snooze 10 min / Snooze 1 hr — see public/sw.js) know which
+  // task_reminders row to mutate. Every payload has one: this function only
+  // ever builds a payload for a reminder it just claimed.
+  reminderId: string
 }
 
 function json(body: unknown, status = 200): Response {
@@ -214,6 +219,7 @@ Deno.serve(async (req) => {
       body: 'Reminder for this chore',
       url: `/tasks/${task.id}`,
       tag: `reminder-${reminder.id}`,
+      reminderId: reminder.id,
     }
     const payloadJson = JSON.stringify(payload)
 

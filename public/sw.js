@@ -25,10 +25,14 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim())
 })
 
+// Notification action ids <-> snooze minutes. Shared by the push handler
+// (which offers them) and notificationclick (which acts on them).
+const SNOOZE_ACTION_MINUTES = { 'snooze-10': 10, 'snooze-60': 60 }
+
 self.addEventListener('push', (event) => {
-  // The Edge Function sends JSON `{ title, body, url, tag }` (see
-  // supabase/functions/send-reminders). Payload-less or malformed pushes
-  // still get a generic notification rather than silently vanishing —
+  // The Edge Function sends JSON `{ title, body, url, tag, reminderId }`
+  // (see supabase/functions/send-reminders). Payload-less or malformed
+  // pushes still get a generic notification rather than silently vanishing —
   // Chrome penalizes a push that shows nothing.
   let payload = {}
   try {
@@ -41,19 +45,43 @@ self.addEventListener('push', (event) => {
   const body = payload.body ?? 'You have a chore reminder.'
   const url = payload.url ?? '/'
   const tag = payload.tag
+  const reminderId = payload.reminderId
 
-  event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      tag,
-      icon: ICON,
-      badge: ICON,
-      data: { url },
-    }),
-  )
+  // Snooze action buttons: Android/desktop Chrome render these directly on
+  // the notification; iOS web push does NOT support notification actions at
+  // all (Safari ignores the `actions` option entirely), which is exactly why
+  // TaskReminders.vue also offers in-app "Snooze 10 min" / "Snooze 1 hr"
+  // buttons on already-sent reminders — that's the iOS path. Only offer the
+  // buttons here when there's a reminderId to act on; a malformed/generic
+  // push has nothing to snooze.
+  const options = {
+    body,
+    tag,
+    icon: ICON,
+    badge: ICON,
+    data: { url, reminderId },
+  }
+  if (reminderId) {
+    options.actions = [
+      { action: 'snooze-10', title: 'Snooze 10 min' },
+      { action: 'snooze-60', title: 'Snooze 1 hr' },
+    ]
+  }
+
+  event.waitUntil(self.registration.showNotification(title, options))
 })
 
 self.addEventListener('notificationclick', (event) => {
+  const snoozeMinutes = SNOOZE_ACTION_MINUTES[event.action]
+  if (snoozeMinutes) {
+    const reminderId = event.notification.data?.reminderId
+    const tag = event.notification.tag
+    const fallbackUrl = event.notification.data?.url ?? '/'
+    event.notification.close()
+    event.waitUntil(snoozeReminder(reminderId, snoozeMinutes, tag, fallbackUrl))
+    return
+  }
+
   const url = event.notification.data?.url ?? '/'
   event.notification.close()
 
@@ -76,3 +104,44 @@ self.addEventListener('notificationclick', (event) => {
     })(),
   )
 })
+
+// Snooze a reminder from its notification action button. The service worker
+// has no Supabase session of its own (it can't read the page's auth cookies
+// from a push event), so this POSTs to a Nuxt server route instead — a
+// same-origin fetch, so the browser attaches the session cookies for us, and
+// the route builds a user-session Supabase client from them and performs the
+// update under RLS (see server/api/reminders/snooze.post.ts). On success,
+// shows a small confirmation reusing the same tag (replacing the original
+// notification) with no actions and no reminderId, so it can't itself be
+// re-snoozed. On failure, shows a notification that says so and keeps the
+// original url so tapping it still opens the chore.
+async function snoozeReminder(reminderId, minutes, tag, fallbackUrl) {
+  try {
+    if (!reminderId) throw new Error('missing reminderId')
+    const response = await fetch('/api/reminders/snooze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reminderId, minutes }),
+    })
+    if (!response.ok)
+      throw new Error(`snooze request failed: ${response.status}`)
+
+    const body =
+      minutes === 10 ? 'Snoozed for 10 minutes.' : 'Snoozed for 1 hour.'
+    await self.registration.showNotification('Chore Corral', {
+      body,
+      tag,
+      icon: ICON,
+      badge: ICON,
+      data: {},
+    })
+  } catch {
+    await self.registration.showNotification('Chore Corral', {
+      body: "Couldn't snooze — open the chore to try again.",
+      tag,
+      icon: ICON,
+      badge: ICON,
+      data: { url: fallbackUrl },
+    })
+  }
+}
