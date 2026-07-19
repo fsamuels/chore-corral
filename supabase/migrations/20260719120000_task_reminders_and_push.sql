@@ -233,7 +233,7 @@ begin
     $cron$select public.invoke_send_reminders()$cron$
   );
 exception
-  when undefined_function or undefined_table or undefined_schema
+  when undefined_function or undefined_table or invalid_schema_name
     or insufficient_privilege then
     raise notice 'pg_cron unavailable; skipped scheduling send-reminders';
 end;
