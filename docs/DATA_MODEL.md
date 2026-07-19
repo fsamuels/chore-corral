@@ -24,11 +24,15 @@ farm_memberships ──────► farms
                             │          │      ├──► task_tools
                             │          │      ├──► task_time_entries
                             │          │      ├──► task_completers
+                            │          │      ├──► task_reminders
                             │          │      └──► task_tags ──► tags
                             │          │
                             │          └──► activity_log
                             ▼
                         (tags are per-farm, not per-category)
+
+(push_subscriptions hangs off users directly — a personal device credential,
+not farm data; see its section below)
 ```
 
 ## Tables
@@ -276,6 +280,21 @@ Behavior decisions (see DECISIONS.md):
 
 Like the other task-child tables, this table carries no `farm_id`; it is scoped to a farm through its parent task, and its RLS policy joins through `tasks`. Entries are listed per task oldest-session-first: `ORDER BY started_at ASC, id ASC`.
 
+### `task_reminders`
+
+Scheduled reminder instants per task — "ping me about this chore at this date and time." A task can carry any number of reminders (a child table rather than a single `remind_at` column on `tasks`, per an explicit user choice). Delivery is via Web Push to **every farm member's subscribed devices** — see `push_subscriptions` below and ARCHITECTURE.md's Push Notifications section for the pipeline.
+
+| Column       | Type                                 | Notes                                                                                                                              |
+| ------------ | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `id`         | uuid, PK                             |                                                                                                                                    |
+| `task_id`    | uuid, FK → `tasks.id`, not null      | `ON DELETE CASCADE` with the task                                                                                                  |
+| `remind_at`  | timestamptz, not null                | The instant the reminder should fire. App-side guard requires a future time; no DB constraint (a past value is harmless — skipped) |
+| `created_by` | uuid, FK → `auth.users.id`, nullable | Attribution only, not access control; survives a departed member as null                                                           |
+| `sent_at`    | timestamptz, nullable                | **Null = not yet sent.** Stamped when the Edge Function claims the row for delivery — also the concurrency guard vs. double-sends  |
+| `created_at` | timestamptz, default now()           |                                                                                                                                    |
+
+A partial index on `remind_at WHERE sent_at IS NULL` keeps the every-minute due-scan cheap as sent history accumulates. Like the other task-child tables it carries no `farm_id`; RLS scopes through the parent task. Reminders on a chore that gets marked done before they fire are claimed but not delivered (a completed chore shouldn't nag).
+
 ### `activity_log`
 
 Major-event-only log, per SPEC.md (not a full audit trail).
@@ -293,6 +312,21 @@ Major-event-only log, per SPEC.md (not a full audit trail).
 **Resolved: task_id is a soft reference, not a hard FK.** `task_id` is a plain `uuid` column with no foreign key constraint, so a hard-deleted task never orphans or cascades against its log entries. `event_detail.task_title` is always populated (not just on delete) so the log stays meaningful without needing a join — see DECISIONS.md.
 
 `activity_log` is now read by the app (a task's View page renders its history), not just written — see DECISIONS.md for the reversal of the original "Supabase-dashboard-only" MVP scoping call.
+
+### `push_subscriptions`
+
+The one deliberately **non-farm-scoped** table: one row per browser push subscription (i.e. per device/browser a user has granted notification permission on). A personal device credential owned by the user, not shared with any farm — enabling push on a device opts that device into reminders from **all** the user's farms.
+
+| Column       | Type                                 | Notes                                                                                                           |
+| ------------ | ------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `id`         | uuid, PK                             |                                                                                                                 |
+| `user_id`    | uuid, FK → `auth.users.id`, not null | `ON DELETE CASCADE` with the user                                                                               |
+| `endpoint`   | text, not null, **unique**           | The push service URL. Globally unique so a re-subscribing device upserts rather than accumulating stale rows    |
+| `p256dh`     | text, not null                       | Client-generated P-256 ECDH public key — the payload-encryption material the Web Push protocol needs (RFC 8291) |
+| `auth`       | text, not null                       | The matching auth secret. Together with `p256dh`, credentials to nothing except this one subscription           |
+| `created_at` | timestamptz, default now()           |                                                                                                                 |
+
+RLS is plain owner-only (`user_id = auth.uid()`) — the only table in the schema scoped that way. The `send-reminders` Edge Function reads across users via the service role (bypassing RLS) when fanning a reminder out to a farm's audience; dead subscriptions (push service returns 404/410) are pruned there too.
 
 ## Views
 
@@ -334,9 +368,13 @@ Called by the app once per session, right after sign-in (`app/middleware/members
 
 Self-serve farm creation. Validates `farm_name` (trimmed, 1–120 characters), inserts the `farms` row and the caller's `'owner'` `farm_memberships` row in one transaction, and returns the new farm's id. Backs both the `/welcome` first-farm flow and the "New farm" form on `/farm`.
 
+### `invoke_send_reminders()`
+
+Different in kind from the two above: never callable by clients (EXECUTE is revoked from `public`/`anon`/`authenticated`), it exists solely as pg_cron's every-minute entrypoint for reminder delivery. Security definer so it can read the `project_url`/`send_reminders_secret` Vault secrets and call `net.http_post`; it no-ops silently when the secrets aren't configured (fresh/local environments) or when no unsent reminder is due (the common case — a cheap `EXISTS` against the partial index above), and otherwise POSTs to the `send-reminders` Edge Function with the shared secret in an `x-cron-secret` header. See ARCHITECTURE.md for the full pipeline.
+
 ## Row Level Security (RLS) Policy Intent
 
-All farm-scoped tables (`categories`, `locations`, `tasks`, `tags`, `task_tags`, `task_photos`, `task_shopping_items`, `task_tools`, `task_time_entries`, `activity_log`) should have RLS **enabled by default** (deny-by-default), with policies granting access based on farm membership:
+All farm-scoped tables (`categories`, `locations`, `tasks`, `tags`, `task_tags`, `task_photos`, `task_shopping_items`, `task_tools`, `task_time_entries`, `task_reminders`, `activity_log`) should have RLS **enabled by default** (deny-by-default), with policies granting access based on farm membership (`push_subscriptions` is the deliberate exception — owner-only rather than farm-scoped, see its section above):
 
 ```sql
 -- Illustrative pattern, not final SQL

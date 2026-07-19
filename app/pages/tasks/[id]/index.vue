@@ -558,16 +558,24 @@ async function performDelete() {
   }
 }
 
-// One-time warning from the create page when a staged photo failed to
-// upload — read once, then stripped so a refresh doesn't reshow it (same
-// pattern the old `?task=` deep link used).
+// One-time warnings from the create page when a staged photo/reminder failed
+// to upload/schedule — read once, then stripped so a refresh doesn't reshow
+// them (same pattern the old `?task=` deep link used). Both are read (and
+// the query cleared) in one pass so a chore created with both a failed photo
+// and a failed reminder doesn't need two separate query-clearing round trips.
 const photoWarningCount = ref<number | null>(null)
+const reminderWarningCount = ref<number | null>(null)
 if (import.meta.client) {
   onMounted(() => {
-    const raw = route.query.photoWarning
-    const count = typeof raw === 'string' ? Number(raw) : NaN
-    if (Number.isFinite(count) && count > 0) {
-      photoWarningCount.value = count
+    function positiveCount(raw: unknown): number | null {
+      const count = typeof raw === 'string' ? Number(raw) : NaN
+      return Number.isFinite(count) && count > 0 ? count : null
+    }
+    const photoCount = positiveCount(route.query.photoWarning)
+    const reminderCount = positiveCount(route.query.reminderWarning)
+    if (photoCount !== null) photoWarningCount.value = photoCount
+    if (reminderCount !== null) reminderWarningCount.value = reminderCount
+    if (photoCount !== null || reminderCount !== null) {
       router.replace({ query: {} })
     }
   })
@@ -666,6 +674,18 @@ const taskLocation = computed(() =>
         >
           Chore created, but {{ photoWarningCount }} photo(s) failed to upload —
           add them again from the Photos section below.
+        </v-snackbar>
+
+        <v-snackbar
+          :model-value="reminderWarningCount !== null"
+          color="warning"
+          :timeout="8000"
+          @update:model-value="
+            (v: boolean) => !v && (reminderWarningCount = null)
+          "
+        >
+          Chore created, but {{ reminderWarningCount }} reminder(s) failed to
+          schedule — add them again from the Reminders section below.
         </v-snackbar>
 
         <div class="d-flex align-start justify-space-between mb-4 ga-2">
@@ -1279,6 +1299,10 @@ const taskLocation = computed(() =>
 
         <div class="cc-card mb-6">
           <TaskTools :task-id="task.id" />
+        </div>
+
+        <div class="cc-card mb-6">
+          <TaskReminders :task-id="task.id" />
         </div>
 
         <div class="cc-card mb-6">

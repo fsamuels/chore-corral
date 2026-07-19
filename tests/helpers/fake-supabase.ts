@@ -52,6 +52,11 @@ import type { Database } from '../../app/types/database.types'
 //   from('farm_invites').select(...).eq('farm_id',...).is('accepted_at', null).order('created_at')
 //   from('farm_invites').insert(row).select(...).single()
 //   from('farm_invites').delete().eq('id',...).is('accepted_at', null)
+//   from('task_reminders').select(...).eq('task_id', ...).order('remind_at')
+//   from('task_reminders').insert(row).select(...).single()
+//   from('task_reminders').delete().eq('id', ...)
+//   from('push_subscriptions').upsert(row, { onConflict: 'endpoint' })
+//   from('push_subscriptions').delete().eq('endpoint', ...)
 //   rpc('create_farm', {...}) / rpc('accept_farm_invites')   // via onRpc() handlers
 //
 // It is not a general PostgREST emulator: no joins, no or(), no partial
@@ -78,6 +83,8 @@ type TableName =
   | 'task_time_entries'
   | 'farm_member_profiles'
   | 'farm_invites'
+  | 'task_reminders'
+  | 'push_subscriptions'
 type Row = Record<string, unknown>
 
 export interface FakeSupabaseSeed {
@@ -96,11 +103,13 @@ export interface FakeSupabaseSeed {
   // distinction — it just needs queryable rows.
   farm_member_profiles?: Database['public']['Views']['farm_member_profiles']['Row'][]
   farm_invites?: Database['public']['Tables']['farm_invites']['Row'][]
+  task_reminders?: Database['public']['Tables']['task_reminders']['Row'][]
+  push_subscriptions?: Database['public']['Tables']['push_subscriptions']['Row'][]
 }
 
 export interface FailSpec {
   table: TableName
-  op: 'select' | 'insert' | 'update' | 'delete'
+  op: 'select' | 'insert' | 'update' | 'delete' | 'upsert'
   message?: string
 }
 
@@ -119,7 +128,7 @@ interface StorageFailSpecInternal {
 
 interface FailSpecInternal {
   table: TableName
-  op: 'select' | 'insert' | 'update' | 'delete'
+  op: 'select' | 'insert' | 'update' | 'delete' | 'upsert'
   message: string
 }
 
@@ -130,10 +139,12 @@ type QueryResult = {
 }
 
 class FakeQueryBuilder implements PromiseLike<QueryResult> {
-  private opType: 'select' | 'insert' | 'update' | 'delete' = 'select'
+  private opType: 'select' | 'insert' | 'update' | 'delete' | 'upsert' =
+    'select'
   private readonly filters: Array<(row: Row) => boolean> = []
   private insertPayload?: Row | Row[]
   private updatePayload?: Row
+  private upsertConflictColumn?: string
   private singleMode = false
   private countMode = false
   // Chained .order() calls accumulate as primary, secondary, ... sort keys,
@@ -163,6 +174,16 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
   update(row: Row): this {
     this.opType = 'update'
     this.updatePayload = row
+    return this
+  }
+
+  // Only single-row upsert-on-a-unique-column is needed (push.ts's
+  // save-subscription-on-endpoint-conflict) — no bulk upsert usage exists in
+  // the services, so no other shape is implemented.
+  upsert(row: Row, options?: { onConflict?: string }): this {
+    this.opType = 'upsert'
+    this.insertPayload = row
+    this.upsertConflictColumn = options?.onConflict
     return this
   }
 
@@ -260,6 +281,36 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
         : { data: projected, error: null }
     }
 
+    if (this.opType === 'upsert') {
+      const payload = (
+        Array.isArray(this.insertPayload)
+          ? this.insertPayload[0]
+          : this.insertPayload
+      ) as Row | undefined
+      const conflictCol = this.upsertConflictColumn
+      const existing =
+        conflictCol && payload
+          ? rows.find((row) => row[conflictCol] === payload[conflictCol])
+          : undefined
+      let saved: Row
+      if (existing) {
+        Object.assign(existing, payload)
+        saved = existing
+      } else {
+        saved = {
+          id: this.nextId(this.table),
+          created_at: new Date().toISOString(),
+          ...payload,
+        }
+        rows.push(saved)
+      }
+      if (!this.selectCols) return { data: null, error: null }
+      const projected = this.project(saved)
+      return this.singleMode
+        ? { data: projected, error: null }
+        : { data: [projected], error: null }
+    }
+
     if (this.opType === 'update') {
       const matches = rows.filter((row) => this.filters.every((f) => f(row)))
       for (const row of matches) Object.assign(row, this.updatePayload)
@@ -312,6 +363,8 @@ export class FakeSupabaseClient {
     task_time_entries: 0,
     farm_member_profiles: 0,
     farm_invites: 0,
+    task_reminders: 0,
+    push_subscriptions: 0,
   }
 
   // RPC fakes: tests register per-function handlers with onRpc(); calls to
@@ -359,6 +412,12 @@ export class FakeSupabaseClient {
       ),
       farm_invites: cloneRows(
         seed.farm_invites as unknown as Row[] | undefined,
+      ),
+      task_reminders: cloneRows(
+        seed.task_reminders as unknown as Row[] | undefined,
+      ),
+      push_subscriptions: cloneRows(
+        seed.push_subscriptions as unknown as Row[] | undefined,
       ),
     }
     const specs = failOn ? (Array.isArray(failOn) ? failOn : [failOn]) : []

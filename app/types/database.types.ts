@@ -520,6 +520,68 @@ export interface Database {
           },
         ]
       }
+      task_reminders: {
+        Row: {
+          id: string
+          task_id: string
+          remind_at: string
+          created_by: string
+          sent_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          task_id: string
+          remind_at: string
+          created_by: string
+          sent_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          task_id?: string
+          remind_at?: string
+          created_by?: string
+          sent_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'task_reminders_task_id_fkey'
+            columns: ['task_id']
+            isOneToOne: false
+            referencedRelation: 'tasks'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          id: string
+          user_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          endpoint?: string
+          p256dh?: string
+          auth?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       farm_member_profiles: {

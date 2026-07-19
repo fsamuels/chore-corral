@@ -2,11 +2,14 @@
 import type { Database } from '~/types/database.types'
 import type { TaskPriority } from '~/services/tasks'
 import { uploadTaskPhoto } from '~/services/photos'
+import { addReminder } from '~/services/reminders'
 import { compressImage } from '~/utils/photo-compression'
 import type { StagedPhoto } from '~/components/StagedTaskPhotos.vue'
+import type { StagedReminder } from '~/components/StagedTaskReminders.vue'
 import type { TaskLocationValue } from '~/components/TaskLocationInput.vue'
 
 const supabase = useSupabaseClient<Database>()
+const user = useSupabaseUser()
 const { fetchFarms, activeFarm, activeFarmId, farmsError } = useFarms()
 const { create } = useTasks()
 const { categories, fetchCategories } = useCategories()
@@ -56,6 +59,7 @@ const location = ref<TaskLocationValue>({
   lng: null,
 })
 const stagedPhotos = ref<StagedPhoto[]>([])
+const stagedReminders = ref<StagedReminder[]>([])
 
 const creating = ref(false)
 const createError = ref<string | null>(null)
@@ -80,12 +84,12 @@ async function submit() {
       tagNames: taskTags.value,
     })
 
-    // Photo uploads happen only after the task itself exists — sequential,
-    // and a failed upload here doesn't undo the (already successful) task
-    // creation. Failures are surfaced as a one-time warning on the view page
-    // rather than blocking navigation.
+    // Photo uploads and reminder scheduling both happen only after the task
+    // itself exists — sequential, and a failure in either doesn't undo the
+    // (already successful) task creation. Failures are surfaced as a
+    // one-time warning on the view page rather than blocking navigation.
     const farmId = activeFarmId.value
-    let failedCount = 0
+    let failedPhotoCount = 0
     if (farmId) {
       for (const photo of stagedPhotos.value) {
         try {
@@ -97,14 +101,42 @@ async function submit() {
             caption: photo.caption,
           })
         } catch {
-          failedCount += 1
+          failedPhotoCount += 1
         }
       }
     }
 
+    const actorUserId = getActorUserId(user.value)
+    let failedReminderCount = 0
+    if (actorUserId) {
+      for (const reminder of stagedReminders.value) {
+        try {
+          await addReminder(
+            supabase,
+            created.id,
+            reminder.remindAtIso,
+            actorUserId,
+          )
+        } catch {
+          failedReminderCount += 1
+        }
+      }
+    } else {
+      failedReminderCount = stagedReminders.value.length
+    }
+
+    const query = new URLSearchParams()
+    if (failedPhotoCount > 0) {
+      query.set('photoWarning', String(failedPhotoCount))
+    }
+    if (failedReminderCount > 0) {
+      query.set('reminderWarning', String(failedReminderCount))
+    }
+    const queryString = query.toString()
+
     await navigateTo(
-      failedCount > 0
-        ? `/tasks/${created.id}?photoWarning=${failedCount}`
+      queryString
+        ? `/tasks/${created.id}?${queryString}`
         : `/tasks/${created.id}`,
     )
   } catch (error) {
@@ -220,6 +252,9 @@ async function submit() {
 
         <v-divider class="my-4" />
         <StagedTaskPhotos v-model:staged="stagedPhotos" />
+
+        <v-divider class="my-4" />
+        <StagedTaskReminders v-model:staged="stagedReminders" />
 
         <v-textarea
           v-model="notes"

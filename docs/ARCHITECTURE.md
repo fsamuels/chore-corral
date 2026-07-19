@@ -60,6 +60,17 @@ Photos are compressed client-side before upload:
 
 This keeps storage well within Supabase's free-tier bucket limits at the project's stated scale (see DECISIONS.md for the cost analysis). Storage path structure is `{farm_id}/{task_id}/{photo_id}.webp`, keeping farm-scoping visible in the path itself and simplifying storage-level access policies.
 
+### Push Notifications (Chore Reminders)
+
+A chore can carry any number of scheduled reminders (`task_reminders`); when one comes due, every farm member's subscribed devices get a Web Push notification — screen off, app closed. The web platform has no way to schedule a notification client-side for a future instant (the Notification Triggers API was abandoned unshipped), so the timing lives server-side and the delivery pipeline is:
+
+1. **pg_cron** (in Supabase Postgres) runs `invoke_send_reminders()` every minute. It exits immediately unless Vault is wired up **and** at least one unsent reminder is due, so the common case costs one cheap partial-index probe.
+2. When something is due, it POSTs (via **pg_net**) to the **`send-reminders` Edge Function** — the project's first Edge Function (`supabase/functions/send-reminders/`), authenticated by a shared secret header (`x-cron-secret`), not a user JWT. Deployed manually via `supabase functions deploy send-reminders`, the same manual-step model as `supabase db push` for migrations.
+3. The function **atomically claims** due rows (stamping `sent_at` in a single conditional `UPDATE … RETURNING`, so concurrent invocations can't double-send), skips chores already done and reminders more than ~an hour stale (no notification blasts after downtime), fans out one Web Push per `push_subscriptions` row across the farm's members (via `npm:web-push` with VAPID auth), and prunes subscriptions the push service reports dead (404/410).
+4. On the device, `public/sw.js` — a deliberately **push-only** service worker (no offline caching; that remains its own roadmap item) — shows the notification and, on tap, focuses/opens the app at the chore's page.
+
+Client-side, `usePushNotifications` handles the per-device opt-in from the nav drawer's "Chore reminders" item: register the worker, request permission (from a tap — browsers require a user gesture), `PushManager.subscribe()` with the VAPID public key, and persist the subscription to `push_subscriptions`. The VAPID **public** key is a client-exposed env var (`NUXT_PUBLIC_VAPID_PUBLIC_KEY`, same treatment as the Mapbox token); the **private** key exists only as an Edge Function secret. Platform note: on iOS (16.4+), Web Push only works once the app is added to the Home Screen — the composable detects that case and the UI hints to install first. Delivery is near-real-time but best-effort; reminders are a nudge, not an alarm clock.
+
 ## Maps
 
 ### Leaflet + Mapbox Satellite
