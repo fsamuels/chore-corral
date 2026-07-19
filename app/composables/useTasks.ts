@@ -89,7 +89,11 @@ export function useTasks() {
     tasks.value = next
   }
 
-  async function setStatus(taskId: string, status: TaskStatus): Promise<void> {
+  async function setStatus(
+    taskId: string,
+    status: TaskStatus,
+    note?: string | null,
+  ): Promise<void> {
     const farmId = activeFarmId.value
     const actorUserId = getActorUserId(user.value)
     if (!farmId || !actorUserId) {
@@ -100,6 +104,7 @@ export function useTasks() {
       taskId,
       status,
       actorUserId,
+      note,
     })
     tasks.value =
       tasks.value?.map((task) => (task.id === updated.id ? updated : task)) ??

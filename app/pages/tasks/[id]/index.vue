@@ -94,12 +94,21 @@ function categoryDisplay(categoryId: string | null) {
 const statusChanging = ref(false)
 const statusChangeError = ref<string | null>(null)
 
-async function onStatusChange(status: TaskStatus) {
-  if (!task.value || task.value.status === status) return
+// Completion confirmation dialog: a move to `done` doesn't apply immediately
+// — it opens this dialog for an optional note, doubling as an
+// accidental-completion guard. Not started/In progress stay immediate.
+const completionDialog = ref(false)
+const completionNote = ref('')
+
+async function applyStatusChange(
+  status: TaskStatus,
+  note?: string | null,
+): Promise<void> {
+  if (!task.value) return
   statusChanging.value = true
   statusChangeError.value = null
   try {
-    await setStatus(task.value.id, status)
+    await setStatus(task.value.id, status, note)
     await fetchTask()
   } catch (error) {
     statusChangeError.value =
@@ -107,6 +116,21 @@ async function onStatusChange(status: TaskStatus) {
   } finally {
     statusChanging.value = false
   }
+}
+
+async function onStatusChange(status: TaskStatus) {
+  if (!task.value || task.value.status === status) return
+  if (status === 'done') {
+    completionNote.value = ''
+    completionDialog.value = true
+    return
+  }
+  await applyStatusChange(status)
+}
+
+async function confirmCompletion() {
+  await applyStatusChange('done', completionNote.value)
+  if (statusChangeError.value === null) completionDialog.value = false
 }
 
 // --- In-place field editing (immediate save per field; see DECISIONS.md) ---
@@ -610,6 +634,17 @@ function eventLabel(entry: ActivityEntry): string {
   if (entry.event_type === 'task_created') return 'Chore created'
   if (entry.event_type === 'task_deleted') return 'Chore deleted'
   return entry.event_type
+}
+
+// The optional note recorded alongside a status-change event (currently only
+// ever set on the move to done, via the completion dialog) — trimmed and
+// non-empty, else null so the caller can `v-if` on it directly.
+function statusChangeNote(entry: ActivityEntry): string | null {
+  if (entry.event_type !== 'task_status_changed') return null
+  const note = entry.event_detail.note
+  if (typeof note !== 'string') return null
+  const trimmed = note.trim()
+  return trimmed || null
 }
 
 function formatTimestamp(iso: string): string {
@@ -1330,6 +1365,13 @@ const taskLocation = computed(() =>
               size="small"
             >
               <div class="text-body-2">{{ eventLabel(entry) }}</div>
+              <div
+                v-if="statusChangeNote(entry)"
+                class="text-body-2 text-medium-emphasis"
+                style="font-style: italic"
+              >
+                "{{ statusChangeNote(entry) }}"
+              </div>
               <div class="text-caption text-medium-emphasis">
                 {{ formatTimestamp(entry.created_at) }}
                 <template v-if="entry.actor_label">
@@ -1383,6 +1425,52 @@ const taskLocation = computed(() =>
                 @click="performDelete"
               >
                 Delete
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
+
+        <v-dialog v-model="completionDialog" max-width="480" persistent>
+          <v-card>
+            <v-card-title>Mark chore as done?</v-card-title>
+            <v-card-text>
+              Add an optional note about how it went (or leave it blank).
+              <v-textarea
+                v-model="completionNote"
+                label="Note (optional)"
+                variant="outlined"
+                rows="3"
+                auto-grow
+                autofocus
+                counter
+                class="mt-3"
+                :disabled="statusChanging"
+              />
+              <v-alert
+                v-if="statusChangeError"
+                type="error"
+                variant="tonal"
+                density="compact"
+              >
+                {{ statusChangeError }}
+              </v-alert>
+            </v-card-text>
+            <v-card-actions>
+              <v-spacer />
+              <v-btn
+                size="large"
+                :disabled="statusChanging"
+                @click="completionDialog = false"
+              >
+                Cancel
+              </v-btn>
+              <v-btn
+                color="primary"
+                size="large"
+                :loading="statusChanging"
+                @click="confirmCompletion"
+              >
+                Mark done
               </v-btn>
             </v-card-actions>
           </v-card>
