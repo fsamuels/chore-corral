@@ -19,7 +19,14 @@ const route = useRoute()
 const router = useRouter()
 const taskId = computed(() => route.params.id as string)
 
-const { fetchFarms, activeFarm, activeFarmId, farmsError } = useFarms()
+const {
+  fetchFarms,
+  activeFarm,
+  activeFarmId,
+  farmsError,
+  farms,
+  setActiveFarm,
+} = useFarms()
 const { task, taskError, loading, fetchTask } = useTask(taskId)
 const { setStatus, update, remove } = useTasks()
 const { categories, fetchCategories } = useCategories()
@@ -27,6 +34,19 @@ const { tags, fetchTags } = useTags()
 const { locations, fetchLocations } = useLocations()
 
 await fetchFarms()
+
+// A reminder push notification's link carries `?farm=<id>` (see
+// supabase/functions/send-reminders) so that following it while a
+// *different* farm is active switches to the chore's farm first —
+// otherwise useTask()'s farm-scoped lookup reports "not found" for a
+// chore that exists, just in another farm the user also belongs to.
+const farmToSwitch = farmSwitchFromQuery(
+  route.query.farm,
+  farms.value ?? [],
+  activeFarmId.value,
+)
+if (farmToSwitch) setActiveFarm(farmToSwitch)
+
 await fetchTask()
 await fetchCategories()
 await fetchTags()
@@ -608,6 +628,9 @@ async function performDelete() {
 // them (same pattern the old `?task=` deep link used). Both are read (and
 // the query cleared) in one pass so a chore created with both a failed photo
 // and a failed reminder doesn't need two separate query-clearing round trips.
+// The `?farm=` deep-link param (see the farmToSwitch handling above) rides
+// along in this same cleanup — it's done its job by the time this runs and
+// shouldn't linger in the address bar or get resubmitted on a refresh.
 const photoWarningCount = ref<number | null>(null)
 const reminderWarningCount = ref<number | null>(null)
 if (import.meta.client) {
@@ -620,7 +643,7 @@ if (import.meta.client) {
     const reminderCount = positiveCount(route.query.reminderWarning)
     if (photoCount !== null) photoWarningCount.value = photoCount
     if (reminderCount !== null) reminderWarningCount.value = reminderCount
-    if (photoCount !== null || reminderCount !== null) {
+    if (photoCount !== null || reminderCount !== null || route.query.farm) {
       router.replace({ query: {} })
     }
   })
