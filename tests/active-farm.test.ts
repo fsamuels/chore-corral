@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { resolveActiveFarmId } from '../app/utils/active-farm'
+import {
+  farmSwitchFromQuery,
+  resolveActiveFarmId,
+} from '../app/utils/active-farm'
 
 const farms = [
   { id: 'farm-a', name: 'Reign Cloud Ranch' },
@@ -41,5 +44,31 @@ describe('resolveActiveFarmId', () => {
 
   it('falls back to the first farm when neither a saved nor a recent farm is known', () => {
     expect(resolveActiveFarmId(farms, null, null)).toBe('farm-a')
+  })
+})
+
+describe('farmSwitchFromQuery', () => {
+  it('switches to the query farm when it is a membership and not already active', () => {
+    expect(farmSwitchFromQuery('farm-b', farms, 'farm-a')).toBe('farm-b')
+  })
+
+  it('returns null when there is no query param', () => {
+    expect(farmSwitchFromQuery(undefined, farms, 'farm-a')).toBeNull()
+  })
+
+  it('returns null for a non-string query value', () => {
+    expect(farmSwitchFromQuery(['farm-b'], farms, 'farm-a')).toBeNull()
+  })
+
+  it('returns null when the query farm is already active', () => {
+    expect(farmSwitchFromQuery('farm-a', farms, 'farm-a')).toBeNull()
+  })
+
+  it('returns null when the query farm is not one of the user’s farms', () => {
+    expect(farmSwitchFromQuery('farm-foreign', farms, 'farm-a')).toBeNull()
+  })
+
+  it('switches even when there is no currently active farm', () => {
+    expect(farmSwitchFromQuery('farm-b', farms, null)).toBe('farm-b')
   })
 })

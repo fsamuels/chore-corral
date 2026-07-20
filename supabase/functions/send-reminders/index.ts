@@ -217,7 +217,12 @@ Deno.serve(async (req) => {
     const payload: ReminderPayload = {
       title: task.title,
       body: 'Reminder for this chore',
-      url: `/tasks/${task.id}`,
+      // `?farm=` so the client can switch farms before loading the chore —
+      // a reminder can fire while the user's browser has a *different* farm
+      // active (see resolveActiveFarmId's saved-selection cookie), and
+      // useTask()'s farm-scoped lookup would otherwise report "not found"
+      // for a chore that exists, just in the other farm.
+      url: `/tasks/${task.id}?farm=${task.farm_id}`,
       tag: `reminder-${reminder.id}`,
       reminderId: reminder.id,
     }
