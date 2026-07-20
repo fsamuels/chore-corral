@@ -94,11 +94,29 @@ function categoryDisplay(categoryId: string | null) {
 const statusChanging = ref(false)
 const statusChangeError = ref<string | null>(null)
 
-// Completion confirmation dialog: a move to `done` doesn't apply immediately
-// — it opens this dialog for an optional note, doubling as an
-// accidental-completion guard. Not started/In progress stay immediate.
-const completionDialog = ref(false)
-const completionNote = ref('')
+// Status-change note dialog: a move to In progress or Done doesn't apply
+// immediately — it opens this dialog for an optional note (recorded on the
+// logged status change), doubling as an accidental-change guard, chiefly for
+// Done, which was too easy to hit by mistake. Not started stays immediate:
+// it's a low-stakes move not worth the friction.
+const STATUS_NOTE_TARGETS: TaskStatus[] = ['in_progress', 'done']
+const statusNoteDialog = ref(false)
+const pendingStatus = ref<TaskStatus | null>(null)
+const statusNote = ref('')
+
+const statusNoteDialogTitle = computed(() =>
+  pendingStatus.value === 'done'
+    ? 'Mark chore as done?'
+    : 'Move chore to In progress?',
+)
+const statusNotePrompt = computed(() =>
+  pendingStatus.value === 'done'
+    ? 'Add an optional note about how it went (or leave it blank).'
+    : 'Add an optional note about this change (or leave it blank).',
+)
+const statusNoteConfirmLabel = computed(() =>
+  pendingStatus.value === 'done' ? 'Mark done' : 'Move to In progress',
+)
 
 async function applyStatusChange(
   status: TaskStatus,
@@ -120,17 +138,20 @@ async function applyStatusChange(
 
 async function onStatusChange(status: TaskStatus) {
   if (!task.value || task.value.status === status) return
-  if (status === 'done') {
-    completionNote.value = ''
-    completionDialog.value = true
+  if (STATUS_NOTE_TARGETS.includes(status)) {
+    pendingStatus.value = status
+    statusNote.value = ''
+    statusNoteDialog.value = true
     return
   }
   await applyStatusChange(status)
 }
 
-async function confirmCompletion() {
-  await applyStatusChange('done', completionNote.value)
-  if (statusChangeError.value === null) completionDialog.value = false
+async function confirmStatusChange() {
+  const status = pendingStatus.value
+  if (!status) return
+  await applyStatusChange(status, statusNote.value)
+  if (statusChangeError.value === null) statusNoteDialog.value = false
 }
 
 // --- In-place field editing (immediate save per field; see DECISIONS.md) ---
@@ -1430,13 +1451,13 @@ const taskLocation = computed(() =>
           </v-card>
         </v-dialog>
 
-        <v-dialog v-model="completionDialog" max-width="480" persistent>
+        <v-dialog v-model="statusNoteDialog" max-width="480" persistent>
           <v-card>
-            <v-card-title>Mark chore as done?</v-card-title>
+            <v-card-title>{{ statusNoteDialogTitle }}</v-card-title>
             <v-card-text>
-              Add an optional note about how it went (or leave it blank).
+              {{ statusNotePrompt }}
               <v-textarea
-                v-model="completionNote"
+                v-model="statusNote"
                 label="Note (optional)"
                 variant="outlined"
                 rows="3"
@@ -1460,7 +1481,7 @@ const taskLocation = computed(() =>
               <v-btn
                 size="large"
                 :disabled="statusChanging"
-                @click="completionDialog = false"
+                @click="statusNoteDialog = false"
               >
                 Cancel
               </v-btn>
@@ -1468,9 +1489,9 @@ const taskLocation = computed(() =>
                 color="primary"
                 size="large"
                 :loading="statusChanging"
-                @click="confirmCompletion"
+                @click="confirmStatusChange"
               >
-                Mark done
+                {{ statusNoteConfirmLabel }}
               </v-btn>
             </v-card-actions>
           </v-card>
