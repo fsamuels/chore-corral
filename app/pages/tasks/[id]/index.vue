@@ -1474,7 +1474,12 @@ const taskLocation = computed(() =>
           </v-card>
         </v-dialog>
 
-        <v-dialog v-model="statusNoteDialog" max-width="480" persistent>
+        <v-dialog
+          v-model="statusNoteDialog"
+          max-width="480"
+          location="top"
+          persistent
+        >
           <v-card>
             <v-card-title>{{ statusNoteDialogTitle }}</v-card-title>
             <v-card-text>
@@ -1499,23 +1504,34 @@ const taskLocation = computed(() =>
                 {{ statusChangeError }}
               </v-alert>
             </v-card-text>
-            <v-card-actions>
-              <v-spacer />
-              <v-btn
-                size="large"
+            <v-card-actions class="status-dialog-actions">
+              <button
+                type="button"
+                class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--lg status-dialog-btn"
                 :disabled="statusChanging"
                 @click="statusNoteDialog = false"
               >
                 Cancel
-              </v-btn>
-              <v-btn
-                color="primary"
-                size="large"
-                :loading="statusChanging"
+              </button>
+              <button
+                type="button"
+                :class="[
+                  'cc-pill-btn cc-pill-btn--lg status-dialog-btn',
+                  pendingStatus === 'done'
+                    ? 'cc-pill-btn--success'
+                    : 'cc-pill-btn--accent',
+                ]"
+                :disabled="statusChanging"
                 @click="confirmStatusChange"
               >
-                {{ statusNoteConfirmLabel }}
-              </v-btn>
+                <v-progress-circular
+                  v-if="statusChanging"
+                  indeterminate
+                  size="18"
+                  width="2"
+                />
+                <template v-else>{{ statusNoteConfirmLabel }}</template>
+              </button>
             </v-card-actions>
           </v-card>
         </v-dialog>
@@ -1562,6 +1578,17 @@ const taskLocation = computed(() =>
   margin-top: 32px;
   padding-top: 24px;
   border-top: 1px solid var(--cc-border);
+}
+
+/* Cancel / confirm pair on the status-change dialog — full-width pill
+   buttons matching the rest of the app, instead of Vuetify's default
+   text buttons, so they're easy to spot and hit on mobile. */
+.status-dialog-actions {
+  gap: 12px;
+}
+
+.status-dialog-btn {
+  flex: 1 1 0;
 }
 
 /* Ring the activity timeline's dots in the shared track color instead of
