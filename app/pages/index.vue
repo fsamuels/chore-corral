@@ -9,6 +9,7 @@ import {
   type TaskSummary,
 } from '~/services/tasks'
 import { startTimer, stopTimer } from '~/services/time-entries'
+import { matchesSearch } from '~/utils/task-filters'
 
 const supabase = useSupabaseClient<Database>()
 const user = useSupabaseUser()
@@ -39,9 +40,19 @@ const urgentCount = computed(
     outstandingTasks.value.filter((task) => task.priority === 'urgent').length,
 )
 
+const searchQuery = ref('')
+
+// The quick search only narrows the "Up next" / "Backlog" groups below — the
+// stat pills above stay a summary of *all* outstanding tasks regardless.
+const searchedTasks = computed(() =>
+  outstandingTasks.value.filter((task) =>
+    matchesSearch(task, searchQuery.value),
+  ),
+)
+
 const homeGroups = computed(() => {
   const { upNext, backlog } = partitionHomeTasks(
-    outstandingTasks.value,
+    searchedTasks.value,
     today.value,
   )
   return {
@@ -157,6 +168,18 @@ async function toggleTimer(task: TaskSummary) {
           </span>
         </div>
 
+        <v-text-field
+          v-if="outstandingTasks.length > 0"
+          v-model="searchQuery"
+          placeholder="Search chores"
+          prepend-inner-icon="mdi-magnify"
+          density="compact"
+          variant="outlined"
+          hide-details
+          clearable
+          class="home__search mb-4"
+        />
+
         <div
           v-if="!tasks || tasks.length === 0"
           class="text-center py-12 text-medium-emphasis"
@@ -176,6 +199,14 @@ async function toggleTimer(task: TaskSummary) {
         >
           <v-icon icon="mdi-check-circle-outline" size="64" class="mb-4" />
           <p class="text-body-1">Nothing outstanding — every chore is done.</p>
+        </div>
+
+        <div
+          v-else-if="searchedTasks.length === 0"
+          class="text-center py-12 text-medium-emphasis"
+        >
+          <v-icon icon="mdi-magnify" size="64" class="mb-4" />
+          <p class="text-body-1">No chores match “{{ searchQuery }}”.</p>
         </div>
 
         <template v-else>
@@ -244,6 +275,16 @@ async function toggleTimer(task: TaskSummary) {
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 24px;
+}
+
+.home__search {
+  max-width: 320px;
+}
+
+@media (max-width: 600px) {
+  .home__search {
+    max-width: 100%;
+  }
 }
 
 .home__section {
