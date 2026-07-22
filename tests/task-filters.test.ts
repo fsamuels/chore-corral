@@ -93,6 +93,13 @@ describe('matchesSearch', () => {
     expect(matchesSearch(task({ title: 'Fix the Gate' }), 'GATE')).toBe(true)
     expect(matchesSearch(task({ title: 'Fix the Gate' }), 'fence')).toBe(false)
   })
+
+  it('matches any title when the query is null or undefined', () => {
+    // Vuetify's `clearable` resets a text field's v-model to `null` (not
+    // `''`) when its clear icon is clicked.
+    expect(matchesSearch(task({ title: 'Fix the gate' }), null)).toBe(true)
+    expect(matchesSearch(task({ title: 'Fix the gate' }), undefined)).toBe(true)
+  })
 })
 
 describe('filterTasks', () => {

@@ -132,7 +132,7 @@ const hasActiveFilters = computed(
     filters.value.priority !== ALL ||
     filters.value.dueDate !== ALL ||
     filters.value.overdueOnly ||
-    filters.value.search.trim() !== '',
+    (filters.value.search ?? '').trim() !== '',
 )
 
 function resetFilters() {
