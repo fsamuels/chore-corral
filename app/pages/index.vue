@@ -16,11 +16,13 @@ const user = useSupabaseUser()
 const { fetchFarms, activeFarm, activeFarmId, farmsError } = useFarms()
 const { tasks, tasksError, loading, fetchTasks } = useTasks()
 const { categories, fetchCategories } = useCategories()
+const { locations, fetchLocations } = useLocations()
 const { runningEntry, refresh: refreshRunningTimer } = useRunningTimer()
 
 await fetchFarms()
 await fetchTasks()
 await fetchCategories()
+await fetchLocations()
 
 const today = computed(() => toLocalDateString(new Date()))
 
@@ -69,6 +71,10 @@ function categoryName(task: TaskSummary): string {
 
 function categoryEmoji(task: TaskSummary): string | null {
   return categories.value?.find((c) => c.id === task.category_id)?.emoji ?? null
+}
+
+function locationName(task: TaskSummary): string | null {
+  return locationDisplayName(task.location_id, locations.value)
 }
 
 // Which task, if any, currently holds the user's running timer.
@@ -219,6 +225,7 @@ async function toggleTimer(task: TaskSummary) {
                 :task="task"
                 :category-name="categoryName(task)"
                 :category-emoji="categoryEmoji(task)"
+                :location-name="locationName(task)"
                 :today="today"
                 :updating="updatingTaskId === task.id"
                 :timer-running="isTimerRunning(task)"
@@ -242,6 +249,7 @@ async function toggleTimer(task: TaskSummary) {
                 :task="task"
                 :category-name="categoryName(task)"
                 :category-emoji="categoryEmoji(task)"
+                :location-name="locationName(task)"
                 :today="today"
                 :updating="updatingTaskId === task.id"
                 :timer-running="isTimerRunning(task)"

@@ -3,6 +3,7 @@ import {
   assertValidCompletedAt,
   assertValidEstimatedMinutes,
   changeTaskStatus,
+  compareTasksDoneLast,
   createTask,
   deleteTask,
   getTask,
@@ -1479,5 +1480,56 @@ describe('isTaskOverdue', () => {
     expect(isTaskOverdue({ due_date: null, status: 'not_started' }, now)).toBe(
       false,
     )
+  })
+})
+
+describe('compareTasksDoneLast', () => {
+  it('sinks done tasks below not-done tasks regardless of priority', () => {
+    const done = {
+      id: 'a',
+      priority: 'urgent' as const,
+      created_at: '2026-01-01',
+      status: 'done' as const,
+    }
+    const notDone = {
+      id: 'b',
+      priority: 'whenever' as const,
+      created_at: '2026-01-01',
+      status: 'not_started' as const,
+    }
+    expect(compareTasksDoneLast(done, notDone)).toBeGreaterThan(0)
+    expect(compareTasksDoneLast(notDone, done)).toBeLessThan(0)
+  })
+
+  it('falls back to compareTasks priority ordering within the not-done group', () => {
+    const urgent = {
+      id: 'a',
+      priority: 'urgent' as const,
+      created_at: '2026-01-01',
+      status: 'not_started' as const,
+    }
+    const soon = {
+      id: 'b',
+      priority: 'soon' as const,
+      created_at: '2026-01-01',
+      status: 'not_started' as const,
+    }
+    expect(compareTasksDoneLast(urgent, soon)).toBeLessThan(0)
+  })
+
+  it('falls back to compareTasks priority ordering within the done group', () => {
+    const urgentDone = {
+      id: 'a',
+      priority: 'urgent' as const,
+      created_at: '2026-01-01',
+      status: 'done' as const,
+    }
+    const soonDone = {
+      id: 'b',
+      priority: 'soon' as const,
+      created_at: '2026-01-01',
+      status: 'done' as const,
+    }
+    expect(compareTasksDoneLast(urgentDone, soonDone)).toBeLessThan(0)
   })
 })

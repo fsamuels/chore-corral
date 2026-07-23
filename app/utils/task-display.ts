@@ -4,6 +4,7 @@ import {
   type TaskStatus,
 } from '../services/tasks'
 import type { CategorySummary } from '../services/categories'
+import type { LocationSummary } from '../services/locations'
 
 /**
  * The ranch-design priority color system (design tokens). The same values
@@ -187,4 +188,19 @@ export function categoryDisplayName(
       deleted: false,
     }
   return { text: '(deleted category)', emoji: '🏷️', deleted: true }
+}
+
+/**
+ * A task's defined-location name, resolved against the farm's location list
+ * (the task row only carries `location_id`). Null both when the task has no
+ * defined location (freeform pin or no location at all — those don't have a
+ * name to show) and when `location_id` points at a soft-deleted location no
+ * longer in the list.
+ */
+export function locationDisplayName(
+  locationId: string | null,
+  locations: Pick<LocationSummary, 'id' | 'name'>[] | null | undefined,
+): string | null {
+  if (locationId === null) return null
+  return locations?.find((l) => l.id === locationId)?.name ?? null
 }

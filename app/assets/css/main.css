@@ -150,6 +150,13 @@
   color: var(--cc-urgent-ring);
 }
 
+/* Filled (not soft-tinted) so a completed chore reads unmistakably done at
+   a glance, without resorting to strikethrough text. */
+.cc-pill--done {
+  background: var(--cc-success);
+  color: var(--cc-success-contrast);
+}
+
 /* Quiet orange text link ("Show 3 more"). */
 .cc-text-link {
   color: var(--cc-accent);

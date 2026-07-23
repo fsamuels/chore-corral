@@ -8,6 +8,9 @@ const props = defineProps<{
   categoryName: string
   /** Optional category emoji, shown in the circular timer button. */
   categoryEmoji?: string | null
+  /** Resolved defined-location name (page owns the locations list); null for
+   * a freeform pin or no location. */
+  locationName?: string | null
   /** Local calendar-date string ("YYYY-MM-DD") for due-date rendering. */
   today: string
   /** True while the page is persisting this task's timer change. */
@@ -23,29 +26,38 @@ const emit = defineEmits<{
   toggleTimer: [task: TaskSummary]
 }>()
 
+const isDone = computed(() => props.task.status === 'done')
+
 const overdue = computed(() => isTaskOverdue(props.task))
 
 // Lowercased for the pill's "Soon · due tomorrow" form (formatDueDate
-// returns "Due tomorrow").
+// returns "Due tomorrow"). Done tasks skip this entirely — a finished
+// chore's due date (even one in the past) isn't overdue, so it gets a
+// "Completed" pill instead below.
 const dueText = computed(() =>
-  props.task.due_date
+  !isDone.value && props.task.due_date
     ? formatDueDate(props.task.due_date, props.today).toLowerCase()
     : null,
 )
 
 // Whenever tasks only get a pill when they have a due date; urgent/soon
-// always show their priority pill.
+// always show their priority pill; done tasks always get the Completed pill.
 const showPill = computed(
-  () => props.task.priority !== 'whenever' || dueText.value !== null,
+  () =>
+    isDone.value ||
+    props.task.priority !== 'whenever' ||
+    dueText.value !== null,
 )
 
 const pillIcon = computed(() => {
+  if (isDone.value) return 'mdi-check-circle'
   if (props.task.priority === 'urgent') return 'mdi-fire'
   if (props.task.priority === 'soon') return 'mdi-clock-outline'
   return null
 })
 
 const pillLabel = computed(() => {
+  if (isDone.value) return 'Completed'
   const priorityLabel =
     props.task.priority === 'urgent'
       ? 'Urgent'
@@ -56,6 +68,8 @@ const pillLabel = computed(() => {
   return priorityLabel ?? ''
 })
 
+// Freeform pin (no name to show — a defined location instead renders
+// `locationName` as text below).
 const hasLocation = computed(
   () => props.task.lat !== null && props.task.lng !== null,
 )
@@ -125,7 +139,7 @@ function onToggleTimer() {
         <span
           v-if="showPill"
           class="cc-pill task-card__pill"
-          :class="`cc-pill--${task.priority}`"
+          :class="isDone ? 'cc-pill--done' : `cc-pill--${task.priority}`"
         >
           <v-icon v-if="pillIcon" :icon="pillIcon" size="14" />
           <span>
@@ -137,8 +151,20 @@ function onToggleTimer() {
             >
           </span>
         </span>
+        <span
+          v-if="locationName"
+          class="task-card__location"
+          :title="locationName"
+        >
+          <v-icon
+            icon="mdi-map-marker-outline"
+            size="16"
+            class="task-card__meta-icon"
+          />
+          {{ locationName }}
+        </span>
         <v-icon
-          v-if="hasLocation"
+          v-else-if="hasLocation"
           icon="mdi-map-marker-outline"
           size="16"
           class="task-card__meta-icon"
@@ -308,5 +334,17 @@ function onToggleTimer() {
   gap: 2px;
   color: var(--cc-ink-muted);
   font-size: 0.75rem;
+}
+
+.task-card__location {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--cc-ink-muted);
+  font-size: 0.75rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  compareTasksDoneLast,
   toLocalDateString,
   type TaskPriority,
   type TaskStatus,
@@ -158,11 +159,15 @@ const filteredTasks = computed(() => {
     selectedLocation.value === ALL_LOCATIONS
       ? byTag
       : byTag.filter((task) => task.location_id === selectedLocation.value)
-  return filterTasks(byLocation, filters.value)
+  return filterTasks(byLocation, filters.value).sort(compareTasksDoneLast)
 })
 
 function categoryName(categoryId: string | null): string {
   return categoryDisplayName(categoryId, categories.value).text
+}
+
+function locationName(locationId: string | null): string | null {
+  return locationDisplayName(locationId, locations.value)
 }
 </script>
 
@@ -313,6 +318,7 @@ function categoryName(categoryId: string | null): string {
           :key="item.id"
           :task="item"
           :category-name="categoryName(item.category_id)"
+          :location-name="locationName(item.location_id)"
           :today="today"
           hide-check
         />

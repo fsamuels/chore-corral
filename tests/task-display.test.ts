@@ -5,6 +5,7 @@ import {
   formatElapsedWithSeconds,
   formatEstimatedMinutes,
   formatTimeForInput,
+  locationDisplayName,
   parseEstimatedMinutesInput,
 } from '../app/utils/task-display'
 
@@ -95,5 +96,26 @@ describe('combineDateAndTime', () => {
     expect(combineDateAndTime(new Date(2026, 6, 9), '10:75')).toBeNull()
     expect(combineDateAndTime(new Date(2026, 6, 9), 'nope')).toBeNull()
     expect(combineDateAndTime(new Date(2026, 6, 9), '')).toBeNull()
+  })
+})
+
+describe('locationDisplayName', () => {
+  const locations = [{ id: 'loc-1', name: 'Barn' }]
+
+  it('resolves the name for a task with a defined location', () => {
+    expect(locationDisplayName('loc-1', locations)).toBe('Barn')
+  })
+
+  it('is null when the task has no location', () => {
+    expect(locationDisplayName(null, locations)).toBeNull()
+  })
+
+  it('is null when location_id points at a location no longer in the list', () => {
+    expect(locationDisplayName('deleted-loc', locations)).toBeNull()
+  })
+
+  it('is null when the locations list is null/undefined', () => {
+    expect(locationDisplayName('loc-1', null)).toBeNull()
+    expect(locationDisplayName('loc-1', undefined)).toBeNull()
   })
 })
