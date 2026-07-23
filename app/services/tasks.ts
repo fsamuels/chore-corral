@@ -67,6 +67,22 @@ export function compareTasks(
 }
 
 /**
+ * `compareTasks`, but with done tasks sunk to the bottom regardless of
+ * priority — for lists (the Chores page) where a finished chore is the
+ * least useful thing to see up top. Non-done tasks keep `compareTasks`'
+ * priority ordering; done tasks keep it among themselves too.
+ */
+export function compareTasksDoneLast(
+  a: Pick<TaskSummary, 'priority' | 'created_at' | 'id' | 'status'>,
+  b: Pick<TaskSummary, 'priority' | 'created_at' | 'id' | 'status'>,
+): number {
+  const aDone = a.status === 'done' ? 1 : 0
+  const bDone = b.status === 'done' ? 1 : 0
+  if (aDone !== bDone) return aDone - bDone
+  return compareTasks(a, b)
+}
+
+/**
  * Whether a task should be flagged overdue: it has a due date strictly in
  * the past (due today is not overdue) and isn't Done. `due_date` is a plain
  * `date` column, so the comparison uses the local calendar date — a task due
