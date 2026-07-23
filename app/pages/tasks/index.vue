@@ -165,6 +165,10 @@ const filteredTasks = computed(() => {
 function categoryName(categoryId: string | null): string {
   return categoryDisplayName(categoryId, categories.value).text
 }
+
+function locationName(locationId: string | null): string | null {
+  return locationDisplayName(locationId, locations.value)
+}
 </script>
 
 <template>
@@ -314,6 +318,7 @@ function categoryName(categoryId: string | null): string {
           :key="item.id"
           :task="item"
           :category-name="categoryName(item.category_id)"
+          :location-name="locationName(item.location_id)"
           :today="today"
           hide-check
         />

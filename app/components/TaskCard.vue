@@ -8,6 +8,9 @@ const props = defineProps<{
   categoryName: string
   /** Optional category emoji, shown in the circular timer button. */
   categoryEmoji?: string | null
+  /** Resolved defined-location name (page owns the locations list); null for
+   * a freeform pin or no location. */
+  locationName?: string | null
   /** Local calendar-date string ("YYYY-MM-DD") for due-date rendering. */
   today: string
   /** True while the page is persisting this task's timer change. */
@@ -65,6 +68,8 @@ const pillLabel = computed(() => {
   return priorityLabel ?? ''
 })
 
+// Freeform pin (no name to show — a defined location instead renders
+// `locationName` as text below).
 const hasLocation = computed(
   () => props.task.lat !== null && props.task.lng !== null,
 )
@@ -146,8 +151,20 @@ function onToggleTimer() {
             >
           </span>
         </span>
+        <span
+          v-if="locationName"
+          class="task-card__location"
+          :title="locationName"
+        >
+          <v-icon
+            icon="mdi-map-marker-outline"
+            size="16"
+            class="task-card__meta-icon"
+          />
+          {{ locationName }}
+        </span>
         <v-icon
-          v-if="hasLocation"
+          v-else-if="hasLocation"
           icon="mdi-map-marker-outline"
           size="16"
           class="task-card__meta-icon"
@@ -317,5 +334,17 @@ function onToggleTimer() {
   gap: 2px;
   color: var(--cc-ink-muted);
   font-size: 0.75rem;
+}
+
+.task-card__location {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--cc-ink-muted);
+  font-size: 0.75rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>
