@@ -50,9 +50,12 @@ export function matchesDueDateFilter(
 
 export function matchesSearch(
   task: Pick<TaskSummary, 'title'>,
-  search: string,
+  search: string | null | undefined,
 ): boolean {
-  const query = search.trim().toLowerCase()
+  // Vuetify's `clearable` resets a text field's v-model to `null` (not
+  // `''`) when the X is clicked, so this has to tolerate that directly
+  // rather than relying on callers to normalize it first.
+  const query = (search ?? '').trim().toLowerCase()
   if (!query) return true
   return task.title.toLowerCase().includes(query)
 }
