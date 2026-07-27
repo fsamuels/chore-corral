@@ -11,12 +11,15 @@ import {
   type ActivityKind,
   type TaskActivity,
 } from '~/services/progress'
-import { parseLocalDateString } from '~/services/tasks'
+import { parseLocalDateString, toLocalDateString } from '~/services/tasks'
 import {
   listFarmMemberProfiles,
   type FarmMemberProfile,
 } from '~/services/members'
-import { formatElapsedDuration } from '~/utils/task-display'
+import {
+  formatDaysToComplete,
+  formatElapsedDuration,
+} from '~/utils/task-display'
 import { memberShortLabels } from '~/utils/member-display'
 
 const route = useRoute()
@@ -80,6 +83,10 @@ function resolveWeekStart(raw: unknown): string {
     return current
   }
 }
+
+// Local calendar-date "today", for `formatDaysToComplete`'s still-open-task
+// fallback (mirrors the home page's `today`).
+const today = computed(() => toLocalDateString(new Date()))
 
 const currentWeekStart = computed(() => weekStartFor(new Date()))
 const shownWeek = computed(() => resolveWeekStart(route.query.week))
@@ -221,6 +228,7 @@ interface ProgressRow {
   statusLabel: string | null
   completedBy: string | null
   category: { text: string; emoji: string | null } | null
+  daysToComplete: string
 }
 
 interface ProgressDayGroup {
@@ -259,6 +267,11 @@ const dayGroups = computed<ProgressDayGroup[]>(() =>
       statusLabel: STATUS_LABELS[row.kind],
       completedBy: row.kind === 'completed' ? completedByLabel(row) : null,
       category: categoryPill(row.category_id),
+      daysToComplete: formatDaysToComplete(
+        row.createdAt,
+        row.completedAt,
+        today.value,
+      ),
     })),
   })),
 )
@@ -383,15 +396,7 @@ const weekTrackedText = computed(() =>
               >
                 <div class="progress-row__time">{{ row.time }}</div>
                 <div class="progress-row__title">{{ row.title }}</div>
-                <div
-                  v-if="
-                    row.statusLabel ||
-                    row.completedBy ||
-                    row.category ||
-                    row.tracked
-                  "
-                  class="progress-row__meta"
-                >
+                <div class="progress-row__meta">
                   <span
                     v-if="row.statusLabel"
                     class="cc-pill progress-row__status"
@@ -418,6 +423,9 @@ const weekTrackedText = computed(() =>
                       {{ row.category.emoji }}
                     </span>
                     {{ row.category.text }}
+                  </span>
+                  <span class="progress-row__age">
+                    {{ row.daysToComplete }}
                   </span>
                 </div>
               </NuxtLink>
@@ -545,5 +553,9 @@ const weekTrackedText = computed(() =>
   display: inline-flex;
   align-items: center;
   gap: 2px;
+}
+
+.progress-row__age {
+  color: var(--cc-ink-muted);
 }
 </style>

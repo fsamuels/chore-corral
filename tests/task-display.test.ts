@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   combineDateAndTime,
+  formatDaysOld,
+  formatDaysToComplete,
   formatElapsedDuration,
   formatElapsedWithSeconds,
   formatEstimatedMinutes,
@@ -96,6 +98,64 @@ describe('combineDateAndTime', () => {
     expect(combineDateAndTime(new Date(2026, 6, 9), '10:75')).toBeNull()
     expect(combineDateAndTime(new Date(2026, 6, 9), 'nope')).toBeNull()
     expect(combineDateAndTime(new Date(2026, 6, 9), '')).toBeNull()
+  })
+})
+
+describe('formatDaysOld', () => {
+  it('renders same-calendar-day as "0 days old"', () => {
+    expect(formatDaysOld('2026-07-09T12:00:00.000Z', '2026-07-09')).toBe(
+      '0 days old',
+    )
+  })
+
+  it('renders singular "1 day old"', () => {
+    expect(formatDaysOld('2026-07-08T12:00:00.000Z', '2026-07-09')).toBe(
+      '1 day old',
+    )
+  })
+
+  it('renders plural "X days old"', () => {
+    expect(formatDaysOld('2026-07-01T12:00:00.000Z', '2026-07-09')).toBe(
+      '8 days old',
+    )
+  })
+})
+
+describe('formatDaysToComplete', () => {
+  it('measures created_at to completed_at when the task is done', () => {
+    expect(
+      formatDaysToComplete(
+        '2026-07-01T12:00:00.000Z',
+        '2026-07-04T12:00:00.000Z',
+        '2026-07-09',
+      ),
+    ).toBe('3 days to complete')
+  })
+
+  it('falls back to today when the task is still open', () => {
+    expect(
+      formatDaysToComplete('2026-07-01T12:00:00.000Z', null, '2026-07-09'),
+    ).toBe('8 days to complete')
+  })
+
+  it('renders singular "1 day to complete"', () => {
+    expect(
+      formatDaysToComplete(
+        '2026-07-08T12:00:00.000Z',
+        '2026-07-09T12:00:00.000Z',
+        '2026-07-09',
+      ),
+    ).toBe('1 day to complete')
+  })
+
+  it('renders same-day completion as "0 days to complete"', () => {
+    expect(
+      formatDaysToComplete(
+        '2026-07-09T08:00:00.000Z',
+        '2026-07-09T10:00:00.000Z',
+        '2026-07-09',
+      ),
+    ).toBe('0 days to complete')
   })
 })
 

@@ -1,5 +1,6 @@
 import {
   parseLocalDateString,
+  toLocalDateString,
   type TaskPriority,
   type TaskStatus,
 } from '../services/tasks'
@@ -83,6 +84,38 @@ function daysBetween(today: string, dueDate: string): number {
   const dueMs = parseLocalDateString(dueDate).getTime()
   const msPerDay = 24 * 60 * 60 * 1000
   return Math.round((dueMs - todayMs) / msPerDay)
+}
+
+// A timestamp (e.g. `created_at`, `completed_at`) reduced to its local
+// calendar day, so age/turnaround math stays in local calendar days like the
+// rest of this module rather than crossing midnight on wall-clock hours.
+function localDay(timestamp: string): string {
+  return toLocalDateString(new Date(timestamp))
+}
+
+/**
+ * "X days old" rendering of a task's age, from its `created_at` timestamp to
+ * `today` (a local calendar-date string) — the home screen cards' experiment
+ * in showing how long a chore has been sitting.
+ */
+export function formatDaysOld(createdAt: string, today: string): string {
+  const days = Math.max(0, daysBetween(localDay(createdAt), today))
+  return days === 1 ? '1 day old' : `${days} days old`
+}
+
+/**
+ * "X days to complete" rendering of a task's turnaround: from its
+ * `created_at` timestamp to `completedAt` if it's done, else to `today` for
+ * one still in progress — the Progress page's companion to `formatDaysOld`.
+ */
+export function formatDaysToComplete(
+  createdAt: string,
+  completedAt: string | null,
+  today: string,
+): string {
+  const endDay = completedAt ? localDay(completedAt) : today
+  const days = Math.max(0, daysBetween(localDay(createdAt), endDay))
+  return days === 1 ? '1 day to complete' : `${days} days to complete`
 }
 
 /**

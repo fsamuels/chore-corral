@@ -23,11 +23,13 @@ export interface CompletedTaskSummary {
   title: string
   category_id: string | null
   priority: TaskPriority
+  created_at: string
   completed_at: string | null
   completers: TaskCompleter[]
 }
 
-const COMPLETED_TASK_COLUMNS = 'id, title, category_id, priority, completed_at'
+const COMPLETED_TASK_COLUMNS =
+  'id, title, category_id, priority, created_at, completed_at'
 
 /**
  * The local-calendar-date string ("YYYY-MM-DD") of the Monday that starts the
@@ -272,6 +274,8 @@ export interface TaskActivity {
   status: TaskStatus
   category_id: string | null
   priority: TaskPriority
+  created_at: string
+  completed_at: string | null
   entries: ActivityEntry[]
 }
 
@@ -304,6 +308,11 @@ export interface ActivityDayRow {
   // Completion attribution, populated only for `completed` rows (mirrors
   // CompletedTaskSummary); empty on worked rows, which weren't finished today.
   completers: TaskCompleter[]
+  // The task's own `created_at`/`completed_at` (independent of `timestamp`,
+  // which is day-scoped) — for the page's "X days to complete" figure via
+  // `formatDaysToComplete`. `completedAt` is null for a still-open task.
+  createdAt: string
+  completedAt: string | null
 }
 
 /**
@@ -372,6 +381,8 @@ function toCompletedRow(
     timestamp: task.completed_at!,
     trackedMs,
     completers: task.completers,
+    createdAt: task.created_at,
+    completedAt: task.completed_at,
   }
 }
 
@@ -479,6 +490,8 @@ export function buildActivityDayGroups(
           timestamp: info.firstStart,
           trackedMs: info.trackedMs,
           completers: [],
+          createdAt: activity.created_at,
+          completedAt: activity.completed_at,
         })
       }
       workedRows.sort((a, b) => {
@@ -502,7 +515,8 @@ export function buildActivityDayGroups(
     })
 }
 
-const ACTIVITY_TASK_COLUMNS = 'id, title, status, category_id, priority'
+const ACTIVITY_TASK_COLUMNS =
+  'id, title, status, category_id, priority, created_at, completed_at'
 
 /**
  * The farm's tasks that have time-entry activity, each with its raw entries —
@@ -556,6 +570,8 @@ export async function listTaskActivity(
       status: task.status,
       category_id: task.category_id,
       priority: task.priority,
+      created_at: task.created_at,
+      completed_at: task.completed_at,
       entries: taskEntries,
     })
   }

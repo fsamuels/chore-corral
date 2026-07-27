@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { isTaskOverdue, type TaskSummary } from '~/services/tasks'
-import { formatDueDate } from '~/utils/task-display'
+import { formatDaysOld, formatDueDate } from '~/utils/task-display'
 
 const props = defineProps<{
   task: TaskSummary
@@ -29,6 +29,10 @@ const emit = defineEmits<{
 const isDone = computed(() => props.task.status === 'done')
 
 const overdue = computed(() => isTaskOverdue(props.task))
+
+const daysOldText = computed(() =>
+  formatDaysOld(props.task.created_at, props.today),
+)
 
 // Lowercased for the pill's "Soon · due tomorrow" form (formatDueDate
 // returns "Due tomorrow"). Done tasks skip this entirely — a finished
@@ -184,6 +188,7 @@ function onToggleTimer() {
           />
           <span v-if="task.photo_count > 1">{{ task.photo_count }}</span>
         </span>
+        <span class="task-card__age">{{ daysOldText }}</span>
       </div>
     </div>
   </NuxtLink>
@@ -332,6 +337,11 @@ function onToggleTimer() {
   display: inline-flex;
   align-items: center;
   gap: 2px;
+  color: var(--cc-ink-muted);
+  font-size: 0.75rem;
+}
+
+.task-card__age {
   color: var(--cc-ink-muted);
   font-size: 0.75rem;
 }
