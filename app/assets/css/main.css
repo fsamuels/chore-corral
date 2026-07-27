@@ -390,6 +390,7 @@ textarea.cc-field {
  */
 .cc-login {
   position: relative;
+  width: 100%;
   max-width: 480px;
   min-height: 100dvh;
   margin: 0 auto;
