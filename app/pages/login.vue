@@ -41,41 +41,78 @@ async function signInWithGoogle() {
 </script>
 
 <template>
-  <v-container class="fill-height">
-    <v-row justify="center" align="center">
-      <v-col cols="12" sm="8" md="5" lg="4">
-        <div class="cc-card text-center">
-          <p class="cc-eyebrow mb-1">Chore Corral</p>
-          <h1 class="cc-slab mb-1" style="font-size: 1.75rem">
-            Farm chore tracking
-          </h1>
-          <p v-if="taskCount !== null" class="cc-pill cc-pill--surface mb-4">
-            {{ taskCount.toLocaleString() }} chores tracked
-          </p>
-          <v-alert
-            v-if="errorMessage"
-            type="error"
-            variant="tonal"
-            class="mb-4 text-left"
-          >
-            Sign-in failed: {{ errorMessage }}
-          </v-alert>
-          <v-btn
-            color="primary"
-            size="large"
-            prepend-icon="mdi-google"
-            :loading="signingIn"
-            @click="signInWithGoogle"
-          >
-            Sign in with Google
-          </v-btn>
-          <p class="text-body-2 text-medium-emphasis mt-4 mb-0">
-            Invited to a farm? Sign in with the Google account the owner invited
-            and you'll be added automatically. New here? You can create your own
-            farm after signing in.
-          </p>
-        </div>
-      </v-col>
-    </v-row>
-  </v-container>
+  <div class="cc-login">
+    <div class="cc-login__sun" />
+    <div class="cc-login__hill" />
+    <div class="cc-login__brand">
+      <img src="/icon.svg" alt="" class="cc-login__logo" />
+      <p class="cc-login__wordmark">Chore Corral</p>
+    </div>
+
+    <div class="cc-login__card">
+      <h1 class="cc-login__headline">Every chore,<br />one place.</h1>
+      <p class="cc-login__subhead">
+        One shared list, synced for the whole team.
+      </p>
+
+      <v-alert
+        v-if="errorMessage"
+        type="error"
+        variant="tonal"
+        class="mt-4 mb-0 text-left"
+        style="width: 100%"
+      >
+        Sign-in failed: {{ errorMessage }}
+      </v-alert>
+
+      <button
+        type="button"
+        class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--lg cc-pill-btn--full cc-login__google-btn"
+        :disabled="signingIn"
+        @click="signInWithGoogle"
+      >
+        <v-progress-circular
+          v-if="signingIn"
+          indeterminate
+          size="18"
+          width="2"
+          color="white"
+        />
+        <template v-else>
+          <span class="cc-login__google-icon">
+            <svg width="12" height="12" viewBox="0 0 18 18">
+              <path
+                fill="#4285F4"
+                d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.87 2.7-6.62z"
+              />
+              <path
+                fill="#34A853"
+                d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 0 0 9 18z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.98A9 9 0 0 0 0 9c0 1.45.35 2.83.98 4.03z"
+              />
+              <path
+                fill="#EA4335"
+                d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .98 4.97L3.95 7.3C4.66 5.17 6.65 3.58 9 3.58z"
+              />
+            </svg>
+          </span>
+          Sign in with Google
+        </template>
+      </button>
+
+      <p class="cc-login__helper">
+        New here? Sign in and create your first farm.
+      </p>
+
+      <div v-if="taskCount !== null" class="cc-login__stat">
+        <span class="cc-login__stat-number">{{
+          taskCount.toLocaleString()
+        }}</span>
+        <span class="cc-login__stat-label">chores tracked and counting</span>
+      </div>
+    </div>
+  </div>
 </template>
