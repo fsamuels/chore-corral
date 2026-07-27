@@ -73,6 +73,21 @@ function json(body: unknown, status = 200): Response {
   })
 }
 
+// Mirrors the `push_subscriptions_endpoint_allowed_origin` DB constraint
+// (see the migration) — belt-and-suspenders in case a row predates that
+// constraint, since this function runs with service-role privileges and
+// would otherwise POST (via webpush.sendNotification below) to whatever
+// URL is stored, regardless of host or protocol.
+const ALLOWED_ENDPOINT_PREFIXES = [
+  'https://fcm.googleapis.com/',
+  'https://updates.push.services.mozilla.com/',
+  'https://web.push.apple.com/',
+]
+
+function isAllowedPushEndpoint(endpoint: string): boolean {
+  return ALLOWED_ENDPOINT_PREFIXES.some((prefix) => endpoint.startsWith(prefix))
+}
+
 Deno.serve(async (req) => {
   // --- Shared-secret auth -------------------------------------------------
   const expectedSecret = Deno.env.get('SEND_REMINDERS_SECRET')
@@ -235,6 +250,14 @@ Deno.serve(async (req) => {
       for (const sub of subsByUser.get(userId) ?? []) {
         if (seenSubscriptionIds.has(sub.id)) continue
         seenSubscriptionIds.add(sub.id)
+
+        if (!isAllowedPushEndpoint(sub.endpoint)) {
+          summary.failed++
+          console.error(
+            `rejected subscription ${sub.id}: disallowed endpoint origin`,
+          )
+          continue
+        }
 
         try {
           await webpush.sendNotification(
