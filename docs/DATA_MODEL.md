@@ -372,6 +372,10 @@ Self-serve farm creation. Validates `farm_name` (trimmed, 1–120 characters), i
 
 Different in kind from the two above: never callable by clients (EXECUTE is revoked from `public`/`anon`/`authenticated`), it exists solely as pg_cron's every-minute entrypoint for reminder delivery. Security definer so it can read the `project_url`/`send_reminders_secret` Vault secrets and call `net.http_post`; it no-ops silently when the secrets aren't configured (fresh/local environments) or when no unsent reminder is due (the common case — a cheap `EXISTS` against the partial index above), and otherwise POSTs to the `send-reminders` Edge Function with the shared secret in an `x-cron-secret` header. See ARCHITECTURE.md for the full pipeline.
 
+### `get_public_task_count()`
+
+The one function granted to `anon`. Returns `count(*) from tasks` as a single `bigint` — no row data, no farm identity — so exposing it doesn't loosen `tasks`' farm-membership RLS policy (still `to authenticated` only). Backs the "X chores tracked" stat on the (unauthenticated) `/login` page and doubles as a low-cost external keepalive query against the Supabase free-tier project. See DECISIONS.md.
+
 ## Row Level Security (RLS) Policy Intent
 
 All farm-scoped tables (`categories`, `locations`, `tasks`, `tags`, `task_tags`, `task_photos`, `task_shopping_items`, `task_tools`, `task_time_entries`, `task_reminders`, `activity_log`) should have RLS **enabled by default** (deny-by-default), with policies granting access based on farm membership (`push_subscriptions` is the deliberate exception — owner-only rather than farm-scoped, see its section above):
@@ -393,6 +397,8 @@ This same pattern applies across every farm-scoped table — a user can only see
 `farms` itself needs a policy allowing a user to see farms they belong to (via a subquery against `farm_memberships`), and `farm_memberships` needs a policy allowing a user to see their own membership rows. Neither table has an INSERT/UPDATE/DELETE policy for `authenticated` — all writes to `farms` and `farm_memberships` go through the `create_farm()`/`accept_farm_invites()` security-definer functions above instead of a client-side write path.
 
 Since Chore Corral is using **both** RLS and application-layer checks (a deliberate choice — see DECISIONS.md), RLS here functions as the defense-in-depth backstop: even if application code has a bug in its farm-scoping logic, RLS prevents cross-farm data leakage at the database level. Application code should not rely on RLS alone for business-logic enforcement (e.g. the "can't delete a category with active tasks" rule is application logic, not something RLS is well-suited to express).
+
+`anon` has no policy on any table, including `tasks` — its only sanctioned access to the database at all is `EXECUTE` on `get_public_task_count()` above, which returns an aggregate, never rows. That function's `anon` grant is not an RLS exception; the underlying tables' policies are untouched.
 
 ## Storage (Supabase Storage)
 

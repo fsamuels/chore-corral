@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import type { Database } from '~/types/database.types'
+import { getPublicTaskCount } from '~/services/stats'
+
 definePageMeta({ layout: 'blank' })
 
-const supabase = useSupabaseClient()
+const supabase = useSupabaseClient<Database>()
 const user = useSupabaseUser()
 
 // The module's auth middleware only guards protected pages; an already
@@ -9,6 +12,15 @@ const user = useSupabaseUser()
 watchEffect(() => {
   if (user.value) navigateTo('/')
 })
+
+// Purely decorative social proof — a failed fetch just hides the stat
+// instead of surfacing an error on the sign-in page.
+const taskCount = ref<number | null>(null)
+try {
+  taskCount.value = await getPublicTaskCount(supabase)
+} catch {
+  taskCount.value = null
+}
 
 const signingIn = ref(false)
 const errorMessage = ref<string | null>(null)
@@ -34,9 +46,12 @@ async function signInWithGoogle() {
       <v-col cols="12" sm="8" md="5" lg="4">
         <div class="cc-card text-center">
           <p class="cc-eyebrow mb-1">Chore Corral</p>
-          <h1 class="cc-slab mb-4" style="font-size: 1.75rem">
+          <h1 class="cc-slab mb-1" style="font-size: 1.75rem">
             Farm chore tracking
           </h1>
+          <p v-if="taskCount !== null" class="cc-pill cc-pill--surface mb-4">
+            {{ taskCount.toLocaleString() }} chores tracked
+          </p>
           <v-alert
             v-if="errorMessage"
             type="error"

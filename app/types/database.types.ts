@@ -612,6 +612,10 @@ export interface Database {
         Args: { farm_name: string; farm_address?: string | null }
         Returns: string
       }
+      get_public_task_count: {
+        Args: Record<string, never>
+        Returns: number
+      }
     }
     Enums: {
       farm_role: 'owner' | 'member'
