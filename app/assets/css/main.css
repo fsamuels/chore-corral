@@ -383,3 +383,144 @@ textarea.cc-field {
   color: var(--cc-success-contrast);
   box-shadow: var(--cc-shadow);
 }
+
+/*
+ * Login screen: full-bleed farm scene (sky/sun/hill, matching the app icon's
+ * gradients in public/icon.svg) with the sign-in card overlapping its base.
+ */
+.cc-login {
+  position: relative;
+  max-width: 480px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  overflow: hidden;
+  background: linear-gradient(180deg, #fdf3dd 0%, #f8e2b8 46%);
+}
+
+.cc-login__sun {
+  position: absolute;
+  top: 40px;
+  left: 36px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffd24a, #f2b705);
+}
+
+.cc-login__hill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 58%;
+  background: linear-gradient(180deg, #9bb079, #7f9760);
+  border-radius: 60% 60% 0 0 / 14% 14% 0 0;
+}
+
+.cc-login__brand {
+  position: absolute;
+  top: 22%;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px;
+  text-align: center;
+}
+
+.cc-login__logo {
+  width: 84px;
+  height: 84px;
+  border-radius: 22px;
+  box-shadow: 0 10px 24px rgba(90, 60, 20, 0.3);
+}
+
+.cc-login__wordmark {
+  margin: 0;
+  font-family: var(--cc-font-slab);
+  font-weight: 700;
+  font-size: 1.375rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #5c3a1e;
+}
+
+.cc-login__card {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 36px;
+  background: rgba(255, 252, 244, 0.94);
+  backdrop-filter: blur(6px);
+  border-radius: 28px;
+  box-shadow: 0 12px 30px rgba(60, 35, 10, 0.2);
+  padding: 26px 26px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.cc-login__headline {
+  margin: 0;
+  font-family: var(--cc-font-slab);
+  font-weight: 700;
+  font-size: 1.625rem;
+  line-height: 1.15;
+  color: var(--cc-ink);
+}
+
+.cc-login__subhead {
+  margin: 9px 0 0;
+  font-size: 0.84375rem;
+  line-height: 1.5;
+  color: var(--cc-ink-muted);
+}
+
+.cc-login__google-btn {
+  margin-top: 20px;
+}
+
+.cc-login__google-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.cc-login__helper {
+  margin: 12px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--cc-ink-muted);
+}
+
+.cc-login__stat {
+  margin-top: 16px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--cc-border);
+}
+
+.cc-login__stat-number {
+  font-family: var(--cc-font-slab);
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--cc-accent);
+}
+
+.cc-login__stat-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--cc-ink-muted);
+}
