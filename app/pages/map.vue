@@ -85,11 +85,6 @@ function onOpen(taskId: string) {
       be reachable.
     </v-alert>
     <template v-else-if="activeFarm">
-      <div class="mb-4">
-        <h1 class="text-h4 mb-1">Map</h1>
-        <p class="cc-eyebrow">{{ activeFarm.name }}</p>
-      </div>
-
       <div class="d-flex flex-wrap ga-4 align-center mb-4">
         <v-select
           v-model="selectedCategory"
