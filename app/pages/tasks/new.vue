@@ -7,6 +7,11 @@ import { compressImage } from '~/utils/photo-compression'
 import type { StagedPhoto } from '~/components/StagedTaskPhotos.vue'
 import type { StagedReminder } from '~/components/StagedTaskReminders.vue'
 import type { TaskLocationValue } from '~/components/TaskLocationInput.vue'
+import {
+  listFarmMemberProfiles,
+  type FarmMemberProfile,
+} from '~/services/members'
+import { memberShortLabels } from '~/utils/member-display'
 
 const supabase = useSupabaseClient<Database>()
 const user = useSupabaseUser()
@@ -20,6 +25,33 @@ await fetchFarms()
 await fetchCategories()
 await fetchTags()
 await fetchLocations()
+
+// Farm members for the "Assigned to" picker — members only, no free-text
+// names (see docs/ROADMAP.md's chore-assignment entry), mirroring the same
+// fetch on the task View page's "Completed by" picker.
+const members = ref<FarmMemberProfile[]>([])
+
+async function fetchMembers() {
+  const farmId = activeFarmId.value
+  if (!farmId) {
+    members.value = []
+    return
+  }
+  members.value = await listFarmMemberProfiles(supabase, farmId)
+}
+
+await fetchMembers()
+watch(activeFarmId, () => fetchMembers())
+
+const memberLabels = computed(() => memberShortLabels(members.value))
+
+const memberItems = computed(() =>
+  members.value.map((member) => ({
+    title: memberLabels.value.get(member.user_id) ?? member.user_id,
+    value: member.user_id,
+    avatarUrl: member.avatar_url,
+  })),
+)
 
 const tagSuggestions = computed(() => (tags.value ?? []).map((t) => t.name))
 
@@ -53,6 +85,7 @@ const dueDate = ref('')
 const estimatedMinutes = ref('')
 const notes = ref('')
 const taskTags = ref<string[]>([])
+const assigneeIds = ref<string[]>([])
 const location = ref<TaskLocationValue>({
   locationId: null,
   lat: null,
@@ -82,6 +115,7 @@ async function submit() {
       lng: location.value.lng,
       locationId: location.value.locationId,
       tagNames: taskTags.value,
+      assigneeIds: assigneeIds.value,
     })
 
     // Photo uploads and reminder scheduling both happen only after the task
@@ -240,6 +274,37 @@ async function submit() {
           hide-details
           class="mb-4"
         />
+        <v-select
+          v-model="assigneeIds"
+          :items="memberItems"
+          item-title="title"
+          item-value="value"
+          label="Assigned to (optional — anyone can do it)"
+          multiple
+          chips
+          closable-chips
+          :disabled="creating"
+          density="comfortable"
+          variant="outlined"
+          hide-details
+          class="mb-4"
+        >
+          <template #item="{ props: itemProps, item }">
+            <v-list-item v-bind="itemProps">
+              <template #prepend>
+                <MemberAvatar :src="item.avatarUrl" :size="28" class="mr-3" />
+              </template>
+            </v-list-item>
+          </template>
+          <template #chip="{ props: chipProps, item }">
+            <v-chip v-bind="chipProps">
+              <template #prepend>
+                <MemberAvatar :src="item.avatarUrl" :size="20" class="mr-1" />
+              </template>
+              {{ item.title }}
+            </v-chip>
+          </template>
+        </v-select>
         <p class="cc-eyebrow mb-2">Location</p>
         <TaskLocationInput
           v-model="location"

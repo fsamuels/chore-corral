@@ -11,6 +11,7 @@ import {
   listCompletersForTasks,
   type TaskCompleter,
 } from './completers'
+import { setTaskAssignees, listAssigneesForTasks } from './assignees'
 
 export type TaskPriority = Database['public']['Enums']['task_priority']
 export type TaskStatus = Database['public']['Enums']['task_status']
@@ -31,6 +32,9 @@ export interface TaskSummary {
   estimated_minutes: number | null
   tags: TagSummary[]
   completers: TaskCompleter[]
+  /** Farm members this chore is assigned to — see services/assignees.ts.
+   * Empty means "anyone can do it," not "nobody's chore." */
+  assignee_ids: string[]
   photo_count: number
 }
 
@@ -348,10 +352,12 @@ export async function listTasks(
   const taskIds = sorted.map((task) => task.id)
   const tagsByTaskId = await listTagsForTasks(supabase, taskIds)
   const completersByTaskId = await listCompletersForTasks(supabase, taskIds)
+  const assigneesByTaskId = await listAssigneesForTasks(supabase, taskIds)
   return sorted.map((task) => ({
     ...task,
     tags: tagsByTaskId.get(task.id) ?? [],
     completers: completersByTaskId.get(task.id) ?? [],
+    assignee_ids: assigneesByTaskId.get(task.id) ?? [],
     photo_count: extractPhotoCount(task),
   }))
 }
@@ -376,10 +382,12 @@ export async function getTask(
 
   const tagsByTaskId = await listTagsForTasks(supabase, [task.id])
   const completersByTaskId = await listCompletersForTasks(supabase, [task.id])
+  const assigneesByTaskId = await listAssigneesForTasks(supabase, [task.id])
   return {
     ...task,
     tags: tagsByTaskId.get(task.id) ?? [],
     completers: completersByTaskId.get(task.id) ?? [],
+    assignee_ids: assigneesByTaskId.get(task.id) ?? [],
     photo_count: extractPhotoCount(task),
   }
 }
@@ -416,6 +424,7 @@ export interface CreateTaskInput {
   estimatedMinutes?: number | null
   actorUserId: string
   tagNames?: string[]
+  assigneeIds?: string[]
 }
 
 /**
@@ -473,10 +482,19 @@ export async function createTask(
     tagIds: tags.map((tag) => tag.id),
   })
 
+  const assigneeIds = [...new Set(input.assigneeIds ?? [])]
+  await setTaskAssignees(supabase, { taskId: data.id, userIds: assigneeIds })
+
   // A just-created task has no task_photos rows yet, so 0 is exact, not a
   // placeholder — no need to query the embed for a fresh insert. It has no
   // completers either (attribution is only added on the move to done).
-  return { ...data, tags: sortTagsByName(tags), completers: [], photo_count: 0 }
+  return {
+    ...data,
+    tags: sortTagsByName(tags),
+    completers: [],
+    assignee_ids: assigneeIds.sort(),
+    photo_count: 0,
+  }
 }
 
 export interface UpdateTaskInput {
@@ -577,13 +595,15 @@ export async function updateTask(
     tagIds: tags.map((tag) => tag.id),
   })
 
-  // Completers aren't touched by a field edit — carry the task's current set
-  // through so the returned summary is complete.
+  // Completers and assignees aren't touched by a field edit — carry the
+  // task's current sets through so the returned summary is complete.
   const completersByTask = await listCompletersForTasks(supabase, [task.id])
+  const assigneesByTask = await listAssigneesForTasks(supabase, [task.id])
   return {
     ...task,
     tags: sortTagsByName(tags),
     completers: completersByTask.get(task.id) ?? [],
+    assignee_ids: assigneesByTask.get(task.id) ?? [],
     photo_count: photoCount,
   }
 }
@@ -632,7 +652,16 @@ export async function changeTaskStatus(
       (await listCompletersForTasks(supabase, [opts.taskId])).get(
         opts.taskId,
       ) ?? []
-    return { ...before, tags, completers, photo_count: photoCount }
+    const assigneeIds =
+      (await listAssigneesForTasks(supabase, [opts.taskId])).get(opts.taskId) ??
+      []
+    return {
+      ...before,
+      tags,
+      completers,
+      assignee_ids: assigneeIds,
+      photo_count: photoCount,
+    }
   }
 
   const { data, error } = await supabase
@@ -679,7 +708,16 @@ export async function changeTaskStatus(
   const completers =
     (await listCompletersForTasks(supabase, [opts.taskId])).get(opts.taskId) ??
     []
-  return { ...task, tags, completers, photo_count: photoCount }
+  const assigneeIds =
+    (await listAssigneesForTasks(supabase, [opts.taskId])).get(opts.taskId) ??
+    []
+  return {
+    ...task,
+    tags,
+    completers,
+    assignee_ids: assigneeIds,
+    photo_count: photoCount,
+  }
 }
 
 /**

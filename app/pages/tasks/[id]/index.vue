@@ -12,6 +12,7 @@ import {
   type FarmMemberProfile,
 } from '~/services/members'
 import { setTaskCompleters, type TaskCompleter } from '~/services/completers'
+import { setTaskAssignees } from '~/services/assignees'
 import { memberShortLabels } from '~/utils/member-display'
 import type { TaskLocationValue } from '~/components/TaskLocationInput.vue'
 
@@ -218,6 +219,7 @@ type EditableField =
   | 'location'
   | 'completedBy'
   | 'completedAt'
+  | 'assignedTo'
 const fieldSaving = ref<EditableField | null>(null)
 const fieldSaveError = ref<string | null>(null)
 
@@ -549,6 +551,55 @@ async function onCompletedBySave() {
 
 async function onCompletedByClear() {
   await saveCompleters([])
+}
+
+// --- Assigned to (chore assignment) — always editable, not gated on status.
+// Members only, no free-text names (a free-text assignee can't receive a
+// push or sign in — see docs/ROADMAP.md's chore-assignment entry).
+// Assignment is purely informational plus notification targeting; it
+// doesn't gate anything, so any member can still edit/complete the chore
+// regardless of who's assigned. Saved via `setTaskAssignees`, its own table,
+// same pattern as `saveCompleters` above.
+const assignedToMenu = ref(false)
+const assignedToDraft = ref<string[]>([])
+
+watch(assignedToMenu, (open) => {
+  if (open && task.value) {
+    assignedToDraft.value = [...task.value.assignee_ids]
+  }
+})
+
+const assignedToLabel = computed(() => {
+  const ids = task.value?.assignee_ids ?? []
+  if (ids.length === 0) return null
+  return ids
+    .map((id) => memberLabels.value.get(id) ?? 'unknown member')
+    .join(', ')
+})
+
+async function onAssignedToSave() {
+  const current = task.value
+  if (!current) return
+  fieldSaving.value = 'assignedTo'
+  fieldSaveError.value = null
+  try {
+    await setTaskAssignees(useSupabaseClient(), {
+      taskId: current.id,
+      userIds: assignedToDraft.value,
+    })
+    await fetchTask()
+    assignedToMenu.value = false
+  } catch (error) {
+    fieldSaveError.value =
+      error instanceof Error ? error.message : 'Failed to save change'
+  } finally {
+    fieldSaving.value = null
+  }
+}
+
+async function onAssignedToClear() {
+  assignedToDraft.value = []
+  await onAssignedToSave()
 }
 
 // --- Completed at (date/time) — only surfaced when the task is done ---
@@ -1017,6 +1068,104 @@ const taskLocation = computed(() =>
         >
           {{ statusChangeError }}
         </v-alert>
+
+        <div class="mb-6">
+          <div class="cc-eyebrow mb-2">Assigned to</div>
+          <v-menu v-model="assignedToMenu" :close-on-content-click="false">
+            <template #activator="{ props: activatorProps }">
+              <button
+                type="button"
+                v-bind="activatorProps"
+                class="cc-pill-btn cc-pill-btn--sm"
+                :class="
+                  assignedToLabel !== null
+                    ? 'cc-pill-btn--surface'
+                    : 'cc-pill-btn--ghost'
+                "
+                :disabled="fieldSaving !== null"
+              >
+                <v-icon
+                  v-if="assignedToLabel === null"
+                  icon="mdi-account-plus-outline"
+                  size="16"
+                />
+                {{
+                  assignedToLabel !== null
+                    ? `Assigned to ${assignedToLabel}`
+                    : '+ Assign'
+                }}
+                <v-icon
+                  v-if="assignedToLabel !== null"
+                  icon="mdi-menu-down"
+                  size="16"
+                />
+              </button>
+            </template>
+            <v-card min-width="320">
+              <v-card-text>
+                <v-select
+                  v-model="assignedToDraft"
+                  :items="memberItems"
+                  item-title="title"
+                  item-value="value"
+                  label="Farm members"
+                  multiple
+                  chips
+                  closable-chips
+                  density="comfortable"
+                  variant="outlined"
+                  hide-details
+                >
+                  <template #item="{ props: itemProps, item }">
+                    <v-list-item v-bind="itemProps">
+                      <template #prepend>
+                        <MemberAvatar
+                          :src="item.avatarUrl"
+                          :size="28"
+                          class="mr-3"
+                        />
+                      </template>
+                    </v-list-item>
+                  </template>
+                  <template #chip="{ props: chipProps, item }">
+                    <v-chip v-bind="chipProps">
+                      <template #prepend>
+                        <MemberAvatar
+                          :src="item.avatarUrl"
+                          :size="20"
+                          class="mr-1"
+                        />
+                      </template>
+                      {{ item.title }}
+                    </v-chip>
+                  </template>
+                </v-select>
+                <div class="text-caption text-medium-emphasis mt-2">
+                  Leave empty — anyone can do it.
+                </div>
+              </v-card-text>
+              <v-card-actions>
+                <v-btn
+                  color="error"
+                  variant="text"
+                  :loading="fieldSaving === 'assignedTo'"
+                  @click="onAssignedToClear"
+                >
+                  Clear
+                </v-btn>
+                <v-spacer />
+                <v-btn @click="assignedToMenu = false">Cancel</v-btn>
+                <v-btn
+                  color="primary"
+                  :loading="fieldSaving === 'assignedTo'"
+                  @click="onAssignedToSave"
+                >
+                  Save
+                </v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-menu>
+        </div>
 
         <div v-if="task.status === 'done'" class="mb-6">
           <div class="cc-eyebrow mb-2">Completed by</div>

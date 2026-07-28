@@ -57,6 +57,7 @@ The core unit of work.
 | Status         | Yes (defaults on create) | Not Started / In Progress / Done                                                                                                                                                              |
 | Notes          | No                       | Free text, single field (not a threaded log)                                                                                                                                                  |
 | Tags           | No                       | Freeform text, multiple per task, autocomplete against existing tags on that farm                                                                                                             |
+| Assignees      | No                       | Zero or more farm members (see Assignment section below); empty means "anyone can do it"                                                                                                      |
 | Location       | No                       | Single pin, optional (see Location section)                                                                                                                                                   |
 | Photos         | No                       | Zero or more (see Photos section)                                                                                                                                                             |
 | Shopping list  | No                       | Zero or more items to buy (see Shopping list section)                                                                                                                                         |
@@ -90,6 +91,17 @@ Freeform metadata on tasks, distinct from category.
 - Freeform text entry with **autocomplete** suggestions drawn from tags already used on that farm (reduces duplicate near-identical tags like "fence" vs. "fencing").
 - Not filterable in the MVP task list (descriptive metadata only, category is the filterable dimension).
 - Normalized to lowercase (internal whitespace collapsed to single spaces) on save, so "Fence Repair" and "fence repair" resolve to the same stored tag rather than near-duplicates.
+
+### Assignment
+
+Who a chore is assigned to — distinct from who completed it (see Status below).
+
+- A chore can be assigned to a specific farm member, several members, or nobody ("anyone can do it").
+- **Members only, no free-text names** — an assignee must be a farm member (a free-text assignee couldn't receive a push notification or sign in).
+- **Assignment does not gate anything**: it's purely informational plus reminder-notification audience targeting. Any farm member can still edit or complete any chore regardless of who's assigned, consistent with the equal-access role decision under Farm Membership above.
+- **Notification audience:** a reminder on an assigned chore pings only the assignees' subscribed devices; an unassigned chore (or one whose assignees have all since left the farm) falls back to notifying every member of the farm, same as an unassigned chore always has.
+- Editable from the task Create page and the task View page's "Assigned to" picker; assignees are shown on chore cards (home page and `/tasks`) only when the chore has specific assignees — an unassigned chore shows no indicator.
+- Assignment changes are not logged to the Activity Log (consistent with completion attribution changes, which are also unlogged).
 
 ### Priority
 

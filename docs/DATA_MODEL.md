@@ -24,6 +24,7 @@ farm_memberships ──────► farms
                             │          │      ├──► task_tools
                             │          │      ├──► task_time_entries
                             │          │      ├──► task_completers
+                            │          │      ├──► task_assignees
                             │          │      ├──► task_reminders
                             │          │      └──► task_tags ──► tags
                             │          │
@@ -216,6 +217,21 @@ Who actually did the work — a set, not a single credit. Replaces the two scala
 Like the other task-child tables, this table carries no `farm_id`; it is scoped to a farm through its parent task, and its RLS policy joins through `tasks` (`auth.uid()` wrapped in a scalar subselect so it's evaluated once per statement, not once per row — same pattern as elsewhere). `setTaskCompleters` (`services/completers.ts`) replaces a task's whole completer set in one call, patterned on how `task_tags` is written.
 
 **Auto-credit behavior:** marking a task done credits the acting member only if the task has zero completers already; leaving done deletes the whole set. Attribution stays optional — a done task may legitimately have zero completers. See DECISIONS.md.
+
+### `task_assignees`
+
+Who a chore is assigned to — distinct from `task_completers` (who actually did the work). Members only, no free-text names (a free-text assignee can't receive a push or sign in — see docs/ROADMAP.md's chore-assignment entry).
+
+| Column    | Type                                 | Notes                                  |
+| --------- | ------------------------------------ | -------------------------------------- |
+| `task_id` | uuid, FK → `tasks.id`, not null      | `ON DELETE CASCADE` with the task      |
+| `user_id` | uuid, FK → `auth.users.id`, not null | A farm member the chore is assigned to |
+
+Composite PK on (`task_id`, `user_id`) — patterned on `task_tags` rather than `task_completers`, since every row here is a member (no free-text variant needing a surrogate `id`), so the composite PK alone is both the identity and the no-duplicate-assignee constraint.
+
+Like the other task-child tables, this table carries no `farm_id`; scoped to a farm through its parent task, with the same `tasks`-joined RLS policy shape as `task_completers`/`task_tags`. `setTaskAssignees` (`services/assignees.ts`) replaces a task's whole assignee set in one call, patterned on `setTaskTags`/`setTaskCompleters`.
+
+**Assignment does not gate anything** — purely informational plus reminder-notification audience targeting (see `supabase/functions/send-reminders`, which narrows a reminder's push audience to a chore's assignees when set, falling back to the whole farm when the chore is unassigned or every assignee has since left the farm). Any farm member can still edit/complete any chore regardless of assignment. Assignment changes are not logged to `activity_log` (consistent with completer changes, also unlogged).
 
 ### `task_photos`
 

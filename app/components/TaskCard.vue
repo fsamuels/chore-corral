@@ -11,6 +11,9 @@ const props = defineProps<{
   /** Resolved defined-location name (page owns the locations list); null for
    * a freeform pin or no location. */
   locationName?: string | null
+  /** Resolved short labels of this chore's assignees (page owns the member
+   * list); empty/omitted when unassigned — nothing renders. */
+  assigneeNames?: string[]
   /** Local calendar-date string ("YYYY-MM-DD") for due-date rendering. */
   today: string
   /** True while the page is persisting this task's timer change. */
@@ -175,6 +178,18 @@ function onToggleTimer() {
           aria-label="Has location"
           title="Has location"
         />
+        <span
+          v-if="assigneeNames && assigneeNames.length > 0"
+          class="task-card__assignees"
+          :title="assigneeNames.join(', ')"
+        >
+          <v-icon
+            icon="mdi-account-outline"
+            size="16"
+            class="task-card__meta-icon"
+          />
+          {{ assigneeNames.join(', ') }}
+        </span>
         <span
           v-if="task.photo_count > 0"
           class="task-card__meta-photos"
@@ -344,6 +359,18 @@ function onToggleTimer() {
 .task-card__age {
   color: var(--cc-ink-muted);
   font-size: 0.75rem;
+}
+
+.task-card__assignees {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--cc-ink-muted);
+  font-size: 0.75rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .task-card__location {
