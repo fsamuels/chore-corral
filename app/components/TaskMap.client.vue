@@ -122,18 +122,29 @@ function locationIcon(name: string): Icon {
   }) as unknown as Icon
 }
 
-// Badge marker for a pin covering more than one task — shows the group's
-// task count so a shared location doesn't look like a single, unremarkable
-// task marker.
-// vue-leaflet's LMarker types its `icon` prop as Leaflet's `Icon`, but
-// `divIcon()` returns the sibling `DivIcon` class — both implement the same
-// runtime interface Leaflet actually uses (they share the `Icon` base), so
-// this cast is safe; TypeScript just can't see the structural overlap.
+// Google Maps-style numbered pin — a teardrop shape (circle tapering to a
+// point) showing the task count at that coordinate, so a shared location
+// doesn't look like a single, unremarkable task marker. The SVG's tip sits
+// at (16, 40); iconAnchor matches it so the point — not the badge's center —
+// lands exactly on the coordinate, the same convention Google's own pins use.
+const PIN_WIDTH = 32
+const PIN_HEIGHT = 40
 function countIcon(count: number): Icon {
   return divIcon({
     className: 'cc-task-count-marker',
-    html: `<span class="cc-task-count-marker__badge">${count}</span>`,
-    iconAnchor: [14, 14],
+    html: `
+      <svg width="${PIN_WIDTH}" height="${PIN_HEIGHT}" viewBox="0 0 32 40" class="cc-task-count-marker__pin">
+        <path
+          class="cc-task-count-marker__pin-shape"
+          d="M16 0C8.268 0 2 6.268 2 14c0 10.5 14 26 14 26s14-15.5 14-26C30 6.268 23.732 0 16 0z"
+          stroke="#fff"
+          stroke-width="2"
+        />
+      </svg>
+      <span class="cc-task-count-marker__number">${count}</span>
+    `,
+    iconSize: [PIN_WIDTH, PIN_HEIGHT],
+    iconAnchor: [PIN_WIDTH / 2, PIN_HEIGHT],
   }) as unknown as Icon
 }
 
@@ -241,24 +252,33 @@ function openTask(taskId: string) {
 }
 
 .cc-task-count-marker {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
+  width: 32px;
+  height: 40px;
 }
 
-.cc-task-count-marker__badge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--cc-ink, #2b2118);
+.cc-task-count-marker__pin {
+  position: absolute;
+  top: 0;
+  left: 0;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.4));
+}
+
+.cc-task-count-marker__pin-shape {
+  fill: var(--cc-ink, #2b2118);
+}
+
+.cc-task-count-marker__number {
+  position: absolute;
+  top: 6px;
+  left: 0;
+  width: 32px;
+  text-align: center;
   color: #fff;
-  border: 2px solid #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
   font-family: var(--cc-font-sans, sans-serif);
   font-weight: 700;
   font-size: 13px;
+  line-height: 16px;
+  pointer-events: none;
 }
 </style>

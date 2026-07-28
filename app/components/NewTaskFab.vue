@@ -1,7 +1,9 @@
 <script setup lang="ts">
 // Floating "+ New task" pill, fixed bottom-right. Rendered once from the
 // layout on every page; hides itself on the new-task page (no point linking
-// to where you already are). Collapses to an icon-only circle while
+// to where you already are) and on the map page (the pins already cover most
+// of the screen, and adding a chore isn't this page's job). Collapses to an
+// icon-only circle while
 // scrolling down so the list content underneath stays readable, and expands
 // back on scroll-up or at the top — the extended-FAB pattern. Lifts above
 // the mobile bottom nav (56px) so the two never overlap.
@@ -12,7 +14,8 @@ defineProps<{ lifted?: boolean }>()
 const route = useRoute()
 const { mobile } = useDisplay()
 
-const isOnNewTaskPage = computed(() => route.path === '/tasks/new')
+const HIDDEN_ROUTES = new Set(['/tasks/new', '/map'])
+const isHidden = computed(() => HIDDEN_ROUTES.has(route.path))
 
 const collapsed = ref(false)
 
@@ -55,7 +58,7 @@ watch(
 
 <template>
   <NuxtLink
-    v-if="!isOnNewTaskPage"
+    v-if="!isHidden"
     to="/tasks/new"
     class="new-task-fab"
     :class="{
