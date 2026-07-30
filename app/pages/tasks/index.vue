@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { Database } from '~/types/database.types'
 import {
   compareTasksDoneLast,
   toLocalDateString,
@@ -11,9 +12,16 @@ import {
   filterTasks,
   type DueDateFilter,
 } from '~/utils/task-filters'
+import {
+  listFarmMemberProfiles,
+  type FarmMemberProfile,
+} from '~/services/members'
+import { memberShortLabels } from '~/utils/member-display'
+import { assigneeDisplayNames } from '~/utils/task-display'
 
 const route = useRoute()
-const { fetchFarms, activeFarm, farmsError } = useFarms()
+const supabase = useSupabaseClient<Database>()
+const { fetchFarms, activeFarm, activeFarmId, farmsError } = useFarms()
 const { tasks, tasksError, loading, fetchTasks } = useTasks()
 const { categories, fetchCategories } = useCategories()
 const { tags, fetchTags } = useTags()
@@ -27,6 +35,28 @@ await fetchTasks()
 await fetchCategories()
 await fetchTags()
 await fetchLocations()
+
+// Farm members, resolved to short labels for each card's assignee indicator
+// — mirrors the same fetch on the home page (index.vue).
+const members = ref<FarmMemberProfile[]>([])
+
+async function fetchMembers() {
+  const farmId = activeFarmId.value
+  if (!farmId) {
+    members.value = []
+    return
+  }
+  members.value = await listFarmMemberProfiles(supabase, farmId)
+}
+
+await fetchMembers()
+watch(activeFarmId, () => fetchMembers())
+
+const memberLabels = computed(() => memberShortLabels(members.value))
+
+function assigneeNames(assigneeIds: string[]): string[] {
+  return assigneeDisplayNames(assigneeIds, memberLabels.value)
+}
 
 const today = computed(() => toLocalDateString(new Date()))
 
@@ -319,6 +349,7 @@ function locationName(locationId: string | null): string | null {
           :task="item"
           :category-name="categoryName(item.category_id)"
           :location-name="locationName(item.location_id)"
+          :assignee-names="assigneeNames(item.assignee_ids)"
           :today="today"
           hide-check
         />

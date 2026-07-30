@@ -228,6 +228,41 @@ describe('createTask', () => {
     expect(result.tags).toEqual([])
   })
 
+  it('creates/attaches assignees from assigneeIds, deduped and sorted', async () => {
+    const fake = new FakeSupabaseClient({ tasks: [], activity_log: [] })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await createTask(supabase, {
+      farmId: FARM_A,
+      title: 'Fix the gate',
+      categoryId: null,
+      priority: 'soon',
+      actorUserId: ACTOR,
+      assigneeIds: ['user-2', 'user-1', 'user-2'],
+    })
+
+    expect(result.assignee_ids).toEqual(['user-1', 'user-2'])
+    const rows = fake
+      .getTable('task_assignees')
+      .filter((r) => (r as { task_id: string }).task_id === result.id)
+    expect(rows).toHaveLength(2)
+  })
+
+  it('returns assignee_ids: [] when assigneeIds is omitted (anyone can do it)', async () => {
+    const fake = new FakeSupabaseClient({ tasks: [], activity_log: [] })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await createTask(supabase, {
+      farmId: FARM_A,
+      title: 'Fix the gate',
+      categoryId: null,
+      priority: 'soon',
+      actorUserId: ACTOR,
+    })
+
+    expect(result.assignee_ids).toEqual([])
+  })
+
   it('persists lat/lng when provided, and defaults both to null when omitted', async () => {
     const fake = new FakeSupabaseClient({ tasks: [], activity_log: [] })
     const supabase = asSupabaseClient(fake)

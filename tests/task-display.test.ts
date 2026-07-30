@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  assigneeDisplayNames,
   combineDateAndTime,
   formatDaysOld,
   formatDaysToComplete,
@@ -177,5 +178,27 @@ describe('locationDisplayName', () => {
   it('is null when the locations list is null/undefined', () => {
     expect(locationDisplayName('loc-1', null)).toBeNull()
     expect(locationDisplayName('loc-1', undefined)).toBeNull()
+  })
+})
+
+describe('assigneeDisplayNames', () => {
+  const labels = new Map([
+    ['user-1', 'Steve'],
+    ['user-2', 'Kaleb'],
+  ])
+
+  it('resolves and sorts assignee labels', () => {
+    expect(assigneeDisplayNames(['user-2', 'user-1'], labels)).toEqual([
+      'Kaleb',
+      'Steve',
+    ])
+  })
+
+  it('is empty for an unassigned chore', () => {
+    expect(assigneeDisplayNames([], labels)).toEqual([])
+  })
+
+  it('drops an assignee whose id no longer resolves (left the farm)', () => {
+    expect(assigneeDisplayNames(['user-1', 'gone'], labels)).toEqual(['Steve'])
   })
 })

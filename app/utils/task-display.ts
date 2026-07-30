@@ -237,3 +237,20 @@ export function locationDisplayName(
   if (locationId === null) return null
   return locations?.find((l) => l.id === locationId)?.name ?? null
 }
+
+/**
+ * A task's assignees resolved to short display labels (see
+ * `memberShortLabels`), sorted for stable rendering. Empty array both when
+ * the chore is unassigned and when every assignee has since left the farm
+ * (their id no longer resolves) — callers treat both the same: no assignee
+ * indicator to show.
+ */
+export function assigneeDisplayNames(
+  assigneeIds: string[],
+  memberLabels: Map<string, string>,
+): string[] {
+  return assigneeIds
+    .map((id) => memberLabels.get(id))
+    .filter((label): label is string => label !== undefined)
+    .sort((a, b) => a.localeCompare(b))
+}

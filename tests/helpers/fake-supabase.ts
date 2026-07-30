@@ -31,6 +31,9 @@ import type { Database } from '../../app/types/database.types'
 //   from('task_completers').insert([row, ...])            // bulk insert, no .select()
 //   from('task_completers').select(...).in('task_id', [...])
 //   from('task_completers').delete().eq('task_id', ...)
+//   from('task_assignees').insert([row, ...])              // bulk insert, no .select()
+//   from('task_assignees').select(...).in('task_id', [...])
+//   from('task_assignees').delete().eq('task_id', ...)
 //   from('task_photos').select(...)/insert(...)/delete()... (M8, mirrors task_tags)
 //   from('task_shopping_items').select(...).eq('task_id', ...).order(...).order(...)
 //   from('task_shopping_items').insert(row).select(...).single()
@@ -77,6 +80,7 @@ type TableName =
   | 'tags'
   | 'task_tags'
   | 'task_completers'
+  | 'task_assignees'
   | 'task_photos'
   | 'task_shopping_items'
   | 'task_tools'
@@ -95,6 +99,7 @@ export interface FakeSupabaseSeed {
   tags?: Database['public']['Tables']['tags']['Row'][]
   task_tags?: Database['public']['Tables']['task_tags']['Row'][]
   task_completers?: Database['public']['Tables']['task_completers']['Row'][]
+  task_assignees?: Database['public']['Tables']['task_assignees']['Row'][]
   task_photos?: Database['public']['Tables']['task_photos']['Row'][]
   task_shopping_items?: Database['public']['Tables']['task_shopping_items']['Row'][]
   task_tools?: Database['public']['Tables']['task_tools']['Row'][]
@@ -357,6 +362,7 @@ export class FakeSupabaseClient {
     tags: 0,
     task_tags: 0,
     task_completers: 0,
+    task_assignees: 0,
     task_photos: 0,
     task_shopping_items: 0,
     task_tools: 0,
@@ -398,6 +404,9 @@ export class FakeSupabaseClient {
       task_tags: cloneRows(seed.task_tags as unknown as Row[] | undefined),
       task_completers: cloneRows(
         seed.task_completers as unknown as Row[] | undefined,
+      ),
+      task_assignees: cloneRows(
+        seed.task_assignees as unknown as Row[] | undefined,
       ),
       task_photos: cloneRows(seed.task_photos as unknown as Row[] | undefined),
       task_shopping_items: cloneRows(

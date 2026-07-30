@@ -204,6 +204,41 @@ Deno.serve(async (req) => {
     usersByFarm.set(m.farm_id, set)
   }
 
+  // --- Resolve per-task assignees, for narrowing the audience ------------
+  // A reminder on an assigned chore pings only the assignees' subscribed
+  // devices; an unassigned chore (or one whose assignees have all since left
+  // the farm) keeps the default whole-farm behavior above.
+  const deliverableTaskIds = [...new Set(deliverable.map((r) => r.task_id))]
+  const { data: assigneeData, error: assigneeError } = await supabase
+    .from('task_assignees')
+    .select('task_id, user_id')
+    .in('task_id', deliverableTaskIds)
+
+  if (assigneeError) {
+    console.error('assignee lookup failed', assigneeError)
+    return json({ ...summary, error: 'assignee lookup failed' }, 500)
+  }
+
+  const assigneesByTask = new Map<string, Set<string>>()
+  for (const a of assigneeData ?? []) {
+    const set = assigneesByTask.get(a.task_id) ?? new Set<string>()
+    set.add(a.user_id)
+    assigneesByTask.set(a.task_id, set)
+  }
+
+  // Resolve each task's actual notification audience: assignees who are
+  // still farm members, falling back to the whole farm when the task has no
+  // assignees, or when every assignee has since left the farm.
+  function audienceForTask(task: TaskRow): Set<string> {
+    const farmMembers = usersByFarm.get(task.farm_id) ?? new Set<string>()
+    const assignees = assigneesByTask.get(task.id)
+    if (!assignees || assignees.size === 0) return farmMembers
+    const resolved = new Set(
+      [...assignees].filter((userId) => farmMembers.has(userId)),
+    )
+    return resolved.size > 0 ? resolved : farmMembers
+  }
+
   // --- Resolve every audience member's push subscriptions -----------------
   const allUserIds = [...new Set((memberData ?? []).map((m) => m.user_id))]
   const subsByUser = new Map<string, SubscriptionRow[]>()
@@ -243,8 +278,9 @@ Deno.serve(async (req) => {
     }
     const payloadJson = JSON.stringify(payload)
 
-    // Fan out to every subscription of every member of the chore's farm.
-    const audienceUserIds = usersByFarm.get(task.farm_id) ?? new Set<string>()
+    // Fan out to every subscription of every member of the chore's audience
+    // (assignees if set and still farm members, else the whole farm).
+    const audienceUserIds = audienceForTask(task)
     const seenSubscriptionIds = new Set<string>()
     for (const userId of audienceUserIds) {
       for (const sub of subsByUser.get(userId) ?? []) {

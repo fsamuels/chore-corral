@@ -10,6 +10,12 @@ import {
 } from '~/services/tasks'
 import { startTimer, stopTimer } from '~/services/time-entries'
 import { matchesSearch } from '~/utils/task-filters'
+import {
+  listFarmMemberProfiles,
+  type FarmMemberProfile,
+} from '~/services/members'
+import { memberShortLabels } from '~/utils/member-display'
+import { assigneeDisplayNames } from '~/utils/task-display'
 
 const supabase = useSupabaseClient<Database>()
 const user = useSupabaseUser()
@@ -23,6 +29,30 @@ await fetchFarms()
 await fetchTasks()
 await fetchCategories()
 await fetchLocations()
+
+// Farm members, resolved to short labels for the assignee indicator on each
+// card — no composable exists for this (only the activity service reads
+// farm_member_profiles), so it's a direct service call, refetched on farm
+// switch like locations/categories above.
+const members = ref<FarmMemberProfile[]>([])
+
+async function fetchMembers() {
+  const farmId = activeFarmId.value
+  if (!farmId) {
+    members.value = []
+    return
+  }
+  members.value = await listFarmMemberProfiles(supabase, farmId)
+}
+
+await fetchMembers()
+watch(activeFarmId, () => fetchMembers())
+
+const memberLabels = computed(() => memberShortLabels(members.value))
+
+function assigneeNames(task: TaskSummary): string[] {
+  return assigneeDisplayNames(task.assignee_ids, memberLabels.value)
+}
 
 const today = computed(() => toLocalDateString(new Date()))
 
@@ -226,6 +256,7 @@ async function toggleTimer(task: TaskSummary) {
                 :category-name="categoryName(task)"
                 :category-emoji="categoryEmoji(task)"
                 :location-name="locationName(task)"
+                :assignee-names="assigneeNames(task)"
                 :today="today"
                 :updating="updatingTaskId === task.id"
                 :timer-running="isTimerRunning(task)"
@@ -250,6 +281,7 @@ async function toggleTimer(task: TaskSummary) {
                 :category-name="categoryName(task)"
                 :category-emoji="categoryEmoji(task)"
                 :location-name="locationName(task)"
+                :assignee-names="assigneeNames(task)"
                 :today="today"
                 :updating="updatingTaskId === task.id"
                 :timer-running="isTimerRunning(task)"
