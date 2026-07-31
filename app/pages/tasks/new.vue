@@ -351,7 +351,7 @@ async function submit() {
             :loading="creating"
             :disabled="!title.trim()"
           >
-            Add
+            Create Chore
           </v-btn>
         </div>
       </v-form>
