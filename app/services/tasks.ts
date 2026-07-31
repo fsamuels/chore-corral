@@ -154,13 +154,16 @@ function todayPlusDaysString(today: string, days: number): string {
 /**
  * Home-screen partition of outstanding (non-done) tasks: "Up next" is due
  * within the next 7 days inclusive (overdue tasks included — their due_date
- * is necessarily <= today), "Backlog" is everything else (due further out,
- * or no due date at all).
+ * is necessarily <= today), OR `urgent` priority regardless of due date (a
+ * far-future or absent due date shouldn't hide a task that's flagged as
+ * needing attention now). "Backlog" is everything else — non-urgent tasks
+ * due further out, or with no due date at all.
  */
 export function isUpNext(
-  task: Pick<TaskSummary, 'due_date'>,
+  task: Pick<TaskSummary, 'due_date' | 'priority'>,
   today: string,
 ): boolean {
+  if (task.priority === 'urgent') return true
   if (!task.due_date) return false
   return task.due_date <= todayPlusDaysString(today, 7)
 }
@@ -178,7 +181,10 @@ export function partitionHomeTasks(
 }
 
 /**
- * "Up next" order: soonest due date first, then urgent-first, then
+ * "Up next" order: soonest due date first (tasks with no due date — only
+ * possible here for `urgent` priority, since `isUpNext` requires one
+ * otherwise — sort after every dated task, not before, so an undated urgent
+ * chore doesn't jump ahead of one due tomorrow), then urgent-first, then
  * in_progress-before-not_started, then oldest-created, then id — a stable
  * tiebreak chain so equal tasks always render in the same order.
  */
@@ -192,7 +198,7 @@ export function compareUpNext(
     'due_date' | 'priority' | 'status' | 'created_at' | 'id'
   >,
 ): number {
-  const byDueDate = (a.due_date ?? '').localeCompare(b.due_date ?? '')
+  const byDueDate = compareNullsLast(a.due_date, b.due_date)
   if (byDueDate !== 0) return byDueDate
   const byPriority = PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority]
   if (byPriority !== 0) return byPriority

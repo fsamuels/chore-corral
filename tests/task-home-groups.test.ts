@@ -52,6 +52,24 @@ describe('isUpNext / partitionHomeTasks', () => {
     expect(isUpNext(task({ due_date: null }), TODAY)).toBe(false)
   })
 
+  it('includes an urgent task due well beyond the 7-day window', () => {
+    expect(
+      isUpNext(task({ priority: 'urgent', due_date: '2026-08-15' }), TODAY),
+    ).toBe(true)
+  })
+
+  it('includes an urgent task with no due date at all', () => {
+    expect(isUpNext(task({ priority: 'urgent', due_date: null }), TODAY)).toBe(
+      true,
+    )
+  })
+
+  it('excludes a non-urgent task due beyond the window, same as before', () => {
+    expect(
+      isUpNext(task({ priority: 'soon', due_date: '2026-08-15' }), TODAY),
+    ).toBe(false)
+  })
+
   it('partitions a mixed list into upNext and backlog', () => {
     const tasks = [
       task({ id: 'overdue', due_date: '2026-06-01' }),
@@ -59,9 +77,21 @@ describe('isUpNext / partitionHomeTasks', () => {
       task({ id: 'boundary', due_date: '2026-07-12' }),
       task({ id: 'beyond', due_date: '2026-07-13' }),
       task({ id: 'no-date', due_date: null }),
+      task({
+        id: 'urgent-far-out',
+        priority: 'urgent',
+        due_date: '2026-08-15',
+      }),
+      task({ id: 'urgent-no-date', priority: 'urgent', due_date: null }),
     ]
     const { upNext, backlog } = partitionHomeTasks(tasks, TODAY)
-    expect(upNext.map((t) => t.id)).toEqual(['overdue', 'today', 'boundary'])
+    expect(upNext.map((t) => t.id)).toEqual([
+      'overdue',
+      'today',
+      'boundary',
+      'urgent-far-out',
+      'urgent-no-date',
+    ])
     expect(backlog.map((t) => t.id)).toEqual(['beyond', 'no-date'])
   })
 })
@@ -120,6 +150,49 @@ describe('compareUpNext', () => {
       task({
         id: 'older',
         due_date: '2026-07-05',
+        created_at: '2026-01-01T00:00:00.000Z',
+      }),
+    ]
+    expect([...tasks].sort(compareUpNext).map((t) => t.id)).toEqual([
+      'older',
+      'newer',
+    ])
+  })
+
+  it('sorts a dateless urgent task after every dated task, not before', () => {
+    const tasks = [
+      task({ id: 'no-date-urgent', priority: 'urgent', due_date: null }),
+      task({ id: 'dated', due_date: '2026-07-12' }),
+    ]
+    expect([...tasks].sort(compareUpNext).map((t) => t.id)).toEqual([
+      'dated',
+      'no-date-urgent',
+    ])
+  })
+
+  it('sorts a far-future urgent due date by its real date, after nearer dates', () => {
+    const tasks = [
+      task({ id: 'urgent-far', priority: 'urgent', due_date: '2026-08-15' }),
+      task({ id: 'soon-near', priority: 'soon', due_date: '2026-07-06' }),
+    ]
+    expect([...tasks].sort(compareUpNext).map((t) => t.id)).toEqual([
+      'soon-near',
+      'urgent-far',
+    ])
+  })
+
+  it('breaks a tie between two dateless urgent tasks with oldest-created first', () => {
+    const tasks = [
+      task({
+        id: 'newer',
+        priority: 'urgent',
+        due_date: null,
+        created_at: '2026-01-02T00:00:00.000Z',
+      }),
+      task({
+        id: 'older',
+        priority: 'urgent',
+        due_date: null,
         created_at: '2026-01-01T00:00:00.000Z',
       }),
     ]
