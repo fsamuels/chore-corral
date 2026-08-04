@@ -1,0 +1,8 @@
+# Every route except /landing sits behind Google sign-in and shows
+# farm-private data once authenticated — nothing else here is meant to be
+# crawled or indexed.
+User-agent: *
+Disallow: /
+Allow: /landing
+
+Sitemap: https://chore-corral.vercel.app/sitemap.xml

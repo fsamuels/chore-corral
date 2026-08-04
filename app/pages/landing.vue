@@ -4,6 +4,28 @@ import { getPublicTaskCount } from '~/services/stats'
 
 definePageMeta({ layout: 'blank' })
 
+// SEO: the only page in the app meant to be publicly indexed (see
+// public/robots.txt, which disallows everything else). Title/description
+// lean on the long-tail phrasing this page targets — property maintenance,
+// priority-sorted chores, farms/ranches/homesteads — rather than the bare
+// "Chore Corral" title every other (auth-gated, unindexed) page gets from
+// app.vue.
+useSeoMeta({
+  title: 'Chore Corral — Priority-Sorted Chore & Property Maintenance Tracker',
+  description:
+    'A shared chore and maintenance tracker for farms, ranches, homesteads, and any property with more fix-it tasks than hours in the day — sorted urgent to someday, with photos and map pins.',
+  ogTitle:
+    'Chore Corral — Priority-Sorted Chore & Property Maintenance Tracker',
+  ogDescription:
+    'For farms, ranches, homesteads, and any property with a long list of fix-it and upkeep tasks — sorted from urgent to someday, shared with your whole team.',
+  ogImage: 'https://chore-corral.vercel.app/pwa-512x512.png',
+  ogType: 'website',
+  twitterCard: 'summary',
+})
+useHead({
+  link: [{ rel: 'canonical', href: 'https://chore-corral.vercel.app/landing' }],
+})
+
 const supabase = useSupabaseClient<Database>()
 const user = useSupabaseUser()
 
@@ -40,6 +62,11 @@ async function signInWithGoogle() {
 }
 
 const features = [
+  {
+    icon: 'mdi-fire',
+    title: 'Urgent, soon, or someday',
+    body: 'Every chore gets a priority tier, so the long tail of fix-it and maybe-later tasks never buries what actually needs doing today.',
+  },
   {
     icon: 'mdi-camera-outline',
     title: 'Snap a photo, drop a pin',
@@ -79,11 +106,12 @@ const honestNotes = [
         <span class="cc-pill cc-landing__badge">Early access</span>
 
         <h1 class="cc-landing__headline">
-          The chore list your whole property actually uses.
+          Every chore has a priority. Your list should show it.
         </h1>
         <p class="cc-landing__subhead">
-          Track fix-it and upkeep tasks — with photos and map pins — shared
-          across everyone who works the land.
+          For farms, ranches, homesteads, and any property with more to fix than
+          hours in the day — sorted urgent to someday, with photos and map pins,
+          shared with your team.
         </p>
 
         <v-alert
@@ -181,7 +209,9 @@ const honestNotes = [
     </section>
 
     <footer class="cc-landing__footer">
-      Chore Corral — built for the day-to-day of running a property.
+      Chore Corral — a priority-sorted chore and maintenance tracker for farms,
+      ranches, homesteads, and every property with more to fix than hours in the
+      day.
     </footer>
   </div>
 </template>
