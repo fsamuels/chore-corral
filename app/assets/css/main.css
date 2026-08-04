@@ -525,3 +525,234 @@ textarea.cc-field {
   font-weight: 500;
   color: var(--cc-ink-muted);
 }
+
+/*
+ * Landing page: a scrollable public brochure page (unlike the login
+ * screen's fixed-height sign-in card), reusing the same farm-scene motif
+ * and cc-* tokens. `.cc-landing` is a flex item of blank.vue's centered
+ * v-main, so — same fix as `.cc-login` — it needs an explicit width or it
+ * collapses to its content's min-content size instead of filling the page.
+ */
+.cc-landing {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  background: var(--cc-bg);
+}
+
+.cc-landing__hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, #fdf3dd 0%, #f8e2b8 46%);
+}
+
+.cc-landing__sun {
+  position: absolute;
+  top: 32px;
+  left: 32px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffd24a, #f2b705);
+}
+
+/*
+ * A decorative strip below the hero copy, not behind it — this used to be
+ * absolutely positioned at a percentage of the hero's height, which put it
+ * UNDER the text on short viewports: the hero grows to fit its (tall)
+ * content, so a percentage height grew right along with it and crept up
+ * over the subhead/button/helper text, and cc-ink-muted has no contrast
+ * against the green fill. A fixed-height, normal-flow element after the
+ * copy can't creep upward regardless of how tall the hero gets.
+ */
+.cc-landing__hill {
+  height: 64px;
+  background: linear-gradient(180deg, #9bb079, #7f9760);
+  border-radius: 60% 60% 0 0 / 30% 30% 0 0;
+}
+
+.cc-landing__hero-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 40px 24px 48px;
+}
+
+.cc-landing__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.cc-landing__logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  box-shadow: 0 10px 24px rgba(90, 60, 20, 0.3);
+}
+
+.cc-landing__wordmark {
+  margin: 0;
+  font-family: var(--cc-font-slab);
+  font-weight: 700;
+  font-size: 1.125rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #5c3a1e;
+}
+
+.cc-landing__badge {
+  margin-top: 18px;
+  background: rgba(255, 252, 244, 0.85);
+  color: var(--cc-accent);
+  border: 1px solid rgba(181, 84, 30, 0.3);
+}
+
+.cc-landing__headline {
+  margin: 14px 0 0;
+  font-family: var(--cc-font-slab);
+  font-weight: 700;
+  font-size: 1.875rem;
+  line-height: 1.2;
+  color: var(--cc-ink);
+}
+
+.cc-landing__subhead {
+  margin: 12px 0 0;
+  max-width: 440px;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--cc-ink-muted);
+}
+
+.cc-landing__alert {
+  width: 100%;
+  max-width: 400px;
+}
+
+.cc-landing__cta {
+  margin-top: 24px;
+}
+
+.cc-landing__google-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.cc-landing__helper {
+  margin: 10px 0 0;
+  font-size: 0.75rem;
+  color: var(--cc-ink-muted);
+}
+
+.cc-landing__section {
+  padding: 40px 24px;
+  border-top: 1px solid var(--cc-border);
+}
+
+.cc-landing__section-title {
+  margin: 0 0 8px;
+  font-family: var(--cc-font-slab);
+  font-weight: 700;
+  font-size: 1.375rem;
+  color: var(--cc-ink);
+  text-align: center;
+}
+
+.cc-landing__section-intro {
+  margin: 0 0 16px;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--cc-ink-muted);
+}
+
+.cc-landing__features {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.cc-landing__feature {
+  background: var(--cc-surface);
+  border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius);
+  box-shadow: var(--cc-shadow);
+  padding: 20px;
+  text-align: center;
+}
+
+.cc-landing__feature-title {
+  margin: 10px 0 6px;
+  font-family: var(--cc-font-slab);
+  font-weight: 700;
+  font-size: 1.0625rem;
+  color: var(--cc-ink);
+}
+
+.cc-landing__feature-body {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--cc-ink-muted);
+}
+
+.cc-landing__section--honest {
+  background: var(--cc-field);
+}
+
+.cc-landing__honest-list {
+  margin: 0 0 20px;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--cc-ink);
+}
+
+.cc-landing__cta-repeat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.cc-landing__stat {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cc-landing__stat-number {
+  font-family: var(--cc-font-slab);
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--cc-accent);
+}
+
+.cc-landing__stat-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--cc-ink-muted);
+}
+
+.cc-landing__footer {
+  padding: 24px;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--cc-ink-muted);
+  border-top: 1px solid var(--cc-border);
+}

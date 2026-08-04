@@ -255,6 +255,7 @@ Each task's activity history is shown in-app, on that task's View page (see belo
 - **OAuth via Google** (through Supabase Auth) — the only sign-in method; other providers remain future work.
 - **Self-serve signup.** Any Google account can sign in; there's no separate account-creation step or allow-list. A user who isn't yet a member of any farm lands on `/welcome`, where they can create their own farm (becoming its owner) or wait to be invited — their signed-in email is shown so they can share it with a farm owner.
 - **Invited users auto-join.** A farm owner can pre-authorize an email address (see Farm Membership above); once that address signs in with Google, the app joins them to the farm automatically, with no separate acceptance step.
+- **Public landing page (`/landing`).** The only route reachable without signing in besides `/login` itself — a marketing page (not gated by the Supabase auth middleware) whose sign-in button drives into the same self-serve Google OAuth flow described above, rather than a separate waitlist/signup mechanism. It sets explicit expectations about the app's early-access state (see ROADMAP.md/STATUS.md) since there's no farm-cleanup path for a visitor who creates a farm and abandons it. Every other route stays private; `public/robots.txt` disallows crawling anything except this one page.
 
 ## Multi-Tenancy Model
 

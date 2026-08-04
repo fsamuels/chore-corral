@@ -2,6 +2,8 @@
 
 A mobile-first web app for tracking maintenance and upkeep tasks across farm/homestead properties — built for the day-to-day "stuff that needs fixing" reality of running a property, not crop planning or compliance reporting.
 
+**[See it live →](https://chore-corral.vercel.app/landing)**
+
 Built as a hands-on agentic AI development project, with a deliberate frontend stack shift (Nuxt/Vue instead of Next/React) to broaden framework depth for portfolio purposes.
 
 ## Stack
