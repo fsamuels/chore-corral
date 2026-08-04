@@ -122,8 +122,9 @@ export default defineNuxtConfig({
     redirectOptions: {
       login: '/login',
       callback: '/confirm',
-      // Static Vuetify sampler with no data access; everything else requires auth.
-      exclude: ['/components-demo'],
+      // Static Vuetify sampler with no data access, and the public
+      // marketing landing page; everything else requires auth.
+      exclude: ['/components-demo', '/landing'],
     },
   },
 })
