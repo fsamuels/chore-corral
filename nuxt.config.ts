@@ -120,11 +120,16 @@ export default defineNuxtConfig({
     // url/key come from NUXT_PUBLIC_SUPABASE_URL / NUXT_PUBLIC_SUPABASE_KEY,
     // the module's default env vars (already set locally and in Vercel).
     redirectOptions: {
-      login: '/login',
+      // /landing (not /login) is where an unauthenticated visit to any
+      // auth-gated route — including / — gets sent; the module auto-excludes
+      // this path from the redirect. /login still exists as a standalone
+      // sign-in page, so it's called out in `exclude` to stay reachable
+      // directly instead of bouncing to /landing.
+      login: '/landing',
       callback: '/confirm',
-      // Static Vuetify sampler with no data access, and the public
-      // marketing landing page; everything else requires auth.
-      exclude: ['/components-demo', '/landing'],
+      // Static Vuetify sampler with no data access, and the legacy /login
+      // page; everything else requires auth.
+      exclude: ['/components-demo', '/login'],
     },
   },
 })
