@@ -224,7 +224,7 @@ Each task's activity history is shown in-app, on that task's View page (see belo
 - Inline editing per field: status via the quick status-change control; priority, category, due date, and estimated time via chip menus; title and notes via click-to-edit with blur-commit; tags and location via click-to-edit with explicit Save/Cancel; photos, shopping list, and tool list directly editable in their sections.
 - Reachable from the task list, the Map view, and the dashboard's outstanding-tasks list.
 - Includes Start/Stop timer controls with the running total (see Time tracking above), and the task's Delete action (with confirmation).
-- Between the priority/category/due-date/estimate row and Status, shows the same "X days old" age text as the task cards; once the task is Done, "X days to complete" (creation to completion) is also shown alongside it.
+- Between the priority/category/due-date/estimate row and Status, shows the same age/turnaround text as the task cards: "X days old" (creation to today) while the task is open, or "X days to complete" (creation to completion) once it's Done — never both at once.
 
 ### Task Create page
 
