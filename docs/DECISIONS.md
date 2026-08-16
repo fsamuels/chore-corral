@@ -2,6 +2,25 @@
 
 A running log of the reasoning behind non-obvious choices made during planning. This complements PR descriptions (which document the agentic development process per-change) by capturing project-level "why" in one place, rather than scattered across individual PRs.
 
+## ID and reversibility convention (new entries)
+
+Per the [shared SDLC standard](https://github.com/fsamuels/sdlc-standards)'s documentation
+convention (`plugins/sdlc/standards/documentation.md`), entries added **from this point forward**
+carry an ID and a reversibility call:
+
+- **`D-<N>`** for a decision that's been made, **`OQ-<N>`** for an open question tracked here
+  until it resolves into a `D-`. Always append the next free number; never renumber or reuse a
+  retired one.
+- **Reversibility** — _easy_ (change in a day), _costly_ (weeks of rework), or _one-way_
+  (effectively permanent) — noted alongside the rationale. Spend deliberation proportional to
+  reversibility, not to how interesting the argument is.
+- Superseding a decision doesn't remove it — mark the old entry superseded, point it at the new
+  one, and say what survived.
+
+The entries below this section predate the convention and aren't being retrofitted with IDs or a
+reversibility call after the fact — that would mean guessing at a rating that wasn't actually
+weighed at decision time. They stay as originally written.
+
 ## Open Questions (Unresolved)
 
 Tracked here until decided. Once resolved, each moves out of this section and becomes its own dated entry below, following the same pattern used to resolve the priority-tier and `activity_log` TBDs.
