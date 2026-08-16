@@ -34,6 +34,9 @@ const { categories, fetchCategories } = useCategories()
 const { tags, fetchTags } = useTags()
 const { locations, fetchLocations } = useLocations()
 
+// Local calendar-date "today", for `formatDaysOld`/`formatDaysToComplete`.
+const today = computed(() => toLocalDateString(new Date()))
+
 await fetchFarms()
 
 // A reminder push notification's link carries `?farm=<id>` (see
@@ -1034,6 +1037,16 @@ const taskLocation = computed(() =>
         >
           {{ fieldSaveError }}
         </v-alert>
+
+        <div class="text-body-2 text-medium-emphasis mb-6">
+          {{ formatDaysOld(task.created_at, today) }}
+          <template v-if="task.status === 'done'">
+            &middot;
+            {{
+              formatDaysToComplete(task.created_at, task.completed_at, today)
+            }}
+          </template>
+        </div>
 
         <div class="cc-eyebrow mb-2">Status</div>
         <div class="cc-segmented mb-6" role="group" aria-label="Chore status">
