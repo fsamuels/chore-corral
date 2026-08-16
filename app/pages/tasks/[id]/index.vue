@@ -35,6 +35,11 @@ const { tags, fetchTags } = useTags()
 const { locations, fetchLocations } = useLocations()
 
 // Local calendar-date "today", for `formatDaysOld`/`formatDaysToComplete`.
+// Computed identically on the server and the client, so on a host whose
+// clock runs in a different timezone than the visitor's (Vercel's default is
+// UTC) this can land on a different calendar day than the browser's — the
+// text that reads it is wrapped in `<ClientOnly>` below so a page load never
+// paints the server's possibly-wrong day before the client's corrects it.
 const today = computed(() => toLocalDateString(new Date()))
 
 await fetchFarms()
@@ -1038,15 +1043,19 @@ const taskLocation = computed(() =>
           {{ fieldSaveError }}
         </v-alert>
 
-        <div class="text-body-2 text-medium-emphasis mb-6">
-          {{ formatDaysOld(task.created_at, today) }}
-          <template v-if="task.status === 'done'">
-            &middot;
+        <ClientOnly>
+          <div class="text-body-2 text-medium-emphasis mb-6">
             {{
-              formatDaysToComplete(task.created_at, task.completed_at, today)
+              task.status === 'done'
+                ? formatDaysToComplete(
+                    task.created_at,
+                    task.completed_at,
+                    today,
+                  )
+                : formatDaysOld(task.created_at, today)
             }}
-          </template>
-        </div>
+          </div>
+        </ClientOnly>
 
         <div class="cc-eyebrow mb-2">Status</div>
         <div class="cc-segmented mb-6" role="group" aria-label="Chore status">

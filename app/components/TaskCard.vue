@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { isTaskOverdue, type TaskSummary } from '~/services/tasks'
-import { formatDaysOld, formatDueDate } from '~/utils/task-display'
+import {
+  formatDaysOld,
+  formatDaysToComplete,
+  formatDueDate,
+} from '~/utils/task-display'
 
 const props = defineProps<{
   task: TaskSummary
@@ -33,8 +37,17 @@ const isDone = computed(() => props.task.status === 'done')
 
 const overdue = computed(() => isTaskOverdue(props.task))
 
-const daysOldText = computed(() =>
-  formatDaysOld(props.task.created_at, props.today),
+// A done task shows its frozen turnaround ("X days to complete") instead of
+// the still-growing age — the age keeps counting up against `today` even
+// after the chore is finished, which reads as wrong once it's done.
+const ageOrTurnaroundText = computed(() =>
+  isDone.value
+    ? formatDaysToComplete(
+        props.task.created_at,
+        props.task.completed_at,
+        props.today,
+      )
+    : formatDaysOld(props.task.created_at, props.today),
 )
 
 // Lowercased for the pill's "Soon · due tomorrow" form (formatDueDate
@@ -203,7 +216,9 @@ function onToggleTimer() {
           />
           <span v-if="task.photo_count > 1">{{ task.photo_count }}</span>
         </span>
-        <span class="task-card__age">{{ daysOldText }}</span>
+        <ClientOnly>
+          <span class="task-card__age">{{ ageOrTurnaroundText }}</span>
+        </ClientOnly>
       </div>
     </div>
   </NuxtLink>
