@@ -15,7 +15,8 @@
     "format:check": "prettier --check .",
     "typecheck": "nuxt typecheck",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "check:links": "node scripts/check-links.mjs"
   },
   "lint-staged": {
     "*.{js,mjs,ts,vue}": [
