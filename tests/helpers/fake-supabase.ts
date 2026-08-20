@@ -15,7 +15,9 @@ import type { Database } from '../../app/types/database.types'
 //   from('tasks').select(cols).eq('farm_id', ...).in('category_id', [...])
 //   from('tasks').select(cols).eq('farm_id', ...).in('location_id', [...])
 //   from('tasks').select(cols).eq('farm_id', ...)
+//   from('tasks').select(cols).eq('farm_id', ...).in('status', [...])
 //   from('tasks').select(cols).eq('farm_id', ...).eq('status', 'done')
+//   from('tasks').select(cols).eq('farm_id', ...).eq('status', 'done').order('completed_at', {ascending:false}).range(from, to)
 //   from('tasks').select(cols).eq('id', ...).eq('farm_id', ...)
 //   from('tasks').insert(row).select(cols).single()
 //   from('tasks').update(row).eq('id', ...).eq('farm_id', ...).select(cols)
@@ -156,6 +158,7 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
   // matching PostgREST's multi-column ordering.
   private readonly orderKeys: Array<{ col: string; ascending: boolean }> = []
   private selectCols?: string[]
+  private rangeBounds?: { from: number; to: number }
 
   constructor(
     private readonly table: TableName,
@@ -227,6 +230,11 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
 
   order(column: string, options?: { ascending?: boolean }): this {
     this.orderKeys.push({ col: column, ascending: options?.ascending ?? true })
+    return this
+  }
+
+  range(from: number, to: number): this {
+    this.rangeBounds = { from, to }
     return this
   }
 
@@ -344,6 +352,9 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
         }
         return 0
       })
+    }
+    if (this.rangeBounds) {
+      matches = matches.slice(this.rangeBounds.from, this.rangeBounds.to + 1)
     }
     return { data: matches.map((row) => this.project(row)), error: null }
   }
