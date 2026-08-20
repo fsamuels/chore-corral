@@ -502,6 +502,23 @@ textarea.cc-field {
   color: var(--cc-ink-muted);
 }
 
+.cc-login__email-toggle {
+  margin-top: 12px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--cc-ink-muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.cc-login__email-form {
+  margin-top: 16px;
+  width: 100%;
+}
+
 .cc-login__stat {
   margin-top: 16px;
   width: 100%;

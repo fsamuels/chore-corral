@@ -38,6 +38,29 @@ async function signInWithGoogle() {
     signingIn.value = false
   }
 }
+
+// Email/password sign-in for manually-created accounts (e.g. via the
+// Supabase dashboard) — no self-serve signup form here, since Google OAuth
+// already covers that per SPEC. Kept behind a toggle so the primary Google
+// button stays the default path.
+const showEmailForm = ref(false)
+const email = ref('')
+const password = ref('')
+
+async function signInWithPassword() {
+  signingIn.value = true
+  errorMessage.value = null
+  const { error } = await supabase.auth.signInWithPassword({
+    email: email.value.trim(),
+    password: password.value,
+  })
+  signingIn.value = false
+  if (error) {
+    errorMessage.value = error.message
+    return
+  }
+  navigateTo('/')
+}
 </script>
 
 <template>
@@ -102,6 +125,59 @@ async function signInWithGoogle() {
           Sign in with Google
         </template>
       </button>
+
+      <button
+        v-if="!showEmailForm"
+        type="button"
+        class="cc-login__email-toggle"
+        @click="showEmailForm = true"
+      >
+        Sign in with email instead
+      </button>
+
+      <v-form
+        v-else
+        class="cc-login__email-form"
+        @submit.prevent="signInWithPassword"
+      >
+        <v-text-field
+          v-model="email"
+          label="Email"
+          type="email"
+          autocomplete="email"
+          :disabled="signingIn"
+          density="comfortable"
+          variant="outlined"
+          hide-details
+          class="mb-3"
+          autofocus
+        />
+        <v-text-field
+          v-model="password"
+          label="Password"
+          type="password"
+          autocomplete="current-password"
+          :disabled="signingIn"
+          density="comfortable"
+          variant="outlined"
+          hide-details
+          class="mb-3"
+        />
+        <button
+          type="submit"
+          class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--lg cc-pill-btn--full"
+          :disabled="signingIn || !email || !password"
+        >
+          <v-progress-circular
+            v-if="signingIn"
+            indeterminate
+            size="18"
+            width="2"
+            color="white"
+          />
+          <template v-else>Sign in</template>
+        </button>
+      </v-form>
 
       <p class="cc-login__helper">
         New here? Sign in and create your first farm.
