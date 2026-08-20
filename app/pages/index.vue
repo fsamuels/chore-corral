@@ -20,15 +20,15 @@ import { assigneeDisplayNames } from '~/utils/task-display'
 const supabase = useSupabaseClient<Database>()
 const user = useSupabaseUser()
 const { fetchFarms, activeFarm, activeFarmId, farmsError } = useFarms()
-const { tasks, tasksError, loading, fetchTasks } = useTasks()
+// The home screen only shows outstanding work (SPEC: its list is scoped to
+// the non-Done subset), so there's no reason to fetch a farm's full Done
+// history here — see listTasks' `excludeDone` option.
+const { tasks, tasksError, loading, fetchTasks } = useTasks({
+  excludeDone: true,
+})
 const { categories, fetchCategories } = useCategories()
 const { locations, fetchLocations } = useLocations()
 const { runningEntry, refresh: refreshRunningTimer } = useRunningTimer()
-
-await fetchFarms()
-await fetchTasks()
-await fetchCategories()
-await fetchLocations()
 
 // Farm members, resolved to short labels for the assignee indicator on each
 // card — no composable exists for this (only the activity service reads
@@ -45,7 +45,16 @@ async function fetchMembers() {
   members.value = await listFarmMemberProfiles(supabase, farmId)
 }
 
-await fetchMembers()
+// Farms must resolve first (tasks/categories/locations/members all key off
+// activeFarmId, which is derived from the farm list), but once it has, the
+// other four are independent of each other and safe to fetch concurrently.
+await fetchFarms()
+await Promise.all([
+  fetchTasks(),
+  fetchCategories(),
+  fetchLocations(),
+  fetchMembers(),
+])
 watch(activeFarmId, () => fetchMembers())
 
 const memberLabels = computed(() => memberShortLabels(members.value))
@@ -58,10 +67,9 @@ const today = computed(() => toLocalDateString(new Date()))
 
 // `tasks` is already urgent-first / oldest-first within a tier (see
 // `compareTasks`), but the home screen re-groups/re-sorts into "Up next" /
-// "Backlog" below, so that upstream order isn't relied on here.
-const outstandingTasks = computed(
-  () => tasks.value?.filter((task) => task.status !== 'done') ?? [],
-)
+// "Backlog" below, so that upstream order isn't relied on here. Already
+// excludes Done (see the `useTasks({ excludeDone: true })` call above).
+const outstandingTasks = computed(() => tasks.value ?? [])
 
 // Stat pills always summarize *all* outstanding tasks, unfiltered.
 const overdueCount = computed(

@@ -2,17 +2,20 @@
 import type { TaskSummary } from '~/services/tasks'
 
 const { fetchFarms, activeFarm, farmsError } = useFarms()
-const { tasks, tasksError, loading, fetchTasks } = useTasks()
+// The map only ever plots outstanding work, so skip Done tasks entirely
+// (see listTasks' `excludeDone` option) rather than fetching and discarding
+// a farm's full completed history.
+const { tasks, tasksError, loading, fetchTasks } = useTasks({
+  excludeDone: true,
+})
 const { locations, fetchLocations } = useLocations()
 const { categories, fetchCategories } = useCategories()
 
-// Same fetch order as tasks/index.vue: farms first so the active farm resolves
-// during SSR, then that farm's tasks, defined locations, and categories (for
-// the category filter below).
+// Farms first so the active farm resolves during SSR (tasks/locations/
+// categories all key off activeFarmId); the other three are independent of
+// each other and fetched concurrently.
 await fetchFarms()
-await fetchTasks()
-await fetchLocations()
-await fetchCategories()
+await Promise.all([fetchTasks(), fetchLocations(), fetchCategories()])
 
 // Sentinel for "no filter"; `null` is a real value (Uncategorized), so the
 // filter needs a distinct value for "all categories" — same pattern as
@@ -38,7 +41,6 @@ const locatedTasks = computed<TaskSummary[]>(() => {
   const byId = new Map((locations.value ?? []).map((l) => [l.id, l]))
   const resolved: TaskSummary[] = []
   for (const task of tasks.value ?? []) {
-    if (task.status === 'done') continue
     if (
       selectedCategory.value !== ALL_CATEGORIES &&
       task.category_id !== selectedCategory.value
