@@ -12,12 +12,17 @@ import {
   type UpdateTaskInput,
 } from '~/services/tasks'
 
+export interface UseTasksOptions {
+  /** Passed through to `listTasks` — see its docstring. */
+  excludeDone?: boolean
+}
+
 /**
  * Tasks for the active farm (from `useFarms`). Mirrors `useCategories`'
  * shape: plain per-composable state, re-fetched whenever the active farm
  * changes.
  */
-export function useTasks() {
+export function useTasks(options: UseTasksOptions = {}) {
   const supabase = useSupabaseClient<Database>()
   const user = useSupabaseUser()
   const { activeFarmId } = useFarms()
@@ -35,7 +40,7 @@ export function useTasks() {
     }
     loading.value = true
     try {
-      tasks.value = await listTasks(supabase, farmId)
+      tasks.value = await listTasks(supabase, farmId, options)
       tasksError.value = null
     } catch (error) {
       tasksError.value =

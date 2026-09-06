@@ -343,29 +343,110 @@ function extractPhotoCount(row: { task_photos?: { count: number }[] }): number {
   return row.task_photos?.[0]?.count ?? 0
 }
 
-/** All tasks for one farm (Done included, per SPEC), urgent-first. */
-export async function listTasks(
-  supabase: Client,
-  farmId: string,
-): Promise<TaskSummary[]> {
-  const { data, error } = await supabase
-    .from('tasks')
-    .select(TASK_COLUMNS_WITH_PHOTO_COUNT)
-    .eq('farm_id', farmId)
-  if (error) throw new Error(error.message)
-  const sorted = data.sort(compareTasks)
+// Everything but Done — used to fetch a farm's active workload, which stays
+// small, as opposed to its Done history, which only grows (see
+// `listDoneTasks` below).
+const OUTSTANDING_STATUSES: TaskStatus[] = ['not_started', 'in_progress']
 
-  const taskIds = sorted.map((task) => task.id)
-  const tagsByTaskId = await listTagsForTasks(supabase, taskIds)
-  const completersByTaskId = await listCompletersForTasks(supabase, taskIds)
-  const assigneesByTaskId = await listAssigneesForTasks(supabase, taskIds)
-  return sorted.map((task) => ({
+type TaskRow = Omit<
+  TaskSummary,
+  'tags' | 'completers' | 'assignee_ids' | 'photo_count'
+> & { task_photos?: { count: number }[] }
+
+/**
+ * Bulk-attaches tags/completers/assignees/photo-count to a set of task rows
+ * already fetched from `tasks`. The three lookups are independent of each
+ * other, so they run concurrently rather than as sequential round-trips.
+ */
+async function attachTaskRelations(
+  supabase: Client,
+  rows: TaskRow[],
+): Promise<TaskSummary[]> {
+  const taskIds = rows.map((task) => task.id)
+  const [tagsByTaskId, completersByTaskId, assigneesByTaskId] =
+    await Promise.all([
+      listTagsForTasks(supabase, taskIds),
+      listCompletersForTasks(supabase, taskIds),
+      listAssigneesForTasks(supabase, taskIds),
+    ])
+  return rows.map((task) => ({
     ...task,
     tags: tagsByTaskId.get(task.id) ?? [],
     completers: completersByTaskId.get(task.id) ?? [],
     assignee_ids: assigneesByTaskId.get(task.id) ?? [],
     photo_count: extractPhotoCount(task),
   }))
+}
+
+export interface ListTasksOptions {
+  /**
+   * Skip Done tasks entirely. The home screen and the map only ever show
+   * outstanding work (SPEC: both are scoped to the non-Done subset), so
+   * there's no reason to pull a farm's full completed history — which has
+   * no natural bound — just to discard it client-side.
+   */
+  excludeDone?: boolean
+}
+
+/**
+ * Tasks for one farm, urgent-first. Includes Done tasks by default (per
+ * SPEC, the Chores list shows them, filterable, not hidden) — pass
+ * `{ excludeDone: true }` for callers that only want outstanding work.
+ */
+export async function listTasks(
+  supabase: Client,
+  farmId: string,
+  options: ListTasksOptions = {},
+): Promise<TaskSummary[]> {
+  let query = supabase
+    .from('tasks')
+    .select(TASK_COLUMNS_WITH_PHOTO_COUNT)
+    .eq('farm_id', farmId)
+  if (options.excludeDone) {
+    query = query.in('status', OUTSTANDING_STATUSES)
+  }
+  const { data, error } = await query
+  if (error) throw new Error(error.message)
+  const sorted = data.sort(compareTasks)
+  return attachTaskRelations(supabase, sorted)
+}
+
+/** Default page size for `listDoneTasks` — see its docstring for rationale. */
+export const DONE_TASKS_PAGE_SIZE = 20
+
+export interface ListDoneTasksResult {
+  tasks: TaskSummary[]
+  /** Whether at least one more Done task exists past this page. */
+  hasMore: boolean
+}
+
+/**
+ * Done tasks for one farm, most-recently-completed first, one page at a
+ * time. A farm's Done history has no natural bound (SPEC keeps it visible
+ * and filterable forever), so the Chores list page pages through it instead
+ * of fetching the whole thing on every load — newer farms with a short
+ * history will rarely see a second page at all.
+ */
+export async function listDoneTasks(
+  supabase: Client,
+  farmId: string,
+  opts: { offset: number; pageSize?: number },
+): Promise<ListDoneTasksResult> {
+  const pageSize = opts.pageSize ?? DONE_TASKS_PAGE_SIZE
+  // Ask for one extra row past the page so its presence alone tells us
+  // whether a next page exists, without a separate count query.
+  const { data, error } = await supabase
+    .from('tasks')
+    .select(TASK_COLUMNS_WITH_PHOTO_COUNT)
+    .eq('farm_id', farmId)
+    .eq('status', 'done')
+    .order('completed_at', { ascending: false })
+    .range(opts.offset, opts.offset + pageSize)
+  if (error) throw new Error(error.message)
+  const hasMore = data.length > pageSize
+  const page = hasMore ? data.slice(0, pageSize) : data
+  const tasks = await attachTaskRelations(supabase, page)
+  return { tasks, hasMore }
 }
 
 /**

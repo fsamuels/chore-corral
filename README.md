@@ -45,3 +45,36 @@ npx supabase db push
 ```
 
 Automating this in the deploy pipeline is a planned improvement — see [ROADMAP.md](docs/ROADMAP.md).
+
+### Running against local Supabase
+
+For work that shouldn't touch the hosted project (schema experiments, load/perf testing, seeding
+throwaway data), the Supabase CLI can run the full stack locally via Docker:
+
+```
+supabase start                          # applies supabase/migrations/ automatically
+```
+
+Point `.env` (or inline env vars) at the printed `API_URL`/`ANON_KEY` instead of the hosted
+project's. **Gotcha:** a bare `supabase start` does not grant the `anon`/`authenticated` roles the
+standard table privileges that the hosted project has set up automatically since creation — this
+repo's migrations never grant them explicitly (by design: they rely on the platform doing it, then
+RLS policies filtering rows on top). Without this, every query from the app's normal auth role
+fails with `42501 permission denied`, but the app doesn't surface it loudly — pages still render
+(session/auth checks pass), just with everything silently empty, which can look like "it's just
+slow" or "there's no data" rather than a permissions error. Fix once per fresh local instance:
+
+```sql
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated;
+```
+
+(e.g. via `docker exec -i supabase_db_chore-corral psql -U postgres -d postgres < grants.sql`). The
+same applies to `service_role` (`GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;`) for
+any admin-client seeding script. Verify it actually worked by confirming a real authenticated query
+returns rows — not just that the page loads without an error.

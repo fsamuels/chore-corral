@@ -2,9 +2,11 @@
 import type { Database } from '~/types/database.types'
 import {
   compareTasksDoneLast,
+  listDoneTasks,
   toLocalDateString,
   type TaskPriority,
   type TaskStatus,
+  type TaskSummary,
 } from '~/services/tasks'
 import {
   ALL,
@@ -22,19 +24,54 @@ import { assigneeDisplayNames } from '~/utils/task-display'
 const route = useRoute()
 const supabase = useSupabaseClient<Database>()
 const { fetchFarms, activeFarm, activeFarmId, farmsError } = useFarms()
-const { tasks, tasksError, loading, fetchTasks } = useTasks()
+// Outstanding tasks (a farm's active workload, which stays small) are
+// always fetched in full; Done tasks have no natural bound — SPEC keeps
+// them visible/filterable forever — so they're paged in separately below
+// instead of being pulled all at once on every visit.
+const {
+  tasks: outstandingTasks,
+  tasksError,
+  loading,
+  fetchTasks,
+} = useTasks({ excludeDone: true })
 const { categories, fetchCategories } = useCategories()
 const { tags, fetchTags } = useTags()
 const { locations, fetchLocations } = useLocations()
 
-// Fetch farms first so the active farm resolves during SSR, then load its
-// tasks, categories, tags, and locations (the composables' watch covers later
-// farm switches).
-await fetchFarms()
-await fetchTasks()
-await fetchCategories()
-await fetchTags()
-await fetchLocations()
+const doneTasks = ref<TaskSummary[]>([])
+const doneHasMore = ref(false)
+const doneLoading = ref(false)
+const doneOffset = ref(0)
+
+async function fetchDonePage(reset: boolean): Promise<void> {
+  const farmId = activeFarmId.value
+  if (!farmId) {
+    doneTasks.value = []
+    doneHasMore.value = false
+    return
+  }
+  if (reset) doneOffset.value = 0
+  doneLoading.value = true
+  try {
+    const result = await listDoneTasks(supabase, farmId, {
+      offset: doneOffset.value,
+    })
+    doneTasks.value = reset
+      ? result.tasks
+      : [...doneTasks.value, ...result.tasks]
+    doneHasMore.value = result.hasMore
+    doneOffset.value += result.tasks.length
+  } finally {
+    doneLoading.value = false
+  }
+}
+
+// All tasks the page currently has loaded: the full outstanding set plus
+// however many Done pages have been fetched so far.
+const tasks = computed<TaskSummary[]>(() => [
+  ...(outstandingTasks.value ?? []),
+  ...doneTasks.value,
+])
 
 // Farm members, resolved to short labels for each card's assignee indicator
 // — mirrors the same fetch on the home page (index.vue).
@@ -49,8 +86,23 @@ async function fetchMembers() {
   members.value = await listFarmMemberProfiles(supabase, farmId)
 }
 
-await fetchMembers()
-watch(activeFarmId, () => fetchMembers())
+// Fetch farms first so the active farm resolves during SSR (everything else
+// keys off activeFarmId); the rest are independent of each other and fetched
+// concurrently. Later farm switches are covered by each composable's own
+// watch, plus the explicit watch below for the Done-task pages and members.
+await fetchFarms()
+await Promise.all([
+  fetchTasks(),
+  fetchDonePage(true),
+  fetchCategories(),
+  fetchTags(),
+  fetchLocations(),
+  fetchMembers(),
+])
+watch(activeFarmId, () => {
+  fetchDonePage(true)
+  fetchMembers()
+})
 
 const memberLabels = computed(() => memberShortLabels(members.value))
 
@@ -311,12 +363,15 @@ function locationName(locationId: string | null): string | null {
         be reachable.
       </v-alert>
 
-      <div v-else-if="loading && tasks === null" class="text-center py-8">
+      <div
+        v-else-if="loading && outstandingTasks === null"
+        class="text-center py-8"
+      >
         <v-progress-circular indeterminate color="primary" />
       </div>
 
       <div
-        v-else-if="!tasks || tasks.length === 0"
+        v-else-if="tasks.length === 0"
         class="text-center py-12 text-medium-emphasis"
       >
         <v-icon icon="mdi-clipboard-text-outline" size="64" class="mb-4" />
@@ -342,7 +397,7 @@ function locationName(locationId: string | null): string | null {
         </v-btn>
       </div>
 
-      <div class="tasks-list__cards">
+      <div v-else class="tasks-list__cards">
         <TaskCard
           v-for="item in filteredTasks"
           :key="item.id"
@@ -353,6 +408,16 @@ function locationName(locationId: string | null): string | null {
           :today="today"
           hide-check
         />
+      </div>
+
+      <div v-if="doneHasMore" class="text-center mt-4">
+        <v-btn
+          variant="outlined"
+          :loading="doneLoading"
+          @click="fetchDonePage(false)"
+        >
+          Load more completed chores
+        </v-btn>
       </div>
     </template>
   </v-container>

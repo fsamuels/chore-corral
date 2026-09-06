@@ -9,6 +9,7 @@ import {
   getTask,
   getTaskTitle,
   isTaskOverdue,
+  listDoneTasks,
   listTasks,
   updateTask,
 } from '../app/services/tasks'
@@ -1388,6 +1389,106 @@ describe('listTasks', () => {
     const task2 = result.find((t) => t.id === 'task-2')
     expect(task1?.tags.map((t) => t.name)).toEqual(['Barn', 'Gate'])
     expect(task2?.tags).toEqual([])
+  })
+
+  it('excludes Done tasks when excludeDone is set', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [
+        task({ id: 'task-open', status: 'not_started' }),
+        task({ id: 'task-in-progress', status: 'in_progress' }),
+        task({ id: 'task-done', status: 'done' }),
+      ],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listTasks(supabase, FARM_A, { excludeDone: true })
+
+    expect(result.map((t) => t.id).sort()).toEqual([
+      'task-in-progress',
+      'task-open',
+    ])
+  })
+
+  it('includes Done tasks by default', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [
+        task({ id: 'task-open', status: 'not_started' }),
+        task({ id: 'task-done', status: 'done' }),
+      ],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listTasks(supabase, FARM_A)
+
+    expect(result.map((t) => t.id).sort()).toEqual(['task-done', 'task-open'])
+  })
+})
+
+describe('listDoneTasks', () => {
+  it('returns only Done tasks for the requested farm', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [
+        task({ id: 'task-open', status: 'not_started' }),
+        task({
+          id: 'task-done',
+          status: 'done',
+          completed_at: '2026-01-05T00:00:00.000Z',
+        }),
+        task({
+          id: 'task-done-other-farm',
+          farm_id: FARM_B,
+          status: 'done',
+          completed_at: '2026-01-05T00:00:00.000Z',
+        }),
+      ],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listDoneTasks(supabase, FARM_A, { offset: 0 })
+
+    expect(result.tasks.map((t) => t.id)).toEqual(['task-done'])
+    expect(result.hasMore).toBe(false)
+  })
+
+  it('most-recently-completed first, and pages through with hasMore/offset', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [
+        task({
+          id: 'done-1',
+          status: 'done',
+          completed_at: '2026-01-01T00:00:00.000Z',
+        }),
+        task({
+          id: 'done-2',
+          status: 'done',
+          completed_at: '2026-01-02T00:00:00.000Z',
+        }),
+        task({
+          id: 'done-3',
+          status: 'done',
+          completed_at: '2026-01-03T00:00:00.000Z',
+        }),
+      ],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const firstPage = await listDoneTasks(supabase, FARM_A, {
+      offset: 0,
+      pageSize: 2,
+    })
+    expect(firstPage.tasks.map((t) => t.id)).toEqual(['done-3', 'done-2'])
+    expect(firstPage.hasMore).toBe(true)
+
+    const secondPage = await listDoneTasks(supabase, FARM_A, {
+      offset: 2,
+      pageSize: 2,
+    })
+    expect(secondPage.tasks.map((t) => t.id)).toEqual(['done-1'])
+    expect(secondPage.hasMore).toBe(false)
   })
 })
 
