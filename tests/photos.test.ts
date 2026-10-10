@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   deleteTaskPhoto,
   getTaskPhotoUrl,
@@ -281,7 +281,7 @@ describe('listFirstPhotoPaths', () => {
   it('returns an empty map without querying for no task ids', async () => {
     const fake = new FakeSupabaseClient(
       {},
-      { table: 'task_photos', op: 'select' },
+      { table: 'task_first_photos', op: 'select' },
     )
     const supabase = asSupabaseClient(fake)
 
@@ -291,11 +291,42 @@ describe('listFirstPhotoPaths', () => {
   it('propagates a select failure', async () => {
     const fake = new FakeSupabaseClient(
       {},
-      { table: 'task_photos', op: 'select' },
+      { table: 'task_first_photos', op: 'select' },
     )
     const supabase = asSupabaseClient(fake)
 
     await expect(listFirstPhotoPaths(supabase, [TASK_A])).rejects.toThrow()
+  })
+
+  it('breaks a taken_at tie by photo id', async () => {
+    const fake = new FakeSupabaseClient({
+      task_photos: [
+        photo({ id: 'photo-b', storage_path: 'b.webp' }),
+        photo({ id: 'photo-a', storage_path: 'a.webp' }),
+      ],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listFirstPhotoPaths(supabase, [TASK_A])
+
+    expect(result.get(TASK_A)).toBe('a.webp')
+  })
+
+  it('splits a long id list into chunks of 100 and merges the results', async () => {
+    const taskIds = Array.from({ length: 250 }, (_, i) => `task-${i}`)
+    const fake = new FakeSupabaseClient({
+      task_photos: taskIds.map((taskId) =>
+        photo({ id: `p-${taskId}`, task_id: taskId, storage_path: taskId }),
+      ),
+    })
+    const fromSpy = vi.spyOn(fake, 'from')
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listFirstPhotoPaths(supabase, taskIds)
+
+    expect(fromSpy).toHaveBeenCalledTimes(3)
+    expect(result.size).toBe(250)
+    expect(result.get('task-249')).toBe('task-249')
   })
 })
 
@@ -336,5 +367,18 @@ describe('getTaskPhotoUrls', () => {
     const supabase = asSupabaseClient(fake)
 
     await expect(getTaskPhotoUrls(supabase, ['a/1.webp'])).rejects.toThrow()
+  })
+})
+
+describe('listPhotos ordering', () => {
+  it('breaks a taken_at tie by photo id', async () => {
+    const fake = new FakeSupabaseClient({
+      task_photos: [photo({ id: 'photo-b' }), photo({ id: 'photo-a' })],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listPhotos(supabase, TASK_A)
+
+    expect(result.map((p) => p.id)).toEqual(['photo-a', 'photo-b'])
   })
 })

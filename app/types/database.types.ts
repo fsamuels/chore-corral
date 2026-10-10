@@ -625,6 +625,14 @@ export interface Database {
         }
         Relationships: []
       }
+      task_first_photos: {
+        Row: {
+          task_id: string
+          photo_id: string
+          storage_path: string
+        }
+        Relationships: []
+      }
     }
     Functions: {
       accept_farm_invites: {

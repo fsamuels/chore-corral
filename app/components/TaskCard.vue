@@ -27,13 +27,18 @@ const props = defineProps<{
   /** Hide the circular timer button for pages that don't offer it. */
   hideCheck?: boolean
   /** Signed URL of the chore's first photo (page owns the fetch — see
-   * useTaskThumbnails); omitted when it has none — nothing renders. */
+   * useTaskThumbnails). `null` = nothing to show, so a chore with photos
+   * falls back to the meta-row photo icon; `undefined` = still loading, so
+   * neither renders (avoids an icon → image flicker). */
   thumbnailUrl?: string | null
 }>()
 
 const emit = defineEmits<{
   /** User tapped the circular button; the page starts or stops this task's timer. */
   toggleTimer: [task: TaskSummary]
+  /** The thumbnail image failed to load (e.g. an expired signed URL); the
+   * page re-signs it or gives up — see useTaskThumbnails. */
+  thumbnailError: [task: TaskSummary]
 }>()
 
 const isDone = computed(() => props.task.status === 'done')
@@ -97,6 +102,38 @@ const hasLocation = computed(
   () => props.task.lat !== null && props.task.lng !== null,
 )
 
+// Hides a thumbnail that failed to load until the page supplies a new URL,
+// so the browser's broken-image glyph never shows.
+const thumbnailFailed = ref(false)
+watch(
+  () => props.thumbnailUrl,
+  () => {
+    thumbnailFailed.value = false
+  },
+)
+
+const showThumbnail = computed(
+  () => !!props.thumbnailUrl && !thumbnailFailed.value,
+)
+
+// Photo icon is the fallback for a chore whose thumbnail can't be shown;
+// skipped while the thumbnail is still loading (undefined).
+const showPhotoIcon = computed(
+  () =>
+    props.task.photo_count > 0 &&
+    !showThumbnail.value &&
+    (props.thumbnailUrl === null || thumbnailFailed.value),
+)
+
+const photoCountLabel = computed(() =>
+  props.task.photo_count === 1 ? '1 photo' : `${props.task.photo_count} photos`,
+)
+
+function onThumbnailError() {
+  thumbnailFailed.value = true
+  emit('thumbnailError', props.task)
+}
+
 function onToggleTimer() {
   if (props.updating) return
   emit('toggleTimer', props.task)
@@ -109,7 +146,7 @@ function onToggleTimer() {
     class="task-card"
     :class="[
       `task-card--${task.priority}`,
-      { 'task-card--has-thumbnail': thumbnailUrl },
+      { 'task-card--has-thumbnail': showThumbnail },
     ]"
   >
     <button
@@ -209,6 +246,19 @@ function onToggleTimer() {
           />
           {{ assigneeNames.join(', ') }}
         </span>
+        <span
+          v-if="showPhotoIcon"
+          class="task-card__meta-photos"
+          :aria-label="photoCountLabel"
+          :title="photoCountLabel"
+        >
+          <v-icon
+            icon="mdi-image-outline"
+            size="16"
+            class="task-card__meta-icon"
+          />
+          <span v-if="task.photo_count > 1">{{ task.photo_count }}</span>
+        </span>
         <ClientOnly>
           <span class="task-card__age">{{ ageOrTurnaroundText }}</span>
         </ClientOnly>
@@ -216,12 +266,13 @@ function onToggleTimer() {
     </div>
 
     <img
-      v-if="thumbnailUrl"
-      :src="thumbnailUrl"
-      alt=""
+      v-if="showThumbnail"
+      :src="thumbnailUrl!"
+      :alt="photoCountLabel"
       class="task-card__thumbnail"
       loading="lazy"
       decoding="async"
+      @error="onThumbnailError"
     />
   </NuxtLink>
 </template>
@@ -363,6 +414,14 @@ function onToggleTimer() {
 
 .task-card__meta-icon {
   color: var(--cc-ink-muted);
+}
+
+.task-card__meta-photos {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--cc-ink-muted);
+  font-size: 0.75rem;
 }
 
 .task-card__age {

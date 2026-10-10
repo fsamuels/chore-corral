@@ -23,6 +23,9 @@ export async function listPhotos(
     .select(PHOTO_COLUMNS)
     .eq('task_id', taskId)
     .order('taken_at')
+    // Tiebreak so photos sharing a taken_at keep a stable order, matching
+    // the task_first_photos view's choice of "first".
+    .order('id')
   if (error) throw new Error(error.message)
   return data
 }
@@ -121,28 +124,42 @@ export async function getTaskPhotoUrl(
   return data.signedUrl
 }
 
+// Task ids per `task_first_photos` request. PostgREST takes `.in()` values
+// in the GET URL; ~37 chars per uuid keeps 100 ids around 4 KB, well under
+// typical proxy URL limits, however many Done pages /tasks has loaded.
+const FIRST_PHOTO_CHUNK_SIZE = 100
+
 /**
- * The first photo (earliest `taken_at`, matching `listPhotos`' order) of each
- * given task, keyed by task id — what list views show as a card thumbnail.
- * Tasks with no photos are simply absent from the map. One query for all
- * tasks rather than one per card.
+ * The first photo (earliest `taken_at`, then `id` — matching `listPhotos`'
+ * order) of each given task, keyed by task id: what list views show as a
+ * card thumbnail. Tasks with no photos are absent from the map.
+ *
+ * Reads the `task_first_photos` view, which does the DISTINCT ON in SQL, so
+ * the response is one row per task rather than every photo row (which could
+ * also hit PostgREST's max-rows cap on photo-heavy farms). Ids are queried
+ * in parallel chunks to bound URL length.
  */
 export async function listFirstPhotoPaths(
   supabase: Client,
   taskIds: string[],
 ): Promise<Map<string, string>> {
+  const chunks: string[][] = []
+  for (let i = 0; i < taskIds.length; i += FIRST_PHOTO_CHUNK_SIZE) {
+    chunks.push(taskIds.slice(i, i + FIRST_PHOTO_CHUNK_SIZE))
+  }
+  const results = await Promise.all(
+    chunks.map(async (chunk) => {
+      const { data, error } = await supabase
+        .from('task_first_photos')
+        .select('task_id, storage_path')
+        .in('task_id', chunk)
+      if (error) throw new Error(error.message)
+      return data
+    }),
+  )
   const firstByTask = new Map<string, string>()
-  if (taskIds.length === 0) return firstByTask
-  const { data, error } = await supabase
-    .from('task_photos')
-    .select('task_id, storage_path')
-    .in('task_id', taskIds)
-    .order('taken_at')
-  if (error) throw new Error(error.message)
-  for (const row of data) {
-    if (!firstByTask.has(row.task_id)) {
-      firstByTask.set(row.task_id, row.storage_path)
-    }
+  for (const row of results.flat()) {
+    firstByTask.set(row.task_id, row.storage_path)
   }
   return firstByTask
 }
