@@ -26,11 +26,19 @@ const props = defineProps<{
   timerRunning?: boolean
   /** Hide the circular timer button for pages that don't offer it. */
   hideCheck?: boolean
+  /** Signed URL of the chore's first photo (page owns the fetch — see
+   * useTaskThumbnails). `null` = nothing to show, so a chore with photos
+   * falls back to the meta-row photo icon; `undefined` = still loading, so
+   * neither renders (avoids an icon → image flicker). */
+  thumbnailUrl?: string | null
 }>()
 
 const emit = defineEmits<{
   /** User tapped the circular button; the page starts or stops this task's timer. */
   toggleTimer: [task: TaskSummary]
+  /** The thumbnail image failed to load (e.g. an expired signed URL); the
+   * page re-signs it or gives up — see useTaskThumbnails. */
+  thumbnailError: [task: TaskSummary]
 }>()
 
 const isDone = computed(() => props.task.status === 'done')
@@ -94,6 +102,38 @@ const hasLocation = computed(
   () => props.task.lat !== null && props.task.lng !== null,
 )
 
+// Hides a thumbnail that failed to load until the page supplies a new URL,
+// so the browser's broken-image glyph never shows.
+const thumbnailFailed = ref(false)
+watch(
+  () => props.thumbnailUrl,
+  () => {
+    thumbnailFailed.value = false
+  },
+)
+
+const showThumbnail = computed(
+  () => !!props.thumbnailUrl && !thumbnailFailed.value,
+)
+
+// Photo icon is the fallback for a chore whose thumbnail can't be shown;
+// skipped while the thumbnail is still loading (undefined).
+const showPhotoIcon = computed(
+  () =>
+    props.task.photo_count > 0 &&
+    !showThumbnail.value &&
+    (props.thumbnailUrl === null || thumbnailFailed.value),
+)
+
+const photoCountLabel = computed(() =>
+  props.task.photo_count === 1 ? '1 photo' : `${props.task.photo_count} photos`,
+)
+
+function onThumbnailError() {
+  thumbnailFailed.value = true
+  emit('thumbnailError', props.task)
+}
+
 function onToggleTimer() {
   if (props.updating) return
   emit('toggleTimer', props.task)
@@ -104,7 +144,10 @@ function onToggleTimer() {
   <NuxtLink
     :to="`/tasks/${task.id}`"
     class="task-card"
-    :class="`task-card--${task.priority}`"
+    :class="[
+      `task-card--${task.priority}`,
+      { 'task-card--has-thumbnail': showThumbnail },
+    ]"
   >
     <button
       v-if="!hideCheck"
@@ -204,10 +247,10 @@ function onToggleTimer() {
           {{ assigneeNames.join(', ') }}
         </span>
         <span
-          v-if="task.photo_count > 0"
+          v-if="showPhotoIcon"
           class="task-card__meta-photos"
-          aria-label="Has photos"
-          title="Has photos"
+          :aria-label="photoCountLabel"
+          :title="photoCountLabel"
         >
           <v-icon
             icon="mdi-image-outline"
@@ -221,6 +264,16 @@ function onToggleTimer() {
         </ClientOnly>
       </div>
     </div>
+
+    <img
+      v-if="showThumbnail"
+      :src="thumbnailUrl!"
+      :alt="photoCountLabel"
+      class="task-card__thumbnail"
+      loading="lazy"
+      decoding="async"
+      @error="onThumbnailError"
+    />
   </NuxtLink>
 </template>
 
@@ -398,5 +451,34 @@ function onToggleTimer() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.task-card--has-thumbnail {
+  position: relative;
+  /* Lets the thumbnail size itself against the card's width (cqw) below. */
+  container-type: inline-size;
+}
+
+/* Reserve the thumbnail's widest possible footprint, plus a gap, so text
+   never runs underneath it. */
+.task-card--has-thumbnail .task-card__content {
+  margin-right: calc(min(20cqw, 80px) + 12px);
+}
+
+/* Square, fitted to the card's content height and vertically centered.
+   Absolutely positioned because a flex item's stretched height can't drive
+   its width through aspect-ratio; capped at ~20% of the card (80px max) so a
+   tall wrapped title doesn't grow it past its reserved space. */
+.task-card__thumbnail {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+  height: calc(100% - 28px);
+  max-height: min(20cqw, 80px);
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: calc(var(--cc-radius) / 2);
+  background: var(--cc-border);
 }
 </style>

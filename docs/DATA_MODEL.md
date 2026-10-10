@@ -245,6 +245,8 @@ Like the other task-child tables, this table carries no `farm_id`; scoped to a f
 
 Actual image files live in Supabase Storage (a bucket, RLS-scoped by farm via the associated task), not in the database — this table stores metadata and the storage reference only.
 
+The `task_first_photos` view (`security_invoker`, so it inherits this table's RLS) returns one row per task with photos: `task_id`, `photo_id`, `storage_path` of its first photo, ordered by `taken_at` then `id` (the task View page's gallery order). List views use it for card thumbnails.
+
 ### `task_shopping_items`
 
 Optional per-task shopping list — items to buy for a task (parts, supplies), each independently checkable. A task may have zero such items (the feature is opt-in).

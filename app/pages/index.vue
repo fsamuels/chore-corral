@@ -29,6 +29,7 @@ const { tasks, tasksError, loading, fetchTasks } = useTasks({
 const { categories, fetchCategories } = useCategories()
 const { locations, fetchLocations } = useLocations()
 const { runningEntry, refresh: refreshRunningTimer } = useRunningTimer()
+const { thumbnailFor, onThumbnailError } = useTaskThumbnails(tasks)
 
 // Farm members, resolved to short labels for the assignee indicator on each
 // card — no composable exists for this (only the activity service reads
@@ -265,9 +266,11 @@ async function toggleTimer(task: TaskSummary) {
                 :category-emoji="categoryEmoji(task)"
                 :location-name="locationName(task)"
                 :assignee-names="assigneeNames(task)"
+                :thumbnail-url="thumbnailFor(task)"
                 :today="today"
                 :updating="updatingTaskId === task.id"
                 :timer-running="isTimerRunning(task)"
+                @thumbnail-error="onThumbnailError"
                 @toggle-timer="toggleTimer"
               />
             </div>
@@ -290,9 +293,11 @@ async function toggleTimer(task: TaskSummary) {
                 :category-emoji="categoryEmoji(task)"
                 :location-name="locationName(task)"
                 :assignee-names="assigneeNames(task)"
+                :thumbnail-url="thumbnailFor(task)"
                 :today="today"
                 :updating="updatingTaskId === task.id"
                 :timer-running="isTimerRunning(task)"
+                @thumbnail-error="onThumbnailError"
                 @toggle-timer="toggleTimer"
               />
             </div>

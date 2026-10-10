@@ -37,6 +37,8 @@ import type { Database } from '../../app/types/database.types'
 //   from('task_assignees').select(...).in('task_id', [...])
 //   from('task_assignees').delete().eq('task_id', ...)
 //   from('task_photos').select(...)/insert(...)/delete()... (M8, mirrors task_tags)
+//   from('task_photos').select(...).eq('task_id', ...).order('taken_at').order('id')
+//   from('task_first_photos').select(...).in('task_id', [...])   // derived from task_photos, see from()
 //   from('task_shopping_items').select(...).eq('task_id', ...).order(...).order(...)
 //   from('task_shopping_items').insert(row).select(...).single()
 //   from('task_shopping_items').update(row).eq('id', ...).select(...)
@@ -69,7 +71,8 @@ import type { Database } from '../../app/types/database.types'
 // belongs in a real integration test against Supabase, not here.
 //
 // Storage is a similarly minimal fake: `.storage.from(bucketId)` returns an
-// object supporting `.upload()`, `.remove()`, and `.createSignedUrl()`,
+// object supporting `.upload()`, `.remove()`, `.createSignedUrl()`, and
+// `.createSignedUrls()`,
 // backed by an in-memory Set of "uploaded" paths (see getStorageObjects()).
 // No real file bytes, encoding, or signing — just enough to let service-layer
 // tests assert on what got uploaded/removed and to fail on demand.
@@ -84,6 +87,7 @@ type TableName =
   | 'task_completers'
   | 'task_assignees'
   | 'task_photos'
+  | 'task_first_photos'
   | 'task_shopping_items'
   | 'task_tools'
   | 'task_time_entries'
@@ -124,12 +128,12 @@ export interface FailSpec {
 // storage operation instead of table/op — storage isn't a Postgres table so
 // it doesn't fit FailSpec's shape.
 export interface StorageFailSpec {
-  op: 'upload' | 'remove' | 'createSignedUrl'
+  op: 'upload' | 'remove' | 'createSignedUrl' | 'createSignedUrls'
   message?: string
 }
 
 interface StorageFailSpecInternal {
-  op: 'upload' | 'remove' | 'createSignedUrl'
+  op: 'upload' | 'remove' | 'createSignedUrl' | 'createSignedUrls'
   message: string
 }
 
@@ -375,6 +379,7 @@ export class FakeSupabaseClient {
     task_completers: 0,
     task_assignees: 0,
     task_photos: 0,
+    task_first_photos: 0,
     task_shopping_items: 0,
     task_tools: 0,
     task_time_entries: 0,
@@ -420,6 +425,7 @@ export class FakeSupabaseClient {
         seed.task_assignees as unknown as Row[] | undefined,
       ),
       task_photos: cloneRows(seed.task_photos as unknown as Row[] | undefined),
+      task_first_photos: [],
       task_shopping_items: cloneRows(
         seed.task_shopping_items as unknown as Row[] | undefined,
       ),
@@ -459,6 +465,25 @@ export class FakeSupabaseClient {
   }
 
   from(table: TableName): FakeQueryBuilder {
+    // task_first_photos is a view (DISTINCT ON task_id, ordered by taken_at
+    // then id); rebuild it from task_photos on every read rather than
+    // seeding it, so tests exercise the same first-photo rule the SQL uses.
+    if (table === 'task_first_photos') {
+      const firsts = new Map<unknown, Row>()
+      const sorted = [...this.store.task_photos].sort(
+        (a, b) =>
+          String(a.taken_at).localeCompare(String(b.taken_at)) ||
+          String(a.id).localeCompare(String(b.id)),
+      )
+      for (const row of sorted) {
+        if (!firsts.has(row.task_id)) firsts.set(row.task_id, row)
+      }
+      this.store.task_first_photos = [...firsts.values()].map((row) => ({
+        task_id: row.task_id,
+        photo_id: row.id,
+        storage_path: row.storage_path,
+      }))
+    }
     return new FakeQueryBuilder(table, this.store, this.failSpecs, (t) =>
       this.nextId(t),
     )
@@ -572,6 +597,25 @@ class FakeStorageBucket {
       data: {
         signedUrl: `https://fake-storage.test/${this.bucketId}/${path}?expires=${expiresIn}`,
       },
+      error: null,
+    }
+  }
+
+  async createSignedUrls(
+    paths: string[],
+    expiresIn: number,
+  ): Promise<{
+    data: { path: string; signedUrl: string; error: string | null }[] | null
+    error: { message: string } | null
+  }> {
+    const failure = this.matchingFailure('createSignedUrls')
+    if (failure) return { data: null, error: { message: failure.message } }
+    return {
+      data: paths.map((path) => ({
+        path,
+        signedUrl: `https://fake-storage.test/${this.bucketId}/${path}?expires=${expiresIn}`,
+        error: null,
+      })),
       error: null,
     }
   }
