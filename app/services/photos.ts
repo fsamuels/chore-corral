@@ -120,3 +120,53 @@ export async function getTaskPhotoUrl(
   if (error) throw new Error(error.message)
   return data.signedUrl
 }
+
+/**
+ * The first photo (earliest `taken_at`, matching `listPhotos`' order) of each
+ * given task, keyed by task id — what list views show as a card thumbnail.
+ * Tasks with no photos are simply absent from the map. One query for all
+ * tasks rather than one per card.
+ */
+export async function listFirstPhotoPaths(
+  supabase: Client,
+  taskIds: string[],
+): Promise<Map<string, string>> {
+  const firstByTask = new Map<string, string>()
+  if (taskIds.length === 0) return firstByTask
+  const { data, error } = await supabase
+    .from('task_photos')
+    .select('task_id, storage_path')
+    .in('task_id', taskIds)
+    .order('taken_at')
+  if (error) throw new Error(error.message)
+  for (const row of data) {
+    if (!firstByTask.has(row.task_id)) {
+      firstByTask.set(row.task_id, row.storage_path)
+    }
+  }
+  return firstByTask
+}
+
+/**
+ * Signed URLs for many private photos in one storage request, keyed by
+ * storage path. Paths the storage API couldn't sign are left out of the map
+ * rather than failing the whole batch.
+ */
+export async function getTaskPhotoUrls(
+  supabase: Client,
+  storagePaths: string[],
+  expiresInSeconds = 3600,
+): Promise<Map<string, string>> {
+  const urls = new Map<string, string>()
+  if (storagePaths.length === 0) return urls
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrls(storagePaths, expiresInSeconds)
+  if (error) throw new Error(error.message)
+  for (const entry of data) {
+    if (entry.path && entry.signedUrl && !entry.error) {
+      urls.set(entry.path, entry.signedUrl)
+    }
+  }
+  return urls
+}

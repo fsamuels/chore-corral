@@ -37,6 +37,7 @@ import type { Database } from '../../app/types/database.types'
 //   from('task_assignees').select(...).in('task_id', [...])
 //   from('task_assignees').delete().eq('task_id', ...)
 //   from('task_photos').select(...)/insert(...)/delete()... (M8, mirrors task_tags)
+//   from('task_photos').select(...).in('task_id', [...]).order('taken_at')
 //   from('task_shopping_items').select(...).eq('task_id', ...).order(...).order(...)
 //   from('task_shopping_items').insert(row).select(...).single()
 //   from('task_shopping_items').update(row).eq('id', ...).select(...)
@@ -69,7 +70,8 @@ import type { Database } from '../../app/types/database.types'
 // belongs in a real integration test against Supabase, not here.
 //
 // Storage is a similarly minimal fake: `.storage.from(bucketId)` returns an
-// object supporting `.upload()`, `.remove()`, and `.createSignedUrl()`,
+// object supporting `.upload()`, `.remove()`, `.createSignedUrl()`, and
+// `.createSignedUrls()`,
 // backed by an in-memory Set of "uploaded" paths (see getStorageObjects()).
 // No real file bytes, encoding, or signing — just enough to let service-layer
 // tests assert on what got uploaded/removed and to fail on demand.
@@ -124,12 +126,12 @@ export interface FailSpec {
 // storage operation instead of table/op — storage isn't a Postgres table so
 // it doesn't fit FailSpec's shape.
 export interface StorageFailSpec {
-  op: 'upload' | 'remove' | 'createSignedUrl'
+  op: 'upload' | 'remove' | 'createSignedUrl' | 'createSignedUrls'
   message?: string
 }
 
 interface StorageFailSpecInternal {
-  op: 'upload' | 'remove' | 'createSignedUrl'
+  op: 'upload' | 'remove' | 'createSignedUrl' | 'createSignedUrls'
   message: string
 }
 
@@ -572,6 +574,25 @@ class FakeStorageBucket {
       data: {
         signedUrl: `https://fake-storage.test/${this.bucketId}/${path}?expires=${expiresIn}`,
       },
+      error: null,
+    }
+  }
+
+  async createSignedUrls(
+    paths: string[],
+    expiresIn: number,
+  ): Promise<{
+    data: { path: string; signedUrl: string; error: string | null }[] | null
+    error: { message: string } | null
+  }> {
+    const failure = this.matchingFailure('createSignedUrls')
+    if (failure) return { data: null, error: { message: failure.message } }
+    return {
+      data: paths.map((path) => ({
+        path,
+        signedUrl: `https://fake-storage.test/${this.bucketId}/${path}?expires=${expiresIn}`,
+        error: null,
+      })),
       error: null,
     }
   }

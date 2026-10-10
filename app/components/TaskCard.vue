@@ -26,6 +26,9 @@ const props = defineProps<{
   timerRunning?: boolean
   /** Hide the circular timer button for pages that don't offer it. */
   hideCheck?: boolean
+  /** Signed URL of the chore's first photo (page owns the fetch — see
+   * useTaskThumbnails); omitted when it has none — nothing renders. */
+  thumbnailUrl?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -104,7 +107,10 @@ function onToggleTimer() {
   <NuxtLink
     :to="`/tasks/${task.id}`"
     class="task-card"
-    :class="`task-card--${task.priority}`"
+    :class="[
+      `task-card--${task.priority}`,
+      { 'task-card--has-thumbnail': thumbnailUrl },
+    ]"
   >
     <button
       v-if="!hideCheck"
@@ -203,24 +209,20 @@ function onToggleTimer() {
           />
           {{ assigneeNames.join(', ') }}
         </span>
-        <span
-          v-if="task.photo_count > 0"
-          class="task-card__meta-photos"
-          aria-label="Has photos"
-          title="Has photos"
-        >
-          <v-icon
-            icon="mdi-image-outline"
-            size="16"
-            class="task-card__meta-icon"
-          />
-          <span v-if="task.photo_count > 1">{{ task.photo_count }}</span>
-        </span>
         <ClientOnly>
           <span class="task-card__age">{{ ageOrTurnaroundText }}</span>
         </ClientOnly>
       </div>
     </div>
+
+    <img
+      v-if="thumbnailUrl"
+      :src="thumbnailUrl"
+      alt=""
+      class="task-card__thumbnail"
+      loading="lazy"
+      decoding="async"
+    />
   </NuxtLink>
 </template>
 
@@ -363,14 +365,6 @@ function onToggleTimer() {
   color: var(--cc-ink-muted);
 }
 
-.task-card__meta-photos {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  color: var(--cc-ink-muted);
-  font-size: 0.75rem;
-}
-
 .task-card__age {
   color: var(--cc-ink-muted);
   font-size: 0.75rem;
@@ -398,5 +392,34 @@ function onToggleTimer() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.task-card--has-thumbnail {
+  position: relative;
+  /* Lets the thumbnail size itself against the card's width (cqw) below. */
+  container-type: inline-size;
+}
+
+/* Reserve the thumbnail's widest possible footprint, plus a gap, so text
+   never runs underneath it. */
+.task-card--has-thumbnail .task-card__content {
+  margin-right: calc(min(20cqw, 80px) + 12px);
+}
+
+/* Square, fitted to the card's content height and vertically centered.
+   Absolutely positioned because a flex item's stretched height can't drive
+   its width through aspect-ratio; capped at ~20% of the card (80px max) so a
+   tall wrapped title doesn't grow it past its reserved space. */
+.task-card__thumbnail {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+  height: calc(100% - 28px);
+  max-height: min(20cqw, 80px);
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: calc(var(--cc-radius) / 2);
+  background: var(--cc-border);
 }
 </style>

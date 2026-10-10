@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   deleteTaskPhoto,
   getTaskPhotoUrl,
+  getTaskPhotoUrls,
+  listFirstPhotoPaths,
   listPhotos,
   updateTaskPhotoCaption,
   uploadTaskPhoto,
@@ -231,5 +233,108 @@ describe('getTaskPhotoUrl', () => {
     await expect(
       getTaskPhotoUrl(supabase, `${FARM_A}/${TASK_A}/p.webp`),
     ).rejects.toThrow()
+  })
+})
+
+describe('listFirstPhotoPaths', () => {
+  it("maps each task to its earliest photo's path, omitting photo-less tasks", async () => {
+    const fake = new FakeSupabaseClient({
+      task_photos: [
+        photo({
+          id: 'a-late',
+          storage_path: 'a/late.webp',
+          taken_at: '2026-01-03T00:00:00.000Z',
+        }),
+        photo({
+          id: 'a-early',
+          storage_path: 'a/early.webp',
+          taken_at: '2026-01-01T00:00:00.000Z',
+        }),
+        photo({
+          id: 'b-only',
+          task_id: 'task-b',
+          storage_path: 'b/only.webp',
+        }),
+        photo({
+          id: 'c-other',
+          task_id: 'task-c',
+          storage_path: 'c/other.webp',
+        }),
+      ],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listFirstPhotoPaths(supabase, [
+      TASK_A,
+      'task-b',
+      'task-none',
+    ])
+
+    expect(result).toEqual(
+      new Map([
+        [TASK_A, 'a/early.webp'],
+        ['task-b', 'b/only.webp'],
+      ]),
+    )
+  })
+
+  it('returns an empty map without querying for no task ids', async () => {
+    const fake = new FakeSupabaseClient(
+      {},
+      { table: 'task_photos', op: 'select' },
+    )
+    const supabase = asSupabaseClient(fake)
+
+    expect(await listFirstPhotoPaths(supabase, [])).toEqual(new Map())
+  })
+
+  it('propagates a select failure', async () => {
+    const fake = new FakeSupabaseClient(
+      {},
+      { table: 'task_photos', op: 'select' },
+    )
+    const supabase = asSupabaseClient(fake)
+
+    await expect(listFirstPhotoPaths(supabase, [TASK_A])).rejects.toThrow()
+  })
+})
+
+describe('getTaskPhotoUrls', () => {
+  it('signs every path in one batch, keyed by path', async () => {
+    const fake = new FakeSupabaseClient()
+    const supabase = asSupabaseClient(fake)
+
+    const result = await getTaskPhotoUrls(supabase, ['a/1.webp', 'b/2.webp'])
+
+    expect(result).toEqual(
+      new Map([
+        [
+          'a/1.webp',
+          'https://fake-storage.test/task-photos/a/1.webp?expires=3600',
+        ],
+        [
+          'b/2.webp',
+          'https://fake-storage.test/task-photos/b/2.webp?expires=3600',
+        ],
+      ]),
+    )
+  })
+
+  it('returns an empty map without calling storage for no paths', async () => {
+    const fake = new FakeSupabaseClient({}, undefined, {
+      op: 'createSignedUrls',
+    })
+    const supabase = asSupabaseClient(fake)
+
+    expect(await getTaskPhotoUrls(supabase, [])).toEqual(new Map())
+  })
+
+  it('propagates a createSignedUrls failure', async () => {
+    const fake = new FakeSupabaseClient({}, undefined, {
+      op: 'createSignedUrls',
+    })
+    const supabase = asSupabaseClient(fake)
+
+    await expect(getTaskPhotoUrls(supabase, ['a/1.webp'])).rejects.toThrow()
   })
 })
