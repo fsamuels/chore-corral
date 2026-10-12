@@ -213,7 +213,11 @@ async function confirmStatusChange() {
         )
       : undefined
   await applyStatusChange(status, statusNote.value, completers)
-  if (statusChangeError.value === null) statusNoteDialog.value = false
+  if (statusChangeError.value !== null) return
+  statusNoteDialog.value = false
+  // A finished chore needs nothing more here — head back to the home
+  // screen's outstanding work. In progress stays on the page.
+  if (status === 'done') await navigateTo('/')
 }
 
 // --- In-place field editing (immediate save per field; see DECISIONS.md) ---
