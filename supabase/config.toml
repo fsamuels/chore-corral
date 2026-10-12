@@ -349,8 +349,10 @@ client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
 secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
 redirect_uri = ""
 url = ""
-# Required for local sign in with Google auth.
-skip_nonce_check = true
+# Off: `config push` sends this to the hosted project, where skipping the nonce check would let a
+# captured Google ID token be replayed through signInWithIdToken. The app only signs in through the
+# OAuth redirect flow (signInWithOAuth), which this setting doesn't affect. See DECISIONS.md D-3.
+skip_nonce_check = false
 email_optional = false
 
 # Allow Solana wallet holders to sign in to your project via the Sign in with Solana (SIWS, EIP-4361) standard.

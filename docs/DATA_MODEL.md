@@ -420,9 +420,17 @@ Since Chore Corral is using **both** RLS and application-layer checks (a deliber
 
 `anon` has no policy on any table, including `tasks` — its only sanctioned access to the database at all is `EXECUTE` on `get_public_task_count()` above, which returns an aggregate, never rows. That function's `anon` grant is not an RLS exception; the underlying tables' policies are untouched.
 
+**Cross-farm reference and attribution guards** (migration `20261012180000`, DECISIONS.md D-3). RLS only checks the row's own task or farm, so `BEFORE INSERT OR UPDATE` triggers (security definer, not callable as RPCs) check the other ids a row points at:
+
+- `tasks.category_id` and `tasks.location_id` must belong to the task's farm, and a task can't change `farm_id`.
+- `task_tags.tag_id` must belong to the task's farm.
+- `task_assignees.user_id` and `task_completers.user_id` (when set) must be members of the task's farm.
+- Attribution columns come from the caller: `tasks.created_by`, `task_time_entries.user_id` and `task_reminders.created_by` are set to `auth.uid()` on insert (kept as supplied when there's no user, i.e. service role) and can't change on update.
+
 ## Storage (Supabase Storage)
 
 - One bucket, `task-photos` (private, not public), path structure `{farm_id}/{task_id}/{photo_id}.webp` — the leading `farm_id` segment is what makes path-based policy scoping possible.
+- The bucket accepts only `image/webp`, `image/jpeg` and `image/png`, up to 10 MiB per object (migration `20261012180000`, DECISIONS.md D-3).
 - Access policies mirror the `farm_memberships` check used for database tables, but since `storage.objects` has no `farm_id` column, the farm is extracted from the object path via `storage.foldername(name)` (see DECISIONS.md for the reasoning):
 
 ```sql
