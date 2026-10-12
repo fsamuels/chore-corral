@@ -234,12 +234,12 @@ const priorityItems: { title: string; value: TaskPriority }[] = [
 ]
 
 // Pill icon/label for the priority system (mdi-fire for urgent, clock for
-// soon, no icon for whenever) — shared by the priority menu and the
+// soon, tortoise for whenever) — shared by the priority menu and the
 // activity feed's "Priority changed" entries.
 function priorityIcon(priority: TaskPriority): string | null {
   if (priority === 'urgent') return 'mdi-fire'
   if (priority === 'soon') return 'mdi-clock-outline'
-  return null
+  return 'mdi-tortoise'
 }
 
 function priorityLabel(priority: TaskPriority): string {
