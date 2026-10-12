@@ -8,6 +8,7 @@ import {
 } from './tasks'
 import { listCompletersForTasks, type TaskCompleter } from './completers'
 import { totalTrackedMs } from './time-entries'
+import { chunk } from '../utils/chunk'
 
 type Client = SupabaseClient<Database>
 
@@ -77,6 +78,40 @@ export function weekDays(weekStart: string): string[] {
       new Date(base.getFullYear(), base.getMonth(), base.getDate() + i),
     ),
   )
+}
+
+/** A half-open `[from, to)` instant range, as ISO strings. */
+export interface WeekQueryWindow {
+  from: string
+  to: string
+}
+
+/**
+ * The instant range the Progress page queries for the week starting
+ * `weekStart`: local midnight of that Monday through local midnight of the
+ * next Monday, padded by one day on each side, as ISO strings for
+ * `.gte(from)` / `.lt(to)` filters.
+ *
+ * The padding is there because the page also renders on the server, whose
+ * timezone (UTC on Vercel) usually isn't the viewer's: a window computed there
+ * would be shifted by up to ±14 hours. A day either side covers every UTC
+ * offset, so the fetched rows always include the viewer's whole local week, and
+ * the pure functions (`completedTasksInWeek`, `buildActivityDayGroups`) still
+ * slice to the exact local week.
+ */
+export function weekQueryWindow(weekStart: string): WeekQueryWindow {
+  const start = parseLocalDateString(weekStart)
+  const from = new Date(
+    start.getFullYear(),
+    start.getMonth(),
+    start.getDate() - 1,
+  )
+  const to = new Date(
+    start.getFullYear(),
+    start.getMonth(),
+    start.getDate() + 8,
+  )
+  return { from: from.toISOString(), to: to.toISOString() }
 }
 
 /**
@@ -164,24 +199,28 @@ function compareByCompletionDesc(
 }
 
 /**
- * All of a farm's completed tasks, newest completion first. Because the test
- * fake only supports eq/is/in (no gte/lt), week filtering can't happen in the
- * query — this fetches every done task server-filtered by farm and status and
- * leaves week selection to the pure functions above (`completedTasksInWeek`).
- * That's fine at this app's scale (a single farm's done tasks). Rows with a
- * null `completed_at` are dropped: they can't be placed in any week. Each task's
- * completer set is attached via a second `.in()` query (`listCompletersForTasks`),
- * the same two-query shape as tags — the test fake supports no joins.
+ * A farm's tasks completed within `window` (see `weekQueryWindow`), newest
+ * completion first. Filtering by `completed_at` in the query keeps the fetch
+ * proportional to one week's completions instead of the farm's whole history,
+ * which would eventually overflow the completers `.in()` URL and PostgREST's
+ * max-rows cap. The window is padded, so callers still slice to the exact
+ * local week with `completedTasksInWeek`. Rows with a null `completed_at` are
+ * dropped: they can't be placed in any week. Each task's completer set is
+ * attached via a second `.in()` query (`listCompletersForTasks`), the same
+ * two-query shape as tags — the test fake supports no joins.
  */
 export async function listCompletedTasks(
   supabase: Client,
   farmId: string,
+  window: WeekQueryWindow,
 ): Promise<CompletedTaskSummary[]> {
   const { data, error } = await supabase
     .from('tasks')
     .select(COMPLETED_TASK_COLUMNS)
     .eq('farm_id', farmId)
     .eq('status', 'done')
+    .gte('completed_at', window.from)
+    .lt('completed_at', window.to)
   if (error) throw new Error(error.message)
 
   const done = data.filter((task) => task.completed_at !== null)
@@ -519,39 +558,48 @@ const ACTIVITY_TASK_COLUMNS =
   'id, title, status, category_id, priority, created_at, completed_at'
 
 /**
- * The farm's tasks that have time-entry activity, each with its raw entries —
- * the second data source (alongside `listCompletedTasks`) behind the Progress
- * page's daily activity view. Fetched broadly once per farm and sliced per
- * week by the pure `buildActivityDayGroups`, the same fetch-broad/slice-pure
- * shape the rest of this module uses (the test fake supports only eq/is/in, so
- * week filtering can't live in the query).
+ * The farm's tasks with time-entry activity in `window` (see
+ * `weekQueryWindow`), each with its in-window entries — the second data source
+ * (alongside `listCompletedTasks`) behind the Progress page's daily activity
+ * view. This is what surfaces tasks that were worked on during the week but not
+ * completed in it: an entry counts toward the day it *started* (see
+ * `entryLocalDay`), so filtering entries by `started_at` picks up exactly the
+ * entries `buildActivityDayGroups` can place in the week, whatever the task's
+ * status or completion date.
  *
- * Two queries, because `task_time_entries` carries no `farm_id`: first the
- * farm's tasks (for identity + the id set), then their entries via `.in`.
- * Tasks with no entries are dropped — they contribute nothing to the activity
- * view (a completed task with no tracked time still renders from
- * `listCompletedTasks`). Ordered by id for a deterministic result.
+ * Entries first, then tasks, because `task_time_entries` carries no `farm_id`:
+ * the entries query is bounded by the window (RLS already limits it to the
+ * caller's farms), and the task lookup by the ids it returns, chunked (see
+ * `chunk`) and filtered to `farmId`. Entries on other farms' tasks are
+ * dropped. A completed task with no tracked time still renders from
+ * `listCompletedTasks`. Ordered by id for a deterministic result.
  */
 export async function listTaskActivity(
   supabase: Client,
   farmId: string,
+  window: WeekQueryWindow,
 ): Promise<TaskActivity[]> {
-  const { data: tasks, error: tasksError } = await supabase
-    .from('tasks')
-    .select(ACTIVITY_TASK_COLUMNS)
-    .eq('farm_id', farmId)
-  if (tasksError) throw new Error(tasksError.message)
-  if (tasks.length === 0) return []
-
-  const taskById = new Map(tasks.map((task) => [task.id, task]))
   const { data: entries, error: entriesError } = await supabase
     .from('task_time_entries')
     .select('task_id, started_at, ended_at')
-    .in(
-      'task_id',
-      tasks.map((task) => task.id),
-    )
+    .gte('started_at', window.from)
+    .lt('started_at', window.to)
   if (entriesError) throw new Error(entriesError.message)
+  if (entries.length === 0) return []
+
+  const taskIds = [...new Set(entries.map((entry) => entry.task_id))]
+  const taskPages = await Promise.all(
+    chunk(taskIds).map(async (ids) => {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select(ACTIVITY_TASK_COLUMNS)
+        .eq('farm_id', farmId)
+        .in('id', ids)
+      if (error) throw new Error(error.message)
+      return data
+    }),
+  )
+  const taskById = new Map(taskPages.flat().map((task) => [task.id, task]))
 
   const entriesByTask = new Map<string, ActivityEntry[]>()
   for (const entry of entries) {

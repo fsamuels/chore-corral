@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~/types/database.types'
+import { chunk } from '../utils/chunk'
 
 export interface PhotoSummary {
   id: string
@@ -124,11 +125,6 @@ export async function getTaskPhotoUrl(
   return data.signedUrl
 }
 
-// Task ids per `task_first_photos` request. PostgREST takes `.in()` values
-// in the GET URL; ~37 chars per uuid keeps 100 ids around 4 KB, well under
-// typical proxy URL limits, however many Done pages /tasks has loaded.
-const FIRST_PHOTO_CHUNK_SIZE = 100
-
 /**
  * The first photo (earliest `taken_at`, then `id` — matching `listPhotos`'
  * order) of each given task, keyed by task id: what list views show as a
@@ -143,16 +139,12 @@ export async function listFirstPhotoPaths(
   supabase: Client,
   taskIds: string[],
 ): Promise<Map<string, string>> {
-  const chunks: string[][] = []
-  for (let i = 0; i < taskIds.length; i += FIRST_PHOTO_CHUNK_SIZE) {
-    chunks.push(taskIds.slice(i, i + FIRST_PHOTO_CHUNK_SIZE))
-  }
   const results = await Promise.all(
-    chunks.map(async (chunk) => {
+    chunk(taskIds).map(async (ids) => {
       const { data, error } = await supabase
         .from('task_first_photos')
         .select('task_id, storage_path')
-        .in('task_id', chunk)
+        .in('task_id', ids)
       if (error) throw new Error(error.message)
       return data
     }),
