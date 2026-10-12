@@ -1652,7 +1652,7 @@ const taskLocation = computed(() =>
           location="top"
           persistent
         >
-          <v-card>
+          <v-card class="status-dialog-card">
             <v-card-title>{{ statusNoteDialogTitle }}</v-card-title>
             <v-card-text>
               {{ statusNotePrompt }}
@@ -1760,6 +1760,13 @@ const taskLocation = computed(() =>
   margin-top: 32px;
   padding-top: 24px;
   border-top: 1px solid var(--cc-border);
+}
+
+/* The dialog is pinned to the top so the keyboard doesn't cover it, which on
+   a phone put it under the front camera / status bar. Push it down past the
+   safe-area inset plus some breathing room. */
+.status-dialog-card {
+  margin-top: calc(env(safe-area-inset-top, 0px) + 40px);
 }
 
 /* Cancel / confirm pair on the status-change dialog — full-width pill
