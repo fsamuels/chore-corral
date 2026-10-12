@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Database } from '~/types/database.types'
-import { createFarm, FARM_NAME_MAX_LENGTH } from '~/services/farms'
+import { createFarmOnce, FARM_NAME_MAX_LENGTH } from '~/services/farms'
 
 definePageMeta({ layout: 'blank' })
 
@@ -15,6 +15,7 @@ watchEffect(() => {
   if (farms.value && farms.value.length > 0) navigateTo('/')
 })
 
+const createFarm = createFarmOnce(supabase)
 const farmName = ref('')
 const farmAddress = ref('')
 const creating = ref(false)
@@ -25,7 +26,7 @@ async function createFirstFarm() {
   creating.value = true
   errorMessage.value = null
   try {
-    const farmId = await createFarm(supabase, farmName.value, farmAddress.value)
+    const farmId = await createFarm(farmName.value, farmAddress.value)
     setActiveFarm(farmId)
     await refreshFarms()
     await navigateTo('/')

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Database } from '~/types/database.types'
-import { createFarm, FARM_NAME_MAX_LENGTH } from '~/services/farms'
+import { createFarmOnce, FARM_NAME_MAX_LENGTH } from '~/services/farms'
 
 const supabase = useSupabaseClient<Database>()
 const {
@@ -20,6 +20,7 @@ async function selectFarm(farmId: string) {
   await navigateTo('/')
 }
 
+const createFarm = createFarmOnce(supabase)
 const showNewFarmForm = ref(false)
 const newFarmName = ref('')
 const creating = ref(false)
@@ -30,7 +31,7 @@ async function createNewFarm() {
   creating.value = true
   createError.value = null
   try {
-    const farmId = await createFarm(supabase, newFarmName.value)
+    const farmId = await createFarm(newFarmName.value)
     setActiveFarm(farmId)
     await refreshFarms()
     await navigateTo('/')
