@@ -2,7 +2,9 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-10-12 (mark-done dialog picks who completed the chore)
+**Last updated:** 2026-10-12 (marking a chore done returns to the home screen)
+
+**Marking a chore done returns to the home screen (2026-10-12).** Direct user ask: confirming the "Mark chore as done?" dialog on the chore page now navigates to `/` instead of leaving you on the finished chore. This covers both the segmented status control and the timer's "Complete chore" button, since both go through the same dialog. Moving to In progress still stays on the page, and a failed status change keeps the dialog open with its error as before.
 
 **Mark-done dialog picks who completed the chore (2026-10-12).** Direct user ask: the "Mark chore as done?" dialog on the chore page now has a **Completed by** picker below the note field. The member multi-select + free-text names fields were extracted from the existing Completed-by menu into a shared `CompleterPicker` component, used by both. The dialog prefills with the chore's existing completers, else the signed-in member (the same default the auto-credit gave). Confirming passes the picked set to `changeTaskStatus`'s new optional `completers` option, which replaces the completer set on the move to done instead of the "auto-credit the actor only when empty" rule — an emptied picker leaves the chore done with nobody credited. The set is validated before the status write, so a bad set fails without half-applying the transition. Other done paths (timer stop via `time-entries.ts`) don't pass `completers` and keep the old auto-credit. Tests: three new `changeTaskStatus` cases (explicit set replaces existing, explicit empty set, invalid set rejected before any write).
 
