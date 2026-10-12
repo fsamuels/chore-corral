@@ -163,8 +163,10 @@ site_url = "https://chore-corral.vercel.app"
 additional_redirect_urls = [
   "http://localhost:3000/confirm",
   "https://chore-corral.vercel.app/confirm",
-  "https://*.vercel.app/confirm",
 ]
+# No Vercel-preview wildcard: `https://*.vercel.app/confirm` matched ANY Vercel app, including an
+# attacker's, which let a crafted sign-in link deliver a victim's OAuth code there (account
+# takeover). Google sign-in therefore doesn't work on preview deploys. See DECISIONS.md.
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -222,12 +224,15 @@ web3 = 30
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.
-enable_signup = true
+# Off: the app is Google-only. Open email signup let anyone mint a session for an arbitrary,
+# unverified address and claim that address's pending farm invites (see DECISIONS.md). Password
+# sign-in for users created via the admin API (the e2e test user) still works.
+enable_signup = false
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-enable_confirmations = false
+enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.

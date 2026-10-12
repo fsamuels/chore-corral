@@ -37,8 +37,8 @@ export async function createFarm(
 /**
  * Join the current user to every farm with a pending invite matching their
  * Google account's email (the `accept_farm_invites` security-definer
- * function does the matching server-side off the JWT — nothing here is
- * caller-supplied). Returns the ids of farms joined, usually empty.
+ * function does the matching server-side against the caller's confirmed
+ * `auth.users` email — nothing here is caller-supplied). Returns the ids of farms joined, usually empty.
  */
 export async function acceptPendingInvites(
   supabase: Client,

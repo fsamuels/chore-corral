@@ -380,7 +380,7 @@ Two security-definer Postgres functions perform the only writes to `farms`/`farm
 
 ### `accept_farm_invites()`
 
-Called by the app once per session, right after sign-in (`app/middleware/membership.global.ts`). Matches the caller's own JWT email (lowercased) against pending `farm_invites` rows, inserts a `farm_memberships` row for each match (`on conflict do nothing` — the membership may already exist), marks those invites accepted, and returns the ids of the farms joined. Scoping comes entirely from `auth.uid()`/the JWT's email claim, never from anything caller-supplied, so a caller can only ever accept invites addressed to their own verified email.
+Called by the app once per session, right after sign-in (`app/middleware/membership.global.ts`). Matches the caller's own email from `auth.users` (lowercased), only when `email_confirmed_at` is set, against pending `farm_invites` rows, inserts a `farm_memberships` row for each match (`on conflict do nothing` — the membership may already exist), marks those invites accepted, and returns the ids of the farms joined. Scoping comes entirely from `auth.uid()` and that user's confirmed email, never from anything caller-supplied (not even the JWT's `email` claim, which an unconfirmed email signup could set — see DECISIONS.md D-1), so a caller can only ever accept invites addressed to their own verified email.
 
 ### `create_farm(farm_name, farm_address default null)`
 
