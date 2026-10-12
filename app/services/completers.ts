@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~/types/database.types'
+import { chunk } from '../utils/chunk'
 
 type Client = SupabaseClient<Database>
 
@@ -112,9 +113,10 @@ export async function setTaskCompleters(
 
 /**
  * Bulk-fetch completers for multiple tasks, keyed by task id and sorted within
- * each task (members first, then names). One query, patterned on
- * `listTagsForTasks` — the test fake doesn't support joins, and this codebase
- * favors straightforward `.in()` queries over PostgREST embedded resources.
+ * each task (members first, then names). Patterned on `listTagsForTasks` — the
+ * test fake doesn't support joins, and this codebase favors straightforward
+ * `.in()` queries over PostgREST embedded resources. Ids are queried in
+ * parallel chunks (see `chunk`) so a long id list can't overflow the URL.
  */
 export async function listCompletersForTasks(
   supabase: Client,
@@ -122,14 +124,19 @@ export async function listCompletersForTasks(
 ): Promise<Map<string, TaskCompleter[]>> {
   if (taskIds.length === 0) return new Map()
 
-  const { data, error } = await supabase
-    .from('task_completers')
-    .select('task_id, user_id, completer_name')
-    .in('task_id', taskIds)
-  if (error) throw new Error(error.message)
+  const pages = await Promise.all(
+    chunk(taskIds).map(async (ids) => {
+      const { data, error } = await supabase
+        .from('task_completers')
+        .select('task_id, user_id, completer_name')
+        .in('task_id', ids)
+      if (error) throw new Error(error.message)
+      return data
+    }),
+  )
 
   const result = new Map<string, TaskCompleter[]>()
-  for (const row of data) {
+  for (const row of pages.flat()) {
     const completer: TaskCompleter = {
       user_id: row.user_id,
       completer_name: row.completer_name,

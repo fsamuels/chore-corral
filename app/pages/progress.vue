@@ -6,6 +6,7 @@ import {
   completedTasksInWeek,
   listTaskActivity,
   weekDays,
+  weekQueryWindow,
   weekStartFor,
   type ActivityDayRow,
   type ActivityKind,
@@ -27,16 +28,20 @@ const router = useRouter()
 const supabase = useSupabaseClient<Database>()
 
 const { fetchFarms, activeFarm, activeFarmId, farmsError } = useFarms()
+
+// The Monday of the displayed week (see resolveWeekStart below). Declared
+// before the data composables because both week-scoped fetches key off it.
+const shownWeek = computed(() => resolveWeekStart(route.query.week))
+
 const { completedTasks, completedTasksError, loading, fetchCompletedTasks } =
-  useWeeklyProgress()
+  useWeeklyProgress(shownWeek)
 const { categories, fetchCategories } = useCategories()
 
-// Fetch farms first so the active farm resolves during SSR, then the farm's
-// completed-task history and categories (the composables' watch covers later
-// farm switches).
+// Fetch farms first so the active farm resolves during SSR, then the week's
+// completed tasks and the farm's categories (the composables' watches cover
+// later farm and week switches).
 await fetchFarms()
-await fetchCompletedTasks()
-await fetchCategories()
+await Promise.all([fetchCompletedTasks(), fetchCategories()])
 
 // Farm members, for resolving completer `user_id` uuids to names. No composable
 // exists for this (only the activity/task-detail pages need it), so it's a
@@ -89,7 +94,6 @@ function resolveWeekStart(raw: unknown): string {
 const today = computed(() => toLocalDateString(new Date()))
 
 const currentWeekStart = computed(() => weekStartFor(new Date()))
-const shownWeek = computed(() => resolveWeekStart(route.query.week))
 const isCurrentWeek = computed(() => shownWeek.value === currentWeekStart.value)
 
 function goToWeek(week: string) {
@@ -142,34 +146,44 @@ const weekHeaderText = computed(() =>
     : weekRangeText.value,
 )
 
-// This week's completed tasks, sliced client-side from the farm's full
-// completed-task history — switching weeks never refetches.
+// The shown week's completed tasks, sliced to the exact local week (the fetch
+// window is padded by a day each side — see weekQueryWindow).
 const weekTasks = computed(() =>
   completedTasksInWeek(completedTasks.value ?? [], shownWeek.value),
 )
 
-// The farm's tasks that have time-entry activity, with their raw entries.
-// Fetched once per farm into a local ref — same direct-service pattern as
-// `members` above — and sliced per week by `buildActivityDayGroups`, so
-// switching weeks never refetches. Backs the "worked on but not completed
-// today" rows and the per-day / per-week tracked-time figures.
+// The farm's tasks with time-entry activity in the shown week, with those
+// entries — including tasks worked on this week but completed another week, or
+// not at all. Fetched per week into a local ref (same direct-service pattern
+// as `members` above) and sliced to the exact local week by
+// `buildActivityDayGroups`. Backs the "worked on but not completed today" rows
+// and the per-day / per-week tracked-time figures.
 const activities = ref<TaskActivity[]>([])
+// Guards against a slow response for a week the user already left overwriting
+// the current week's rows (same pattern as useWeeklyProgress).
+let latestActivitiesRequest = 0
 async function fetchActivities() {
   const farmId = activeFarmId.value
+  const request = ++latestActivitiesRequest
   if (!farmId) {
     activities.value = []
     return
   }
   try {
-    activities.value = await listTaskActivity(supabase, farmId)
+    const result = await listTaskActivity(
+      supabase,
+      farmId,
+      weekQueryWindow(shownWeek.value),
+    )
+    if (request === latestActivitiesRequest) activities.value = result
   } catch {
     // Activity rows enhance the completed-task list — a failed fetch degrades
     // the page to "completed tasks only" rather than taking it down.
-    activities.value = []
+    if (request === latestActivitiesRequest) activities.value = []
   }
 }
 await fetchActivities()
-watch(activeFarmId, () => fetchActivities())
+watch([activeFarmId, shownWeek], () => fetchActivities())
 
 function categoryPill(
   categoryId: string | null,
@@ -241,8 +255,8 @@ interface ProgressDayGroup {
 
 // The week's day-by-day activity: completed tasks merged with worked-on-but-
 // not-completed-today tasks, plus each day's completed count and tracked total
-// (see `buildActivityDayGroups`). Recomputes purely from the two already-
-// fetched lists when the viewed week changes — no refetch.
+// (see `buildActivityDayGroups`). Recomputes from the two week-scoped lists,
+// which refetch when the viewed week changes.
 const activityGroups = computed(() =>
   buildActivityDayGroups(shownWeek.value, weekTasks.value, activities.value),
 )

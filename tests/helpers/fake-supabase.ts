@@ -16,7 +16,8 @@ import type { Database } from '../../app/types/database.types'
 //   from('tasks').select(cols).eq('farm_id', ...).in('location_id', [...])
 //   from('tasks').select(cols).eq('farm_id', ...)
 //   from('tasks').select(cols).eq('farm_id', ...).in('status', [...])
-//   from('tasks').select(cols).eq('farm_id', ...).eq('status', 'done')
+//   from('tasks').select(cols).eq('farm_id', ...).eq('status', 'done').gte('completed_at', ...).lt('completed_at', ...)
+//   from('tasks').select(cols).eq('farm_id', ...).in('id', [...])
 //   from('tasks').select(cols).eq('farm_id', ...).eq('status', 'done').order('completed_at', {ascending:false}).range(from, to)
 //   from('tasks').select(cols).eq('id', ...).eq('farm_id', ...)
 //   from('tasks').insert(row).select(cols).single()
@@ -50,6 +51,7 @@ import type { Database } from '../../app/types/database.types'
 //   from('task_time_entries').select(...).eq('task_id', ...).order(...).order(...)
 //   from('task_time_entries').select(...).eq('user_id', ...).is('ended_at', null)
 //   from('task_time_entries').select(...).in('task_id', [...])
+//   from('task_time_entries').select(...).gte('started_at', ...).lt('started_at', ...)
 //   from('task_time_entries').insert(row).select(...).single()
 //   from('task_time_entries').update(row).eq('id', ...).is('ended_at', null).select(...)
 //   from('task_time_entries').update(row).eq('id', ...).not('ended_at', 'is', null).select(...)
@@ -67,7 +69,8 @@ import type { Database } from '../../app/types/database.types'
 //   rpc('create_farm', {...}) / rpc('accept_farm_invites')   // via onRpc() handlers
 //
 // It is not a general PostgREST emulator: no joins, no or(), no partial
-// filter operators beyond eq/is/in. Keep it that way — generalizing further
+// filter operators beyond eq/is/in plus gte/lt (added for the Progress page's
+// week-scoped timestamp windows). Keep it that way — generalizing further
 // belongs in a real integration test against Supabase, not here.
 //
 // Storage is a similarly minimal fake: `.storage.from(bucketId)` returns an
@@ -147,6 +150,22 @@ type QueryResult = {
   data?: unknown
   error: { message: string } | null
   count?: number | null
+}
+
+// Comparison for gte/lt: NaN (never matches) when the row value is null.
+function compareValues(a: unknown, b: unknown): number {
+  if (a === null || a === undefined) return Number.NaN
+  if (typeof a === 'string' && typeof b === 'string') {
+    const ta = Date.parse(a)
+    const tb = Date.parse(b)
+    if (!Number.isNaN(ta) && !Number.isNaN(tb)) return ta - tb
+    return a < b ? -1 : a > b ? 1 : 0
+  }
+  return (a as number) < (b as number)
+    ? -1
+    : (a as number) > (b as number)
+      ? 1
+      : 0
 }
 
 class FakeQueryBuilder implements PromiseLike<QueryResult> {
@@ -229,6 +248,20 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
 
   in(column: string, values: unknown[]): this {
     this.filters.push((row) => values.includes(row[column]))
+    return this
+  }
+
+  // Half-open range filters, as used for timestamp windows. Postgres compares
+  // timestamptz by instant, not by text, so two timestamp strings are compared
+  // via Date.parse (seeds mix '...Z' and '...000Z' forms); anything else falls
+  // back to plain JS comparison. A null column never matches, as in SQL.
+  gte(column: string, value: unknown): this {
+    this.filters.push((row) => compareValues(row[column], value) >= 0)
+    return this
+  }
+
+  lt(column: string, value: unknown): this {
+    this.filters.push((row) => compareValues(row[column], value) < 0)
     return this
   }
 

@@ -296,7 +296,7 @@ Behavior decisions (see DECISIONS.md):
 - Timer start/stop is **not** an `activity_log` event — the log is major-events-only, and the entries table is its own record.
 - Manual add/edit of entries ("forgot to start the timer") is out of scope for now, but needs no future migration — it's just inserting a row with both timestamps set.
 
-Like the other task-child tables, this table carries no `farm_id`; it is scoped to a farm through its parent task, and its RLS policy joins through `tasks`. Entries are listed per task oldest-session-first: `ORDER BY started_at ASC, id ASC`.
+Like the other task-child tables, this table carries no `farm_id`; it is scoped to a farm through its parent task, and its RLS policy joins through `tasks`. Entries are listed per task oldest-session-first: `ORDER BY started_at ASC, id ASC`. An index on `started_at` backs the Progress page's week-window query (`listTaskActivity`, see DECISIONS.md D-2).
 
 ### `task_reminders`
 

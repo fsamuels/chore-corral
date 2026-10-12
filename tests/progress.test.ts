@@ -12,6 +12,7 @@ import {
   trackedMsByTask,
   trackedMsForTasks,
   weekDays,
+  weekQueryWindow,
   weekStartFor,
   type CompletedTaskSummary,
   type TaskActivity,
@@ -251,6 +252,29 @@ describe('groupByCompletionDay', () => {
   })
 })
 
+// Covers every seeded completion/entry timestamp in the listCompletedTasks
+// tests below (July 2026).
+const JULY_WINDOW = {
+  from: '2026-07-05T00:00:00.000Z',
+  to: '2026-07-12T00:00:00.000Z',
+}
+
+describe('weekQueryWindow', () => {
+  it('spans local midnight of the day before the Monday to local midnight of the Tuesday after the week', () => {
+    expect(weekQueryWindow('2026-07-06')).toEqual({
+      from: localIso(2026, 7, 5),
+      to: localIso(2026, 7, 14),
+    })
+  })
+
+  it('crosses month and year boundaries', () => {
+    expect(weekQueryWindow('2026-12-28')).toEqual({
+      from: localIso(2026, 12, 27),
+      to: localIso(2027, 1, 5),
+    })
+  })
+})
+
 describe('listCompletedTasks', () => {
   it("returns only the farm's done tasks, dropping null completed_at, newest first", async () => {
     const fake = new FakeSupabaseClient({
@@ -277,7 +301,7 @@ describe('listCompletedTasks', () => {
     })
     const supabase = asSupabaseClient(fake)
 
-    const result = await listCompletedTasks(supabase, FARM_A)
+    const result = await listCompletedTasks(supabase, FARM_A, JULY_WINDOW)
 
     expect(result.map((t) => t.id)).toEqual(['done-newer', 'done-older'])
   })
@@ -295,7 +319,7 @@ describe('listCompletedTasks', () => {
     })
     const supabase = asSupabaseClient(fake)
 
-    const result = await listCompletedTasks(supabase, FARM_A)
+    const result = await listCompletedTasks(supabase, FARM_A, JULY_WINDOW)
 
     const one = result.find((t) => t.id === 'done-1')!
     // Members sort before free-text names.
@@ -307,6 +331,44 @@ describe('listCompletedTasks', () => {
     expect(two.completers).toEqual([])
   })
 
+  it('only returns completions inside the window (from inclusive, to exclusive)', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [
+        task({ id: 'at-from', completed_at: JULY_WINDOW.from }),
+        task({ id: 'inside', completed_at: '2026-07-08T10:00:00Z' }),
+        task({ id: 'before', completed_at: '2026-07-04T23:59:59.000Z' }),
+        task({ id: 'at-to', completed_at: JULY_WINDOW.to }),
+        task({ id: 'long-ago', completed_at: '2025-01-01T00:00:00.000Z' }),
+      ],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listCompletedTasks(supabase, FARM_A, JULY_WINDOW)
+
+    expect(result.map((t) => t.id)).toEqual(['inside', 'at-from'])
+  })
+
+  it('attaches completers when the week has more completions than one .in() chunk', async () => {
+    const ids = Array.from({ length: 150 }, (_, i) => `done-${i}`)
+    const fake = new FakeSupabaseClient({
+      tasks: ids.map((id) =>
+        task({ id, completed_at: '2026-07-08T10:00:00.000Z' }),
+      ),
+      task_completers: ids.map((id, i) => ({
+        id: `c-${i}`,
+        task_id: id,
+        user_id: null,
+        completer_name: `Helper ${i}`,
+      })),
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listCompletedTasks(supabase, FARM_A, JULY_WINDOW)
+
+    expect(result).toHaveLength(150)
+    expect(result.every((t) => t.completers.length === 1)).toBe(true)
+  })
+
   it('propagates a select failure', async () => {
     const fake = new FakeSupabaseClient(
       { tasks: [] },
@@ -314,9 +376,9 @@ describe('listCompletedTasks', () => {
     )
     const supabase = asSupabaseClient(fake)
 
-    await expect(listCompletedTasks(supabase, FARM_A)).rejects.toThrow(
-      'select boom',
-    )
+    await expect(
+      listCompletedTasks(supabase, FARM_A, JULY_WINDOW),
+    ).rejects.toThrow('select boom')
   })
 })
 
@@ -699,54 +761,110 @@ describe('buildActivityDayGroups', () => {
 })
 
 describe('listTaskActivity', () => {
-  it("returns the farm's tasks that have entries, with identity and entries, dropping entry-less tasks", async () => {
+  // Covers the default entry() timestamps (2026-01-01).
+  const WINDOW = {
+    from: '2025-12-31T00:00:00.000Z',
+    to: '2026-01-02T00:00:00.000Z',
+  }
+
+  it("returns the farm's tasks with in-window entries, dropping other farms' tasks and out-of-window entries", async () => {
     const fake = new FakeSupabaseClient({
       tasks: [
         task({ id: 'has-entries', status: 'in_progress' }),
-        task({ id: 'done-with-entries', status: 'done' }),
+        task({ id: 'outside-only', status: 'in_progress' }),
         task({ id: 'no-entries', status: 'not_started' }),
         task({ id: 'other-farm', farm_id: FARM_B, status: 'in_progress' }),
       ],
       task_time_entries: [
         entry({ id: 'e1', task_id: 'has-entries' }),
         entry({ id: 'e2', task_id: 'has-entries' }),
-        entry({ id: 'e3', task_id: 'done-with-entries' }),
-        // Belongs to a task in another farm -> excluded (not in FARM_A's ids).
-        entry({ id: 'e4', task_id: 'other-farm' }),
+        // Same task, but started after the window -> entry dropped.
+        entry({
+          id: 'e3',
+          task_id: 'has-entries',
+          started_at: '2026-01-03T08:00:00.000Z',
+          ended_at: '2026-01-03T09:00:00.000Z',
+        }),
+        // Only activity is before the window -> task absent.
+        entry({
+          id: 'e4',
+          task_id: 'outside-only',
+          started_at: '2025-12-20T08:00:00.000Z',
+          ended_at: '2025-12-20T09:00:00.000Z',
+        }),
+        // In window, but the task is in another farm -> dropped.
+        entry({ id: 'e5', task_id: 'other-farm' }),
       ],
     })
     const supabase = asSupabaseClient(fake)
 
-    const result = await listTaskActivity(supabase, FARM_A)
+    const result = await listTaskActivity(supabase, FARM_A, WINDOW)
 
-    expect(result.map((a) => a.id)).toEqual([
-      'done-with-entries',
-      'has-entries',
-    ])
-    const withEntries = result.find((a) => a.id === 'has-entries')!
+    expect(result.map((a) => a.id)).toEqual(['has-entries'])
+    const withEntries = result[0]!
     expect(withEntries.entries).toHaveLength(2)
     expect(withEntries.status).toBe('in_progress')
     expect(withEntries.title).toBe('Fix the gate')
   })
 
-  it('returns an empty array (without querying entries) when the farm has no tasks', async () => {
+  it('includes a task worked on in the window but completed in another week', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [
+        task({
+          id: 'done-later',
+          status: 'done',
+          completed_at: '2026-02-15T12:00:00.000Z',
+        }),
+      ],
+      task_time_entries: [entry({ id: 'e1', task_id: 'done-later' })],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listTaskActivity(supabase, FARM_A, WINDOW)
+
+    expect(result.map((a) => [a.id, a.status, a.completed_at])).toEqual([
+      ['done-later', 'done', '2026-02-15T12:00:00.000Z'],
+    ])
+  })
+
+  it('looks up tasks in chunks when the window has more than one .in() chunk of tasks', async () => {
+    const ids = Array.from({ length: 150 }, (_, i) => `task-${i}`)
+    const fake = new FakeSupabaseClient({
+      tasks: ids.map((id) => task({ id, status: 'in_progress' })),
+      task_time_entries: ids.map((id, i) =>
+        entry({ id: `e-${i}`, task_id: id }),
+      ),
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listTaskActivity(supabase, FARM_A, WINDOW)
+
+    expect(result).toHaveLength(150)
+  })
+
+  it('returns an empty array (without querying tasks) when the window has no entries', async () => {
     const fake = new FakeSupabaseClient(
-      { tasks: [] },
-      { table: 'task_time_entries', op: 'select', message: 'should not run' },
+      { tasks: [task({ id: 'has-entries' })], task_time_entries: [] },
+      { table: 'tasks', op: 'select', message: 'should not run' },
     )
     const supabase = asSupabaseClient(fake)
 
-    await expect(listTaskActivity(supabase, FARM_A)).resolves.toEqual([])
+    await expect(listTaskActivity(supabase, FARM_A, WINDOW)).resolves.toEqual(
+      [],
+    )
   })
 
   it('propagates a tasks select failure', async () => {
     const fake = new FakeSupabaseClient(
-      { tasks: [task()] },
+      {
+        tasks: [task({ id: 'has-entries' })],
+        task_time_entries: [entry({ task_id: 'has-entries' })],
+      },
       { table: 'tasks', op: 'select', message: 'tasks boom' },
     )
     const supabase = asSupabaseClient(fake)
 
-    await expect(listTaskActivity(supabase, FARM_A)).rejects.toThrow(
+    await expect(listTaskActivity(supabase, FARM_A, WINDOW)).rejects.toThrow(
       'tasks boom',
     )
   })
@@ -758,7 +876,7 @@ describe('listTaskActivity', () => {
     )
     const supabase = asSupabaseClient(fake)
 
-    await expect(listTaskActivity(supabase, FARM_A)).rejects.toThrow(
+    await expect(listTaskActivity(supabase, FARM_A, WINDOW)).rejects.toThrow(
       'entries boom',
     )
   })
