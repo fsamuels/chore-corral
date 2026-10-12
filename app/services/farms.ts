@@ -35,6 +35,23 @@ export async function createFarm(
 }
 
 /**
+ * A `createFarm` for a form that can be retried: once a call succeeds, later
+ * calls return the same farm id instead of creating another. The forms run
+ * more steps after creating (refresh the farm list, navigate), and if one of
+ * those fails the form becomes submittable again — without this, retrying
+ * would insert a duplicate farm.
+ */
+export function createFarmOnce(supabase: Client) {
+  let createdFarmId: string | null = null
+  return async (name: string, address?: string | null): Promise<string> => {
+    if (createdFarmId === null) {
+      createdFarmId = await createFarm(supabase, name, address)
+    }
+    return createdFarmId
+  }
+}
+
+/**
  * Join the current user to every farm with a pending invite matching their
  * Google account's email (the `accept_farm_invites` security-definer
  * function does the matching server-side against the caller's confirmed

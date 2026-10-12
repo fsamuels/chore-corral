@@ -2,9 +2,33 @@ import { describe, expect, it } from 'vitest'
 import {
   acceptPendingInvites,
   createFarm,
+  createFarmOnce,
   FARM_NAME_MAX_LENGTH,
 } from '../app/services/farms'
 import { FakeSupabaseClient, asSupabaseClient } from './helpers/fake-supabase'
+
+describe('createFarmOnce', () => {
+  it('reuses the created farm id on retry instead of creating another', async () => {
+    const fake = new FakeSupabaseClient()
+    fake.onRpc('create_farm', () => ({ data: 'farm-9' }))
+    const create = createFarmOnce(asSupabaseClient(fake))
+
+    expect(await create('Reign Cloud Ranch')).toBe('farm-9')
+    expect(await create('Reign Cloud Ranch')).toBe('farm-9')
+    expect(fake.getRpcCalls()).toHaveLength(1)
+  })
+
+  it('still creates on retry when the first attempt failed', async () => {
+    const fake = new FakeSupabaseClient()
+    fake.onRpc('create_farm', () => ({ error: { message: 'boom' } }))
+    const create = createFarmOnce(asSupabaseClient(fake))
+    await expect(create('Reign Cloud Ranch')).rejects.toThrow('boom')
+
+    fake.onRpc('create_farm', () => ({ data: 'farm-9' }))
+    expect(await create('Reign Cloud Ranch')).toBe('farm-9')
+    expect(fake.getRpcCalls()).toHaveLength(2)
+  })
+})
 
 describe('createFarm', () => {
   it('calls the create_farm RPC with trimmed inputs and returns the farm id', async () => {
