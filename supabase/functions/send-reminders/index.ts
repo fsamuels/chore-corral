@@ -33,6 +33,10 @@ import { createClient } from '@supabase/supabase-js'
 // moment things recover — a chore reminder is only useful near its time.
 const STALE_AFTER_MS = 60 * 60 * 1000 // ~1 hour
 
+// Push sends in flight at once. Enough to overlap push-service round trips
+// on a busy minute; low enough to stay clear of rate limits.
+const SEND_CONCURRENCY = 10
+
 interface ClaimedReminder {
   id: string
   task_id: string
@@ -239,8 +243,18 @@ Deno.serve(async (req) => {
     return resolved.size > 0 ? resolved : farmMembers
   }
 
+  // Each reminder's audience, resolved once and reused below for both the
+  // subscription lookup and delivery.
+  const audienceByReminder = new Map<string, Set<string>>(
+    deliverable.map((r) => [r.id, audienceForTask(tasksById.get(r.task_id)!)]),
+  )
+
   // --- Resolve every audience member's push subscriptions -----------------
-  const allUserIds = [...new Set((memberData ?? []).map((m) => m.user_id))]
+  // Only users some reminder will actually notify, not every member of every
+  // farm involved — assignee-targeted reminders need far fewer rows.
+  const allUserIds = [
+    ...new Set([...audienceByReminder.values()].flatMap((users) => [...users])),
+  ]
   const subsByUser = new Map<string, SubscriptionRow[]>()
   if (allUserIds.length > 0) {
     const { data: subData, error: subError } = await supabase
@@ -260,7 +274,12 @@ Deno.serve(async (req) => {
   }
 
   // --- Deliver ------------------------------------------------------------
+  // Build every (reminder, subscription) send first, then run them with a
+  // small concurrency cap: one at a time made a busy minute's wall-clock time
+  // the sum of every push service round trip, while unbounded parallelism
+  // could trip push-service rate limits or the Edge runtime's socket limits.
   const deadSubscriptionIds = new Set<string>()
+  const sends: Array<{ sub: SubscriptionRow; payloadJson: string }> = []
 
   for (const reminder of deliverable) {
     const task = tasksById.get(reminder.task_id)!
@@ -280,9 +299,8 @@ Deno.serve(async (req) => {
 
     // Fan out to every subscription of every member of the chore's audience
     // (assignees if set and still farm members, else the whole farm).
-    const audienceUserIds = audienceForTask(task)
     const seenSubscriptionIds = new Set<string>()
-    for (const userId of audienceUserIds) {
+    for (const userId of audienceByReminder.get(reminder.id)!) {
       for (const sub of subsByUser.get(userId) ?? []) {
         if (seenSubscriptionIds.has(sub.id)) continue
         seenSubscriptionIds.add(sub.id)
@@ -294,35 +312,51 @@ Deno.serve(async (req) => {
           )
           continue
         }
-
-        try {
-          await webpush.sendNotification(
-            {
-              endpoint: sub.endpoint,
-              keys: { p256dh: sub.p256dh, auth: sub.auth },
-            },
-            payloadJson,
-          )
-          summary.sent++
-        } catch (err) {
-          summary.failed++
-          const statusCode = (err as { statusCode?: number })?.statusCode
-          // 404/410 => the push subscription is gone (device unsubscribed or
-          // expired). Prune it so we stop trying. Other errors are transient
-          // (network, 5xx) and left in place; we just log and move on so one
-          // bad send never sinks the whole batch.
-          if (statusCode === 404 || statusCode === 410) {
-            deadSubscriptionIds.add(sub.id)
-          } else {
-            console.error(
-              `push failed for subscription ${sub.id}`,
-              statusCode ?? err,
-            )
-          }
-        }
+        sends.push({ sub, payloadJson })
       }
     }
   }
+
+  async function deliver({ sub, payloadJson }: (typeof sends)[number]) {
+    try {
+      await webpush.sendNotification(
+        {
+          endpoint: sub.endpoint,
+          keys: { p256dh: sub.p256dh, auth: sub.auth },
+        },
+        payloadJson,
+      )
+      summary.sent++
+    } catch (err) {
+      summary.failed++
+      const statusCode = (err as { statusCode?: number })?.statusCode
+      // 404/410 => the push subscription is gone (device unsubscribed or
+      // expired). Prune it so we stop trying. Other errors are transient
+      // (network, 5xx) and left in place; we just log and move on so one
+      // bad send never sinks the whole batch.
+      if (statusCode === 404 || statusCode === 410) {
+        deadSubscriptionIds.add(sub.id)
+      } else {
+        console.error(
+          `push failed for subscription ${sub.id}`,
+          statusCode ?? err,
+        )
+      }
+    }
+  }
+
+  // A fixed pool of workers pulling from a shared cursor; `deliver` never
+  // throws, so one failure can't stop a worker early.
+  let next = 0
+  const workers = Array.from(
+    { length: Math.min(SEND_CONCURRENCY, sends.length) },
+    async () => {
+      while (next < sends.length) {
+        await deliver(sends[next++]!)
+      }
+    },
+  )
+  await Promise.all(workers)
 
   // Prune dead subscriptions in one batch.
   if (deadSubscriptionIds.size > 0) {

@@ -37,11 +37,11 @@ const { completedTasks, completedTasksError, loading, fetchCompletedTasks } =
   useWeeklyProgress(shownWeek)
 const { categories, fetchCategories } = useCategories()
 
-// Fetch farms first so the active farm resolves during SSR, then the week's
-// completed tasks and the farm's categories (the composables' watches cover
-// later farm and week switches).
+// Fetch farms first so the active farm resolves during SSR. The week's
+// completed tasks, categories, members and activity rows all key off the
+// active farm and are fetched together further down, once `members` and
+// `activities` are declared (the watches cover later farm and week switches).
 await fetchFarms()
-await Promise.all([fetchCompletedTasks(), fetchCategories()])
 
 // Farm members, for resolving completer `user_id` uuids to names. No composable
 // exists for this (only the activity/task-detail pages need it), so it's a
@@ -63,7 +63,6 @@ async function fetchMembers() {
     members.value = []
   }
 }
-await fetchMembers()
 watch(activeFarmId, () => fetchMembers())
 
 /**
@@ -182,8 +181,16 @@ async function fetchActivities() {
     if (request === latestActivitiesRequest) activities.value = []
   }
 }
-await fetchActivities()
 watch([activeFarmId, shownWeek], () => fetchActivities())
+
+// Independent reads, so they run in parallel rather than one round trip after
+// another.
+await Promise.all([
+  fetchCompletedTasks(),
+  fetchCategories(),
+  fetchMembers(),
+  fetchActivities(),
+])
 
 function categoryPill(
   categoryId: string | null,

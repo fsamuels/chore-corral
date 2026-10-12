@@ -25,8 +25,7 @@ const {
 // Fetch farms first so the active farm resolves during SSR, then load its
 // categories (the composable's watch covers later farm switches).
 await fetchFarms()
-await fetchCategories()
-await fetchCategorySummaries()
+await Promise.all([fetchCategories(), fetchCategorySummaries()])
 
 function summaryFor(
   category: CategorySummary,

@@ -327,6 +327,8 @@ Major-event-only log, per SPEC.md (not a full audit trail).
 | `actor_user_id` | uuid, FK → `auth.users.id`, not null | Who performed the action                                                                                                                                                                                                                                                                                                                                                                                    |
 | `created_at`    | timestamptz, default now()           |                                                                                                                                                                                                                                                                                                                                                                                                             |
 
+Indexed on `(farm_id, created_at desc)` for farm-wide reads and on `(task_id, created_at desc)` for a single task's timeline (`listActivityForTask`).
+
 **Resolved: task_id is a soft reference, not a hard FK.** `task_id` is a plain `uuid` column with no foreign key constraint, so a hard-deleted task never orphans or cascades against its log entries. `event_detail.task_title` is always populated (not just on delete) so the log stays meaningful without needing a join — see DECISIONS.md.
 
 `activity_log` is now read by the app (a task's View page renders its history), not just written — see DECISIONS.md for the reversal of the original "Supabase-dashboard-only" MVP scoping call.

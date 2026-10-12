@@ -4,6 +4,7 @@ import { compressImage, MAX_UPLOAD_BYTES } from '~/utils/photo-compression'
 import {
   deleteTaskPhoto,
   getTaskPhotoUrl,
+  getTaskPhotoUrls,
   listPhotos,
   updateTaskPhotoCaption,
   uploadTaskPhoto,
@@ -17,8 +18,10 @@ import {
  * "not fetched" state when the edit dialog closes and the id goes null.
  *
  * Each photo needs both its metadata (`PhotoSummary`) and a displayable
- * `<img src>`, so signed URLs are fetched alongside the list and stored in a
- * separate map keyed by photo id.
+ * `<img src>`, so signed URLs are fetched alongside the list (all of them in
+ * one `createSignedUrls` request) and stored in a separate map keyed by photo
+ * id. A photo the storage API couldn't sign is left out of the map rather
+ * than failing the whole gallery.
  */
 export function useTaskPhotos(taskId: Ref<string | null | undefined>) {
   const supabase = useSupabaseClient<Database>()
@@ -46,15 +49,15 @@ export function useTaskPhotos(taskId: Ref<string | null | undefined>) {
     loading.value = true
     try {
       const list = await listPhotos(supabase, id)
-      const urls = new Map<string, string>()
-      await Promise.all(
-        list.map(async (photo) => {
-          urls.set(
-            photo.id,
-            await getTaskPhotoUrl(supabase, photo.storage_path),
-          )
-        }),
+      const urlsByPath = await getTaskPhotoUrls(
+        supabase,
+        list.map((photo) => photo.storage_path),
       )
+      const urls = new Map<string, string>()
+      for (const photo of list) {
+        const url = urlsByPath.get(photo.storage_path)
+        if (url) urls.set(photo.id, url)
+      }
       photos.value = list
       photoUrls.value = urls
       photosError.value = null
