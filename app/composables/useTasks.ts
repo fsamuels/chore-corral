@@ -11,6 +11,7 @@ import {
   type TaskSummary,
   type UpdateTaskInput,
 } from '~/services/tasks'
+import type { TaskCompleter } from '~/services/completers'
 
 export interface UseTasksOptions {
   /** Passed through to `listTasks` — see its docstring. */
@@ -98,6 +99,7 @@ export function useTasks(options: UseTasksOptions = {}) {
     taskId: string,
     status: TaskStatus,
     note?: string | null,
+    completers?: TaskCompleter[],
   ): Promise<void> {
     const farmId = activeFarmId.value
     const actorUserId = getActorUserId(user.value)
@@ -110,6 +112,7 @@ export function useTasks(options: UseTasksOptions = {}) {
       status,
       actorUserId,
       note,
+      completers,
     })
     tasks.value =
       tasks.value?.map((task) => (task.id === updated.id ? updated : task)) ??

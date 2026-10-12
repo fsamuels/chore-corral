@@ -7,6 +7,7 @@ import {
   type TagSummary,
 } from './tags'
 import {
+  assertValidCompleters,
   setTaskCompleters,
   listCompletersForTasks,
   type TaskCompleter,
@@ -707,6 +708,12 @@ export async function updateTask(
  * in the event's `event_detail` when one is provided (blank/whitespace-only
  * notes are treated as absent); a no-op transition (same status) skips the
  * write, the log entry, and the completer changes.
+ *
+ * An explicit `completers` set (the mark-done dialog's picker) replaces the
+ * "only if empty" auto-credit on the move to done: the given set — even an
+ * empty one — becomes the task's whole completer set. It's validated before
+ * the status write so a bad set fails without half-applying the transition.
+ * Ignored for any non-done target (leaving done always clears the set).
  */
 export async function changeTaskStatus(
   supabase: Client,
@@ -716,8 +723,13 @@ export async function changeTaskStatus(
     status: TaskStatus
     actorUserId: string
     note?: string | null
+    completers?: TaskCompleter[]
   },
 ): Promise<TaskSummary> {
+  if (opts.status === 'done' && opts.completers) {
+    assertValidCompleters(opts.completers)
+  }
+
   const { data: current, error: readError } = await supabase
     .from('tasks')
     .select(TASK_COLUMNS_WITH_PHOTO_COUNT)
@@ -764,10 +776,16 @@ export async function changeTaskStatus(
   const task = data[0]
   if (!task) throw new Error('Chore not found')
 
-  // Keep the completer set in step with the transition. Into done: credit the
-  // actor, but only when nobody's credited yet (a hand-edited set wins). Out of
-  // done (any non-done target): clear the whole set.
-  if (opts.status === 'done') {
+  // Keep the completer set in step with the transition. Into done: use the
+  // explicit set when one was given; otherwise credit the actor, but only when
+  // nobody's credited yet (a hand-edited set wins). Out of done (any non-done
+  // target): clear the whole set.
+  if (opts.status === 'done' && opts.completers) {
+    await setTaskCompleters(supabase, {
+      taskId: opts.taskId,
+      completers: opts.completers,
+    })
+  } else if (opts.status === 'done') {
     const existing =
       (await listCompletersForTasks(supabase, [opts.taskId])).get(
         opts.taskId,

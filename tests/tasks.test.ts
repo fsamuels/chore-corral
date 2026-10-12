@@ -24,6 +24,7 @@ type TaskCompleterRow = Database['public']['Tables']['task_completers']['Row']
 const FARM_A = 'farm-a'
 const FARM_B = 'farm-b'
 const ACTOR = 'user-1'
+const OTHER_USER = 'user-2'
 
 function tag(overrides: Partial<TagRow> = {}): TagRow {
   return {
@@ -531,6 +532,82 @@ describe('changeTaskStatus', () => {
       'Kaleb',
     ])
     expect(result.completers.some((c) => c.user_id === ACTOR)).toBe(false)
+  })
+
+  it('an explicit completers set replaces the existing set and skips the actor auto-credit', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1', status: 'in_progress' })],
+      task_completers: [
+        completer({
+          id: 'c1',
+          task_id: 'task-1',
+          completer_name: 'Kaleb',
+          user_id: null,
+        }),
+      ],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await changeTaskStatus(supabase, {
+      farmId: FARM_A,
+      taskId: 'task-1',
+      status: 'done',
+      actorUserId: ACTOR,
+      completers: [
+        { user_id: OTHER_USER, completer_name: null },
+        { user_id: null, completer_name: 'Gerald' },
+      ],
+    })
+
+    expect(result.completers).toEqual([
+      { user_id: OTHER_USER, completer_name: null },
+      { user_id: null, completer_name: 'Gerald' },
+    ])
+  })
+
+  it('an explicit empty completers set leaves the chore done with nobody credited', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1', status: 'not_started' })],
+      task_completers: [],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await changeTaskStatus(supabase, {
+      farmId: FARM_A,
+      taskId: 'task-1',
+      status: 'done',
+      actorUserId: ACTOR,
+      completers: [],
+    })
+
+    expect(result.status).toBe('done')
+    expect(result.completers).toEqual([])
+  })
+
+  it('rejects an invalid explicit completers set before changing status', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1', status: 'not_started' })],
+      task_completers: [],
+      activity_log: [],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    await expect(
+      changeTaskStatus(supabase, {
+        farmId: FARM_A,
+        taskId: 'task-1',
+        status: 'done',
+        actorUserId: ACTOR,
+        completers: [
+          { user_id: ACTOR, completer_name: null },
+          { user_id: ACTOR, completer_name: null },
+        ],
+      }),
+    ).rejects.toThrow('A chore cannot list the same completer twice')
+    expect(fake.getTable('tasks')[0]).toMatchObject({ status: 'not_started' })
+    expect(fake.getTable('activity_log')).toHaveLength(0)
   })
 
   it('reopening (done to in_progress) clears completed_at and deletes all completers', async () => {
