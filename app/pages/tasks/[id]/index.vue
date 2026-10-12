@@ -133,6 +133,14 @@ const statusNoteDialog = ref(false)
 const pendingStatus = ref<TaskStatus | null>(null)
 const statusNote = ref('')
 
+// The Done dialog also picks who completed the chore (same picker as the
+// Completed-by menu below), prefilled with the task's existing completers or,
+// when nobody's credited yet, the signed-in member — the same default
+// changeTaskStatus would auto-credit. Confirming sends this set explicitly.
+const statusCompletersMemberDraft = ref<string[]>([])
+const statusCompletersNamesDraft = ref<string[]>([])
+const currentUser = useSupabaseUser()
+
 const statusNoteDialogTitle = computed(() =>
   pendingStatus.value === 'done'
     ? 'Mark chore as done?'
@@ -150,12 +158,13 @@ const statusNoteConfirmLabel = computed(() =>
 async function applyStatusChange(
   status: TaskStatus,
   note?: string | null,
+  completers?: TaskCompleter[],
 ): Promise<void> {
   if (!task.value) return
   statusChanging.value = true
   statusChangeError.value = null
   try {
-    await setStatus(task.value.id, status, note)
+    await setStatus(task.value.id, status, note, completers)
     await fetchTask()
   } catch (error) {
     statusChangeError.value =
@@ -170,16 +179,40 @@ async function onStatusChange(status: TaskStatus) {
   if (STATUS_NOTE_TARGETS.includes(status)) {
     pendingStatus.value = status
     statusNote.value = ''
+    if (status === 'done') prefillStatusCompleters()
     statusNoteDialog.value = true
     return
   }
   await applyStatusChange(status)
 }
 
+function prefillStatusCompleters() {
+  const existing = task.value?.completers ?? []
+  if (existing.length > 0) {
+    statusCompletersMemberDraft.value = existing
+      .filter((completer) => completer.user_id !== null)
+      .map((completer) => completer.user_id!)
+    statusCompletersNamesDraft.value = existing
+      .filter((completer) => completer.completer_name !== null)
+      .map((completer) => completer.completer_name!)
+    return
+  }
+  const actorUserId = getActorUserId(currentUser.value)
+  statusCompletersMemberDraft.value = actorUserId ? [actorUserId] : []
+  statusCompletersNamesDraft.value = []
+}
+
 async function confirmStatusChange() {
   const status = pendingStatus.value
   if (!status) return
-  await applyStatusChange(status, statusNote.value)
+  const completers =
+    status === 'done'
+      ? completersFromDrafts(
+          statusCompletersMemberDraft.value,
+          statusCompletersNamesDraft.value,
+        )
+      : undefined
+  await applyStatusChange(status, statusNote.value, completers)
   if (statusChangeError.value === null) statusNoteDialog.value = false
 }
 
@@ -541,20 +574,29 @@ async function saveCompleters(completers: TaskCompleter[]): Promise<void> {
   }
 }
 
-async function onCompletedBySave() {
+// Picker drafts → a completer set: members as-is, names trimmed, blanks
+// dropped and de-duplicated. Shared by the Completed-by menu and the Done
+// dialog.
+function completersFromDrafts(
+  memberIds: string[],
+  rawNames: string[],
+): TaskCompleter[] {
   const names = [
-    ...new Set(
-      completedByNamesDraft.value.map((name) => name.trim()).filter(Boolean),
-    ),
+    ...new Set(rawNames.map((name) => name.trim()).filter(Boolean)),
   ]
-  const completers: TaskCompleter[] = [
-    ...completedByMemberDraft.value.map((userId) => ({
-      user_id: userId,
-      completer_name: null,
-    })),
+  return [
+    ...memberIds.map((userId) => ({ user_id: userId, completer_name: null })),
     ...names.map((name) => ({ user_id: null, completer_name: name })),
   ]
-  await saveCompleters(completers)
+}
+
+async function onCompletedBySave() {
+  await saveCompleters(
+    completersFromDrafts(
+      completedByMemberDraft.value,
+      completedByNamesDraft.value,
+    ),
+  )
 }
 
 async function onCompletedByClear() {
@@ -1223,55 +1265,10 @@ const taskLocation = computed(() =>
             </template>
             <v-card min-width="320">
               <v-card-text>
-                <v-select
-                  v-model="completedByMemberDraft"
-                  :items="memberItems"
-                  item-title="title"
-                  item-value="value"
-                  label="Farm members"
-                  multiple
-                  chips
-                  closable-chips
-                  density="comfortable"
-                  variant="outlined"
-                  hide-details
-                >
-                  <template #item="{ props: itemProps, item }">
-                    <v-list-item v-bind="itemProps">
-                      <template #prepend>
-                        <MemberAvatar
-                          :src="item.avatarUrl"
-                          :size="28"
-                          class="mr-3"
-                        />
-                      </template>
-                    </v-list-item>
-                  </template>
-                  <template #chip="{ props: chipProps, item }">
-                    <v-chip v-bind="chipProps">
-                      <template #prepend>
-                        <MemberAvatar
-                          :src="item.avatarUrl"
-                          :size="20"
-                          class="mr-1"
-                        />
-                      </template>
-                      {{ item.title }}
-                    </v-chip>
-                  </template>
-                </v-select>
-                <div class="text-caption text-medium-emphasis my-2">
-                  and/or others (type a name, press enter)
-                </div>
-                <v-combobox
-                  v-model="completedByNamesDraft"
-                  label="Other names"
-                  multiple
-                  chips
-                  closable-chips
-                  density="comfortable"
-                  variant="outlined"
-                  hide-details
+                <CompleterPicker
+                  v-model:members="completedByMemberDraft"
+                  v-model:names="completedByNamesDraft"
+                  :member-items="memberItems"
                 />
               </v-card-text>
               <v-card-actions>
@@ -1666,6 +1663,16 @@ const taskLocation = computed(() =>
                 class="mt-3"
                 :disabled="statusChanging"
               />
+              <template v-if="pendingStatus === 'done'">
+                <div class="cc-eyebrow mb-2">Completed by</div>
+                <CompleterPicker
+                  v-model:members="statusCompletersMemberDraft"
+                  v-model:names="statusCompletersNamesDraft"
+                  :member-items="memberItems"
+                  :disabled="statusChanging"
+                  class="mb-3"
+                />
+              </template>
               <v-alert
                 v-if="statusChangeError"
                 type="error"
