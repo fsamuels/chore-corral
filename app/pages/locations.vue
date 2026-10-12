@@ -23,8 +23,7 @@ const { locations: locationSummaries, fetchLocations: fetchLocationSummaries } =
 // Fetch farms first so the active farm resolves during SSR, then load its
 // locations (the composable's watch covers later farm switches).
 await fetchFarms()
-await fetchLocations()
-await fetchLocationSummaries()
+await Promise.all([fetchLocations(), fetchLocationSummaries()])
 
 function summaryFor(
   location: LocationSummary,

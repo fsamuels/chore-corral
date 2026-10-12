@@ -22,9 +22,6 @@ const { tags, fetchTags } = useTags()
 const { locations, fetchLocations } = useLocations()
 
 await fetchFarms()
-await fetchCategories()
-await fetchTags()
-await fetchLocations()
 
 // Farm members for the "Assigned to" picker — members only, no free-text
 // names (see docs/ROADMAP.md's chore-assignment entry), mirroring the same
@@ -40,7 +37,14 @@ async function fetchMembers() {
   members.value = await listFarmMemberProfiles(supabase, farmId)
 }
 
-await fetchMembers()
+// Independent reads, so they run in parallel rather than one round trip after
+// another. They all key off the active farm, resolved by fetchFarms above.
+await Promise.all([
+  fetchCategories(),
+  fetchTags(),
+  fetchLocations(),
+  fetchMembers(),
+])
 watch(activeFarmId, () => fetchMembers())
 
 const memberLabels = computed(() => memberShortLabels(members.value))

@@ -56,11 +56,6 @@ const farmToSwitch = farmSwitchFromQuery(
 )
 if (farmToSwitch) setActiveFarm(farmToSwitch)
 
-await fetchTask()
-await fetchCategories()
-await fetchTags()
-await fetchLocations()
-
 // Farm members for the "Completed by" picker. No composable exists for this
 // (only the activity service reads farm_member_profiles), so it's a direct
 // service call into a local ref — refetched when the active farm changes.
@@ -75,7 +70,15 @@ async function fetchMembers() {
   members.value = await listFarmMemberProfiles(useSupabaseClient(), farmId)
 }
 
-await fetchMembers()
+// Independent reads, so they run in parallel rather than one round trip after
+// another. They all key off the active farm, which is settled above.
+await Promise.all([
+  fetchTask(),
+  fetchCategories(),
+  fetchTags(),
+  fetchLocations(),
+  fetchMembers(),
+])
 watch(activeFarmId, () => fetchMembers())
 
 // Resolve a task's defined-location name/coords from the farm's location
