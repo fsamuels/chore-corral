@@ -33,7 +33,7 @@ cp .env.example .env   # fill in Supabase URL/publishable key from Project Setti
 pnpm dev
 ```
 
-Other scripts: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.
+Other scripts: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:coverage`, `pnpm build` (runs coverage first, for the About page).
 
 ### Database migrations
 

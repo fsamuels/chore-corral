@@ -183,6 +183,20 @@ const maxLanguageLines = computed(() =>
   Math.max(1, ...build.code.languages.map((l) => l.lines)),
 )
 
+const coverage = computed(() => build.coverage)
+const coverageMetrics = computed(() => {
+  const c = coverage.value
+  if (!c) return []
+  return [
+    { label: 'Statements', value: c.statements },
+    { label: 'Branches', value: c.branches },
+    { label: 'Functions', value: c.functions },
+  ]
+})
+// `services` → `Services`; `app` is the handful of files directly in app/.
+const areaLabel = (area: string) =>
+  area === 'app' ? 'App root' : area[0]!.toUpperCase() + area.slice(1)
+
 const stack = computed(() =>
   [
     ['Nuxt', build.nuxtVersion],
@@ -313,6 +327,50 @@ const stack = computed(() =>
           <span class="about-bar__value">{{ fmt(lang.lines) }}</span>
         </div>
       </div>
+      <div class="cc-card mt-4">
+        <div class="cc-eyebrow mb-2">Test coverage</div>
+        <template v-if="coverage">
+          <div class="d-flex align-baseline flex-wrap ga-2">
+            <span class="about-coverage__headline cc-slab"
+              >{{ coverage.lines }}%</span
+            >
+            <span class="text-body-2 text-medium-emphasis">
+              of lines ({{ fmt(coverage.coveredLines) }} of
+              {{ fmt(coverage.totalLines) }})
+            </span>
+          </div>
+          <div class="d-flex flex-wrap ga-2 mt-2 mb-4">
+            <span
+              v-for="metric in coverageMetrics"
+              :key="metric.label"
+              class="cc-pill cc-pill--muted"
+              >{{ metric.label }} {{ metric.value }}%</span
+            >
+          </div>
+          <div
+            v-for="area in coverage.areas"
+            :key="area.area"
+            class="about-bar"
+          >
+            <span class="about-bar__label">{{ areaLabel(area.area) }}</span>
+            <span class="about-bar__track">
+              <span
+                class="about-bar__fill"
+                :style="{ width: `${area.pct}%` }"
+              />
+            </span>
+            <span class="about-bar__value">{{ Math.round(area.pct) }}%</span>
+          </div>
+          <p class="text-caption text-medium-emphasis mt-3 mb-0">
+            Unit tests (Vitest) across every file in app/ and server/; files no
+            test loads count as 0%. The Playwright end-to-end suite isn't
+            included.
+          </p>
+        </template>
+        <p v-else class="text-body-2 text-medium-emphasis mb-0">
+          Coverage wasn't measured for this build.
+        </p>
+      </div>
     </section>
 
     <section class="cc-card mb-6">
@@ -367,7 +425,7 @@ const stack = computed(() =>
 }
 .about-bar {
   display: grid;
-  grid-template-columns: 90px 1fr max-content;
+  grid-template-columns: 100px 1fr max-content;
   align-items: center;
   gap: 10px;
   margin-bottom: 8px;
@@ -390,6 +448,11 @@ const stack = computed(() =>
   text-align: right;
   font-variant-numeric: tabular-nums;
   color: var(--cc-ink-muted);
+}
+.about-coverage__headline {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.1;
 }
 .about-facts {
   padding-left: 1.2em;

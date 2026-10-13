@@ -53,7 +53,41 @@ export interface BuildInfo {
   vueVersion: string | null
   vuetifyVersion: string | null
   code: CodebaseStats
+  coverage: CoverageStats | null
 }
+
+export interface CoverageArea {
+  /** `services`, `pages`, … for app/<dir>/; `app` for files directly in app/; `server`. */
+  area: string
+  files: number
+  covered: number
+  total: number
+  pct: number
+}
+
+export interface CoverageStats {
+  lines: number
+  statements: number
+  branches: number
+  functions: number
+  coveredLines: number
+  totalLines: number
+  /** Per-area line coverage, best-covered first. */
+  areas: CoverageArea[]
+}
+
+interface CoverageMetric {
+  total: number
+  covered: number
+  pct: number
+}
+type CoverageSummary = Record<
+  string,
+  Record<'lines' | 'statements' | 'branches' | 'functions', CoverageMetric>
+>
+
+const pct = (covered: number, total: number) =>
+  total === 0 ? 0 : Math.round((covered / total) * 1000) / 10
 
 export interface SourceFile {
   /** Repo-relative path with forward slashes, e.g. `app/pages/about.vue`. */
@@ -140,6 +174,63 @@ export function summarizeCodebase(
     ),
     longestFile,
   }
+}
+
+/**
+ * Pure summary of Vitest's `coverage-summary.json` (json-summary reporter):
+ * the totals, plus line coverage grouped by area. Keys are absolute paths, so
+ * `root` is stripped to group them.
+ */
+export function summarizeCoverage(
+  summary: CoverageSummary,
+  root: string,
+): CoverageStats | null {
+  const total = summary.total
+  if (!total) return null
+  const prefix = root.endsWith('/') ? root : `${root}/`
+  const areas = new Map<string, CoverageArea>()
+  for (const [file, metrics] of Object.entries(summary)) {
+    if (file === 'total') continue
+    const parts = file.split('\\').join('/').replace(prefix, '').split('/')
+    const area =
+      (parts[0] === 'app' && parts.length > 2 ? parts[1] : parts[0]) ?? 'other'
+    const entry = areas.get(area) ?? {
+      area,
+      files: 0,
+      covered: 0,
+      total: 0,
+      pct: 0,
+    }
+    entry.files += 1
+    entry.covered += metrics.lines.covered
+    entry.total += metrics.lines.total
+    areas.set(area, entry)
+  }
+  for (const entry of areas.values()) {
+    entry.pct = pct(entry.covered, entry.total)
+  }
+  return {
+    lines: pct(total.lines.covered, total.lines.total),
+    statements: pct(total.statements.covered, total.statements.total),
+    branches: pct(total.branches.covered, total.branches.total),
+    functions: pct(total.functions.covered, total.functions.total),
+    coveredLines: total.lines.covered,
+    totalLines: total.lines.total,
+    areas: [...areas.values()].sort(
+      (a, b) => b.pct - a.pct || b.total - a.total,
+    ),
+  }
+}
+
+/**
+ * Reads the report `pnpm build` produces by running `pnpm test:coverage`
+ * first. Vitest clears the report directory at the start of a run and writes
+ * no report when a test fails, so a failed run leaves nothing here and the
+ * About page shows coverage as unavailable rather than a stale number.
+ */
+function readCoverage(root: string): CoverageStats | null {
+  const summary = readJson(join(root, 'coverage', 'coverage-summary.json'))
+  return summary ? summarizeCoverage(summary as CoverageSummary, root) : null
 }
 
 function walk(root: string, dir: string, out: SourceFile[]) {
@@ -233,6 +324,7 @@ export function collectBuildInfo(root: string): BuildInfo {
     vueVersion: installedVersion(root, 'vue'),
     vuetifyVersion: installedVersion(root, 'vuetify'),
     code: summarizeCodebase(files, docs),
+    coverage: readCoverage(root),
   }
 }
 
