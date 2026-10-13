@@ -454,3 +454,15 @@ Resolved 2026-10-12 from a codebase security review (the lower-priority findings
 **`task-photos` bucket limited to images, 10 MiB.** It had no size or type limit, so a member could store up to 50 MiB of anything, including HTML or SVG served from the storage domain. Allowed types are WebP (what the app uploads), plus JPEG and PNG (a browser that can't encode WebP returns PNG from the same canvas call). None of the three can run script. 10 MiB matches the app's pre-compression cap.
 
 **Google `skip_nonce_check` turned off.** The comment said it was "required for local sign in with Google", but `config push` sent it to production, where it weakens replay protection for `signInWithIdToken`. The app only uses the OAuth redirect flow (`signInWithOAuth`), which the nonce setting doesn't affect.
+
+## D-4: Whole-app test coverage, measured on every build, reported but not enforced
+
+Decided 2026-10-13 with the user. Reversibility: _easy_ (a Vitest config block, two `package.json` scripts and one CI line).
+
+**The headline counts every source file, not just tested ones.** Vitest's v8 coverage covers `app/**/*.{ts,vue}` and `server/**/*.ts` (minus the generated `app/types/`), and files no test loads count as 0%. Counting only files the tests load would have reported about 89% of lines. That number is accurate for the unit-tested layer (services and utils), but it silently leaves out pages, components and composables, which hold about three quarters of the source. The whole-app figure was about 24% at the time, and the About page shows it next to a per-area breakdown, so both views are visible.
+
+**Counting untested files needed two config changes.** `@vitejs/plugin-vue` is in the Vitest config so coverage can parse `.vue` files no test imports. Nuxt's `~`, `~~` and `#supabase/server` aliases are mapped so those files' imports resolve. Without either one, the coverage tool silently drops the file from the report instead of counting it as 0%.
+
+**Measured during `pnpm build`, not committed.** `build` runs `pnpm test:coverage --silent; nuxt build`, and `scripts/build-info.ts` bakes `coverage/coverage-summary.json` into the About page, so the number always matches the deployed commit. That adds about 6 seconds to each build. The `;` means a failing test never blocks a deploy: Vitest writes no report on failure and clears the directory at the start of each run, so the page says coverage wasn't measured instead of showing a stale number. Committing a summary file was rejected because it goes stale as soon as someone forgets to regenerate it. CI still fails on a failing test, because its test step runs `pnpm test:coverage` on its own.
+
+**No threshold.** CI prints the summary but never fails on the number. Pages and components are deliberately covered by the Playwright E2E suite (see ARCHITECTURE.md), which this number doesn't include, so a floor would push toward unit-testing UI the project chose not to.

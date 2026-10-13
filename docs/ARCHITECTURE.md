@@ -97,11 +97,13 @@ Two layers: unit/component tests (Vitest) plus a small Playwright E2E suite. Uni
 - Supabase query/data functions (mockable business logic)
 - Task lifecycle logic (e.g. status transitions clearing `completed_at`, category deletion's active-task check)
 
+**Coverage**: `pnpm test:coverage` reports whole-app unit-test coverage, counting every file in `app/` and `server/`, with untested files at 0%. `pnpm build` runs it first and the About page shows the result. It's reported, not enforced; see DECISIONS.md D-4.
+
 **E2E (Playwright, `tests/e2e/`)**: real Google OAuth can't be scripted in CI, so tests authenticate by minting a real Supabase session out-of-band instead of adding any auth-bypass code path to the app. `tests/e2e/global-setup.ts` uses the Supabase **service-role key** (server/CLI-only, never shipped to the client) to seed a fixed test user + farm membership via the Admin API, signs in as that user with `signInWithPassword` to get a genuine access/refresh token pair, and writes it into Playwright's storage state using the same cookie format `@nuxtjs/supabase`/`@supabase/ssr` expect (`sb-<project-ref>-auth-token`, chunked and base64url-encoded). Every spec then starts already signed in, exercising real RLS as any user would. Requires `SUPABASE_SERVICE_ROLE_KEY` (and optional `E2E_TEST_USER_EMAIL`/`E2E_TEST_USER_PASSWORD`/`E2E_TEST_FARM_NAME`) — see `.env.example`. Run with `pnpm test:e2e`.
 
 ## CI/CD
 
-GitHub Actions pipeline: lint → typecheck → test → build, run on every PR. Combined with the project's squash-merge workflow, this keeps `main` history clean while giving every merged PR a green-CI signal — relevant both for genuine build confidence and for portfolio credibility (a reviewer skimming PR history sees enforced quality gates, not just commits).
+GitHub Actions pipeline: lint → typecheck → test (with a coverage report) → build, run on every PR. Combined with the project's squash-merge workflow, this keeps `main` history clean while giving every merged PR a green-CI signal — relevant both for genuine build confidence and for portfolio credibility (a reviewer skimming PR history sees enforced quality gates, not just commits).
 
 ## Multi-Tenancy
 
