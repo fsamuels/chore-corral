@@ -26,5 +26,5 @@ export type AppStats =
 export async function getAppStats(supabase: Client): Promise<AppStats | null> {
   const { data, error } = await supabase.rpc('get_app_stats')
   if (error) throw new Error(error.message)
-  return data[0] ?? null
+  return data?.[0] ?? null
 }

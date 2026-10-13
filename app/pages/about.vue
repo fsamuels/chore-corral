@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import type { Database } from '~/types/database.types'
-import { getAppStats, type AppStats } from '~/services/stats'
+import {
+  getAppStats,
+  getPublicTaskCount,
+  type AppStats,
+} from '~/services/stats'
 import { formatElapsedDuration } from '~/utils/task-display'
 import type { BuildInfo } from '../../scripts/build-info'
 
@@ -11,15 +15,29 @@ const REPO_URL = 'https://github.com/fsamuels/chore-corral'
 const supabase = useSupabaseClient<Database>()
 const build = useRuntimeConfig().public.buildInfo as unknown as BuildInfo
 
-// Decorative, like the landing page's stat: a failed fetch (e.g. the
-// migration not applied yet) shows a note instead of breaking the page.
-const stats = ref<AppStats | null>(null)
-const statsError = ref(false)
-try {
-  stats.value = await getAppStats(supabase)
-} catch {
-  statsError.value = true
-}
+// Decorative, like the landing page's stat: a failed fetch never breaks the
+// page. If `get_app_stats` isn't there yet (its migration not applied), fall
+// back to the older `get_public_task_count` so the section still shows a
+// chore total; if that fails too, it shows just a note. useAsyncData hands
+// the server's result to the client instead of refetching during hydration.
+const { data: statsData } = await useAsyncData('about-stats', async () => {
+  let stats: AppStats | null = null
+  try {
+    stats = await getAppStats(supabase)
+  } catch {
+    stats = null
+  }
+  if (stats) return { stats, fallbackChores: null }
+  let fallbackChores: number | null = null
+  try {
+    fallbackChores = await getPublicTaskCount(supabase)
+  } catch {
+    fallbackChores = null
+  }
+  return { stats: null, fallbackChores }
+})
+const stats = computed(() => statsData.value?.stats ?? null)
+const fallbackChores = computed(() => statsData.value?.fallbackChores ?? null)
 
 const number = new Intl.NumberFormat('en-US')
 const fmt = (n: number | null | undefined) => number.format(n ?? 0)
@@ -51,7 +69,17 @@ function relative(iso: string | null): string | null {
 
 const dataTiles = computed(() => {
   const s = stats.value
-  if (!s) return []
+  if (!s) {
+    return fallbackChores.value === null
+      ? []
+      : [
+          {
+            icon: 'mdi-clipboard-list',
+            label: 'Chores',
+            value: fmt(fallbackChores.value),
+          },
+        ]
+  }
   return [
     { icon: 'mdi-barn', label: 'Farms', value: fmt(s.farms) },
     { icon: 'mdi-account-group', label: 'Accounts', value: fmt(s.accounts) },
@@ -242,10 +270,16 @@ const stack = computed(() =>
 
     <section class="mb-6">
       <h2 class="cc-section-title mb-3">By the numbers</h2>
-      <v-alert v-if="statsError" type="info" variant="tonal" density="compact">
-        App-wide stats aren't available right now.
+      <v-alert
+        v-if="!stats"
+        type="info"
+        variant="tonal"
+        density="compact"
+        class="mb-3"
+      >
+        More app-wide totals are on the way.
       </v-alert>
-      <div v-else class="about-tiles">
+      <div v-if="dataTiles.length" class="about-tiles">
         <div v-for="tile in dataTiles" :key="tile.label" class="about-tile">
           <v-icon :icon="tile.icon" size="20" color="primary" />
           <div class="about-tile__value cc-slab">{{ tile.value }}</div>
