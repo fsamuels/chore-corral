@@ -1,3 +1,6 @@
+import { fileURLToPath } from 'node:url'
+import { collectBuildInfo } from './scripts/build-info'
+
 export default defineNuxtConfig({
   compatibilityDate: '2026-07-01',
   devtools: { enabled: true },
@@ -114,6 +117,13 @@ export default defineNuxtConfig({
       // secret, never here). Empty means chore reminders stay unavailable
       // (see usePushNotifications.ts).
       vapidPublicKey: '',
+      // Commit SHA, build time and codebase trivia for the About page,
+      // computed once when the config loads (see scripts/build-info.ts).
+      // Typed loosely here because Nuxt's runtime-config typing rejects
+      // nulls; the About page casts it back to BuildInfo.
+      buildInfo: collectBuildInfo(
+        fileURLToPath(new URL('.', import.meta.url)),
+      ) as unknown as Record<string, unknown>,
     },
   },
   supabase: {

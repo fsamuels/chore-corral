@@ -14,3 +14,17 @@ export async function getPublicTaskCount(supabase: Client): Promise<number> {
   if (error) throw new Error(error.message)
   return data
 }
+
+export type AppStats =
+  Database['public']['Functions']['get_app_stats']['Returns'][number]
+
+/**
+ * App-wide totals for the About page (farms, accounts, chores, photos, …),
+ * via the `get_app_stats` security-definer function. Aggregates only — no
+ * row data — and granted to `authenticated` only (see DATA_MODEL.md).
+ */
+export async function getAppStats(supabase: Client): Promise<AppStats | null> {
+  const { data, error } = await supabase.rpc('get_app_stats')
+  if (error) throw new Error(error.message)
+  return data[0] ?? null
+}

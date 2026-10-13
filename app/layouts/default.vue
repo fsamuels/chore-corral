@@ -158,6 +158,12 @@ async function onPushToggle() {
           to="/components-demo"
           @click="drawer = false"
         />
+        <v-list-item
+          title="About"
+          prepend-icon="mdi-information-outline"
+          to="/about"
+          @click="drawer = false"
+        />
         <v-divider class="my-1" />
         <v-list-item
           title="Sign out"
