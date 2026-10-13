@@ -643,6 +643,25 @@ export interface Database {
         Args: { farm_name: string; farm_address?: string | null }
         Returns: string
       }
+      get_app_stats: {
+        Args: Record<string, never>
+        Returns: {
+          farms: number
+          accounts: number
+          chores: number
+          chores_done: number
+          completions: number
+          photos: number
+          tracked_seconds: number
+          categories: number
+          locations: number
+          tags: number
+          shopping_items: number
+          tools: number
+          activity_events: number
+          first_chore_at: string | null
+        }[]
+      }
       get_public_task_count: {
         Args: Record<string, never>
         Returns: number

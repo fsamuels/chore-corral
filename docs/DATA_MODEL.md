@@ -396,6 +396,10 @@ Different in kind from the two above: never callable by clients (EXECUTE is revo
 
 The one function granted to `anon`. Returns `count(*) from tasks` as a single `bigint` — no row data, no farm identity — so exposing it doesn't loosen `tasks`' farm-membership RLS policy (still `to authenticated` only). Backs the "X chores tracked" stat on the (unauthenticated) `/login` page and doubles as a low-cost external keepalive query against the Supabase free-tier project. See DECISIONS.md.
 
+### `get_app_stats()`
+
+Aggregate totals for the About page: one row with counts of farms, accounts (`auth.users`), chores, chores done, completions, photos, categories and locations (not soft-deleted), tags, shopping items, tools and activity events, plus total tracked seconds (closed time entries only) and the earliest chore's `created_at`. It is `security definer` so it can count across every farm, and it returns no row data, farm identity or user identity. It is granted to `authenticated` only: unlike `get_public_task_count()`, it is not callable by `anon`, because the account total isn't something to give unauthenticated callers.
+
 ## Row Level Security (RLS) Policy Intent
 
 All farm-scoped tables (`categories`, `locations`, `tasks`, `tags`, `task_tags`, `task_photos`, `task_shopping_items`, `task_tools`, `task_time_entries`, `task_reminders`, `activity_log`) should have RLS **enabled by default** (deny-by-default), with policies granting access based on farm membership (`push_subscriptions` is the deliberate exception — owner-only rather than farm-scoped, see its section above):
