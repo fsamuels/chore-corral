@@ -262,6 +262,21 @@ function onOpen(taskId: string) {
           </template>
         </EmptyState>
 
+        <!-- Pins are tinted by priority; this explains the colours. Above the
+             map so it stays visible rather than ending up under the bottom nav. -->
+        <ul class="map-legend" aria-label="Pin colours">
+          <li v-for="priority in PRIORITY_ORDER" :key="priority">
+            <span class="cc-pill cc-pill--surface">
+              <span
+                class="map-legend__dot"
+                :class="`map-legend__dot--${priority}`"
+                aria-hidden="true"
+              ></span>
+              {{ PRIORITY_LABELS[priority] }}
+            </span>
+          </li>
+        </ul>
+
         <div class="map-frame">
           <TaskMap
             :tasks="locatedTasks"
@@ -277,29 +292,17 @@ function onOpen(taskId: string) {
             {{ unlocatedCount === 1 ? 'chore has' : 'chores have' }} no location
           </button>
         </p>
-
-        <!-- Pins are tinted by priority; this explains the colours. -->
-        <ul class="map-legend" aria-label="Pin colours">
-          <li v-for="priority in PRIORITY_ORDER" :key="priority">
-            <span class="cc-pill cc-pill--sm cc-pill--surface">
-              <span
-                class="map-legend__dot"
-                :class="`map-legend__dot--${priority}`"
-                aria-hidden="true"
-              ></span>
-              {{ PRIORITY_LABELS[priority] }}
-            </span>
-          </li>
-        </ul>
       </template>
     </template>
   </div>
 </template>
 
 <style scoped>
+/* Leaves room above for the toggle, filter and legend, and below for the
+   unlocated-chores link, on a typical phone. */
 .map-frame {
-  height: calc((100dvh - 220px) * 0.9);
-  min-height: 288px;
+  height: calc((100dvh - 280px) * 0.75);
+  min-height: 260px;
 }
 
 .map-view-toggle {
@@ -339,14 +342,14 @@ function onOpen(taskId: string) {
   flex-wrap: wrap;
   gap: 8px;
   list-style: none;
-  margin: 12px 0 0;
+  margin: 0 0 12px;
   padding: 0;
 }
 
 .map-legend__dot {
   display: inline-block;
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
 }
 
