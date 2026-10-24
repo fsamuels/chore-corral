@@ -94,3 +94,19 @@ export function groupTasksByPlace<T extends Placed>(
     })
   return groups
 }
+
+/**
+ * How many chores the map cannot plot: no freeform pin and no (still
+ * existing) defined location. Matches the list view's "No location" group.
+ */
+export function countUnlocated(
+  tasks: Pick<TaskSummary, 'lat' | 'lng' | 'location_id'>[],
+  locations: Pick<LocationSummary, 'id'>[],
+): number {
+  const known = new Set(locations.map((location) => location.id))
+  return tasks.filter(
+    (task) =>
+      !(task.lat !== null && task.lng !== null) &&
+      !(task.location_id !== null && known.has(task.location_id)),
+  ).length
+}

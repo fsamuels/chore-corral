@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TaskSummary } from '~/services/tasks'
 import {
+  countUnlocated,
   groupTasksByPlace,
   PRIORITY_LABELS,
   PRIORITY_ORDER,
@@ -114,6 +115,20 @@ const locatedTasks = computed<TaskSummary[]>(() => {
 const placeGroups = computed(() =>
   groupTasksByPlace(filteredTasks.value, locations.value ?? []),
 )
+
+// Same chore set the map draws (open, category-filtered), minus what it
+// can't plot.
+const unlocatedCount = computed(() =>
+  countUnlocated(filteredTasks.value, locations.value ?? []),
+)
+
+async function showUnlocated() {
+  await setQuery({ view: 'list' })
+  await nextTick()
+  document
+    .getElementById('place-none')
+    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 
 // Map starting point before any pins are fit — the farm's default center
 // (SPEC: manually set at farm creation) when known.
@@ -256,6 +271,13 @@ function onOpen(taskId: string) {
           />
         </div>
 
+        <p v-if="unlocatedCount > 0" class="cc-muted map-unlocated">
+          <button type="button" class="cc-text-link" @click="showUnlocated">
+            {{ unlocatedCount }}
+            {{ unlocatedCount === 1 ? 'chore has' : 'chores have' }} no location
+          </button>
+        </p>
+
         <!-- Pins are tinted by priority; this explains the colours. -->
         <ul class="map-legend" aria-label="Pin colours">
           <li v-for="priority in PRIORITY_ORDER" :key="priority">
@@ -306,6 +328,10 @@ function onOpen(taskId: string) {
 .map-row__title {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.map-unlocated {
+  margin: 12px 0 0;
 }
 
 .map-legend {

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { groupTasksByPlace, highestPriority } from '../app/utils/map-groups'
+import {
+  countUnlocated,
+  groupTasksByPlace,
+  highestPriority,
+} from '../app/utils/map-groups'
 
 describe('highestPriority', () => {
   it('picks the most pressing priority', () => {
@@ -97,5 +101,21 @@ describe('groupTasksByPlace', () => {
 
   it('returns no groups for no chores', () => {
     expect(groupTasksByPlace([], locations)).toEqual([])
+  })
+})
+
+describe('countUnlocated', () => {
+  it('counts chores with neither a pin nor a known location', () => {
+    const tasks = [
+      chore({ lat: 1, lng: 2 }),
+      chore({ location_id: 'l-shop' }),
+      chore({ location_id: 'gone' }),
+      chore(),
+    ]
+    expect(countUnlocated(tasks, locations)).toBe(2)
+  })
+
+  it('is zero for no chores', () => {
+    expect(countUnlocated([], locations)).toBe(0)
   })
 })
