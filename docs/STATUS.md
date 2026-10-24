@@ -2,7 +2,9 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-10-24 (map UX follow-ups)
+**Last updated:** 2026-10-24 (map popup button contrast fix)
+
+**Map popup button contrast fix (2026-10-24).** User-reported from a phone screenshot: the map popup's "Open chore" label was blue on the orange pill and hard to read. Leaflet's stylesheet colours every link in a map (`.leaflet-container a`), and that rule outranks a single `cc-pill-btn--*` class. New rules in `main.css` (`.leaflet-container a.cc-pill-btn…`) restore the pill colours for links inside a map. Checked in headless Chromium against Leaflet's real stylesheet: the label computed to `rgb(0, 120, 168)` before the fix and to white after.
 
 **Map UX follow-ups (2026-10-24).** Follow-up to the UI consistency pass.
 
