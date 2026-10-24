@@ -36,6 +36,7 @@ function statusEntries(tag: TagSummaryWithCount) {
       v-if="farmsError"
       title="Couldn't load your farms"
       :message="farmsError"
+      :retry="() => fetchFarms()"
     />
     <template v-else-if="activeFarm">
       <PageHeader title="Tags" />
@@ -44,9 +45,10 @@ function statusEntries(tag: TagSummaryWithCount) {
         v-if="tagsError"
         title="Couldn't load tags"
         :message="tagsError"
+        :retry="() => fetchTags()"
       />
 
-      <LoadingState v-else-if="loading && tags === null" />
+      <ListSkeleton v-else-if="loading && tags === null" />
 
       <EmptyState
         v-else-if="!tags || tags.length === 0"

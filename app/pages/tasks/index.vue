@@ -112,6 +112,11 @@ watch(activeFarmId, () => {
   fetchMembers()
 })
 
+// "Try again" on the chores load error: refetch both halves of the list.
+async function retryChores() {
+  await Promise.all([fetchTasks(), fetchDonePage(true)])
+}
+
 const memberLabels = computed(() => memberShortLabels(members.value))
 
 function assigneeNames(assigneeIds: string[]): string[] {
@@ -292,6 +297,7 @@ function locationName(locationId: string | null): string | null {
       v-if="farmsError"
       title="Couldn't load your farms"
       :message="farmsError"
+      :retry="() => fetchFarms()"
     />
     <template v-else-if="activeFarm">
       <PageHeader title="Chores" />
@@ -415,9 +421,10 @@ function locationName(locationId: string | null): string | null {
         v-if="tasksError"
         title="Couldn't load chores"
         :message="tasksError"
+        :retry="retryChores"
       />
 
-      <LoadingState v-else-if="loading && outstandingTasks === null" />
+      <ListSkeleton v-else-if="loading && outstandingTasks === null" />
 
       <EmptyState
         v-else-if="tasks.length === 0"

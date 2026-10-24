@@ -315,6 +315,7 @@ const weekTrackedText = computed(() =>
       v-if="farmsError"
       title="Couldn't load your farms"
       :message="farmsError"
+      :retry="() => fetchFarms()"
     />
 
     <template v-else-if="activeFarm">
@@ -349,9 +350,10 @@ const weekTrackedText = computed(() =>
         v-if="completedTasksError"
         title="Couldn't load progress"
         :message="completedTasksError"
+        :retry="() => fetchCompletedTasks()"
       />
 
-      <LoadingState v-else-if="loading && completedTasks === null" />
+      <ListSkeleton v-else-if="loading && completedTasks === null" />
 
       <template v-else>
         <div class="cc-stat-row">
