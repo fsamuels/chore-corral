@@ -50,35 +50,20 @@ function onCaptionBlur(photo: PhotoSummary): void {
   updateCaption(photo, draft)
 }
 
-// Deleting is undoable: the thumbnail is hidden right away and the real
-// delete (row + storage object) only runs once the Undo toast times out.
-// `remove` reports failure via `uploadError` rather than throwing, so surface
-// that as a failed commit (which restores the thumbnail).
-const hiddenIds = ref<Set<string>>(new Set())
-const visiblePhotos = computed(
-  () => photos.value?.filter((p) => !hiddenIds.value.has(p.id)) ?? null,
-)
+// Per-photo in-flight delete tracking so only the affected button disables.
+const pendingDeletes = ref<Set<string>>(new Set())
 
-function setHidden(id: string, hidden: boolean): void {
-  const next = new Set(hiddenIds.value)
-  if (hidden) next.add(id)
-  else next.delete(id)
-  hiddenIds.value = next
-}
-
-const { removeWithUndo } = useUndoableRemove()
-
-function onDelete(photo: PhotoSummary): void {
-  removeWithUndo({
-    hide: () => setHidden(photo.id, true),
-    restore: () => setHidden(photo.id, false),
-    commit: async () => {
-      await remove(photo)
-      if (uploadError.value) throw new Error(uploadError.value)
-      setHidden(photo.id, false)
-    },
-    message: 'Photo deleted',
-  })
+async function onDelete(photo: PhotoSummary): Promise<void> {
+  const next = new Set(pendingDeletes.value)
+  next.add(photo.id)
+  pendingDeletes.value = next
+  try {
+    await remove(photo)
+  } finally {
+    const done = new Set(pendingDeletes.value)
+    done.delete(photo.id)
+    pendingDeletes.value = done
+  }
 }
 
 function formatTaken(takenAt: string): string {
@@ -103,13 +88,12 @@ function openLightbox(index: number): void {
 }
 
 function onLightboxKeydown(event: KeyboardEvent): void {
-  if (!visiblePhotos.value || visiblePhotos.value.length === 0) return
+  if (!photos.value || photos.value.length === 0) return
   if (event.key === 'ArrowRight') {
-    activeIndex.value = (activeIndex.value + 1) % visiblePhotos.value.length
+    activeIndex.value = (activeIndex.value + 1) % photos.value.length
   } else if (event.key === 'ArrowLeft') {
     activeIndex.value =
-      (activeIndex.value - 1 + visiblePhotos.value.length) %
-      visiblePhotos.value.length
+      (activeIndex.value - 1 + photos.value.length) % photos.value.length
   }
 }
 
@@ -125,7 +109,7 @@ onUnmounted(() => window.removeEventListener('keydown', onLightboxKeydown))
 // A photo deleted while the gallery is open (its own delete button is still
 // reachable behind the dialog on some layouts) shouldn't leave the carousel
 // pointed past the end, or open with nothing left to show.
-watch(visiblePhotos, (list) => {
+watch(photos, (list) => {
   if (!list || list.length === 0) {
     lightboxOpen.value = false
     return
@@ -207,19 +191,12 @@ watch(visiblePhotos, (list) => {
       <v-progress-circular indeterminate size="24" color="primary" />
     </div>
 
-    <p
-      v-else-if="visiblePhotos && visiblePhotos.length === 0"
-      class="cc-empty-inline"
-    >
+    <p v-else-if="photos && photos.length === 0" class="cc-empty-inline">
       No photos yet.
     </p>
 
-    <div v-else-if="visiblePhotos" class="d-flex flex-wrap ga-3">
-      <div
-        v-for="(photo, index) in visiblePhotos"
-        :key="photo.id"
-        class="photos-item"
-      >
+    <div v-else-if="photos" class="d-flex flex-wrap ga-3">
+      <div v-for="(photo, index) in photos" :key="photo.id" class="photos-item">
         <div class="position-relative">
           <button
             type="button"
@@ -238,11 +215,18 @@ watch(visiblePhotos, (list) => {
           <button
             type="button"
             class="cc-icon-btn cc-icon-btn--sm photos-thumb__remove"
+            :disabled="pendingDeletes.has(photo.id)"
             aria-label="Delete photo"
             title="Delete photo"
             @click="onDelete(photo)"
           >
-            <v-icon icon="mdi-delete-outline" size="16" />
+            <v-progress-circular
+              v-if="pendingDeletes.has(photo.id)"
+              indeterminate
+              size="14"
+              width="2"
+            />
+            <v-icon v-else icon="mdi-delete-outline" size="16" />
           </button>
         </div>
         <input
@@ -264,10 +248,10 @@ watch(visiblePhotos, (list) => {
       fullscreen
       transition="dialog-bottom-transition"
     >
-      <v-card v-if="visiblePhotos && visiblePhotos.length > 0" color="black">
+      <v-card v-if="photos && photos.length > 0" color="black">
         <v-toolbar color="black" density="compact">
           <v-toolbar-title class="text-white text-body-2">
-            {{ activeIndex + 1 }} / {{ visiblePhotos.length }}
+            {{ activeIndex + 1 }} / {{ photos.length }}
           </v-toolbar-title>
           <v-spacer />
           <v-btn
@@ -284,7 +268,7 @@ watch(visiblePhotos, (list) => {
           show-arrows="hover"
           color="white"
         >
-          <v-carousel-item v-for="photo in visiblePhotos" :key="photo.id">
+          <v-carousel-item v-for="photo in photos" :key="photo.id">
             <div
               class="d-flex flex-column align-center justify-center fill-height pa-4"
             >

@@ -81,35 +81,8 @@ function onToggle(item: ShoppingItemSummary): void {
   withPending(item, () => toggle(item))
 }
 
-// Removal is undoable: the row is hidden right away and the real delete only
-// runs once the Undo toast times out. `remove` reports failure via
-// `mutationError` rather than throwing, so surface that as a failed commit
-// (which restores the row).
-const hiddenIds = ref<Set<string>>(new Set())
-const visibleItems = computed(
-  () => items.value?.filter((i) => !hiddenIds.value.has(i.id)) ?? null,
-)
-
-function setHidden(id: string, hidden: boolean): void {
-  const next = new Set(hiddenIds.value)
-  if (hidden) next.add(id)
-  else next.delete(id)
-  hiddenIds.value = next
-}
-
-const { removeWithUndo } = useUndoableRemove()
-
 function onRemove(item: ShoppingItemSummary): void {
-  removeWithUndo({
-    hide: () => setHidden(item.id, true),
-    restore: () => setHidden(item.id, false),
-    commit: async () => {
-      await remove(item)
-      if (mutationError.value) throw new Error(mutationError.value)
-      setHidden(item.id, false)
-    },
-    message: 'Item removed',
-  })
+  withPending(item, () => remove(item))
 }
 </script>
 
@@ -141,16 +114,13 @@ function onRemove(item: ShoppingItemSummary): void {
       <v-progress-circular indeterminate size="24" color="primary" />
     </div>
 
-    <p
-      v-else-if="visibleItems && visibleItems.length === 0"
-      class="cc-empty-inline"
-    >
+    <p v-else-if="items && items.length === 0" class="cc-empty-inline">
       No items yet.
     </p>
 
-    <div v-else-if="visibleItems">
+    <div v-else-if="items">
       <div
-        v-for="item in visibleItems"
+        v-for="item in items"
         :key="item.id"
         class="d-flex align-center ga-1 mb-1"
       >

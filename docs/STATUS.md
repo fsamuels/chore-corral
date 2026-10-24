@@ -4,16 +4,14 @@ Current state of the project. Update this as work progresses — it should alway
 
 **Last updated:** 2026-10-24 (chore detail UX follow-ups)
 
-**Chore detail UX follow-ups (2026-10-24).** Follow-up to the UI consistency pass.
+**Chore detail UX follow-ups (2026-10-24).** Follow-up to the UI consistency pass. An Undo-instead-of-delete feature for list removals was built on this branch and then reverted before merge, until it can be tested on a real device; removals stay immediate as before.
 
 - **Toasts:** a single `AppToast` host in the layout, driven by `useToast()`. It sits above the bottom nav, the FAB and the running-timer bar.
-- **Undo:** removing a shopping item, tool or reminder, or deleting a photo, hides it at once and shows an "Undo" toast for 5s. The real delete runs after that, or immediately when the page is hidden (screen locked, app switched, tab closed): phones often suspend JS right then, and a common pattern is to make a change and put the phone straight away. If the delete fails, the item comes back and an error toast shows.
-- **Photo delete order:** `deleteTaskPhoto` now deletes the `task_photos` row before the storage object, the reverse of before. An interrupted delete now leaves an unreferenced file instead of a row pointing at a missing image. A storage failure after the row is gone is not reported. The storage delete policy checks only farm membership, so it doesn't depend on the row. The timing lives in the pure `app/utils/undoable-removal.ts`, which has fake-timer tests; `useUndoableRemove` wraps it. Before this, photo deletion had no confirmation at all. Chore, category, location and timer-session deletes keep their confirm dialogs.
 - **Reminder presets:** "In 1 hour", "This evening" (becomes "Tomorrow evening" after 6 PM) and "Tomorrow morning", on both the detail and create pages. The times come from `app/utils/reminder-presets.ts`, which has tests.
 - **"Saved" toast:** every inline field save on the chore detail page shows one. Failures keep the inline error.
 - **Icons:** decorative icons now use the `-outline` variant where one exists.
 
-**Checks:** lint, format, typecheck, the 501-case suite and `nuxt build` pass. Not checked in a browser; in particular, check the toast position above the FAB.
+**Checks:** lint, format, typecheck, the 493-case suite and `nuxt build` pass. Not checked in a browser; in particular, check the "Saved" toast position above the FAB.
 
 **UI consistency pass (2026-10-24).** Direct user ask: review the signed-in UI for consistency and fix what isn't. Login, landing, confirm, welcome and the components demo were deliberately left alone. **Shared scaffolding:**
 

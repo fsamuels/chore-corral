@@ -72,25 +72,23 @@ export async function uploadTaskPhoto(
 }
 
 /**
- * Delete a photo: removes the `task_photos` row first, then the storage
- * object. Row-first means an interrupted delete (the phone locks or the tab
- * closes between the two requests — likely now that removals commit as the
- * page is hidden) leaves at worst an unreferenced file nobody sees, never a
- * row pointing at a missing image. For the same reason a storage failure
- * after the row is gone isn't reported: the photo is already deleted as far
- * as the app is concerned.
+ * Delete a photo: removes the storage object first, then the `task_photos`
+ * row, mirroring `uploadTaskPhoto`'s storage-then-db ordering.
  */
 export async function deleteTaskPhoto(
   supabase: Client,
   opts: { photoId: string; storagePath: string },
 ): Promise<void> {
+  const { error: removeError } = await supabase.storage
+    .from(BUCKET)
+    .remove([opts.storagePath])
+  if (removeError) throw new Error(removeError.message)
+
   const { error } = await supabase
     .from('task_photos')
     .delete()
     .eq('id', opts.photoId)
   if (error) throw new Error(error.message)
-
-  await supabase.storage.from(BUCKET).remove([opts.storagePath])
 }
 
 /**

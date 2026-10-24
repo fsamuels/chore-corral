@@ -152,37 +152,33 @@ describe('deleteTaskPhoto', () => {
     expect(fake.getStorageObjects()).not.toContain(path)
   })
 
-  it('still deletes the DB row when the storage remove fails', async () => {
+  it('propagates a storage remove failure without deleting the DB row', async () => {
     const path = `${FARM_A}/${TASK_A}/photo-1.webp`
     const fake = new FakeSupabaseClient(
       { task_photos: [photo({ id: 'photo-1', storage_path: path })] },
       undefined,
       { op: 'remove' },
     )
-    fake.storage.from('task-photos').upload(path, new Blob(['a']))
-    const supabase = asSupabaseClient(fake)
-
-    await deleteTaskPhoto(supabase, { photoId: 'photo-1', storagePath: path })
-
-    // The row is gone; the leftover file is unreferenced, not a broken row.
-    expect(fake.getTable('task_photos')).toHaveLength(0)
-    expect(fake.getStorageObjects()).toContain(path)
-  })
-
-  it('propagates a DB delete failure without touching storage', async () => {
-    const path = `${FARM_A}/${TASK_A}/photo-1.webp`
-    const fake = new FakeSupabaseClient(
-      { task_photos: [photo({ id: 'photo-1', storage_path: path })] },
-      { table: 'task_photos', op: 'delete' },
-    )
-    fake.storage.from('task-photos').upload(path, new Blob(['a']))
     const supabase = asSupabaseClient(fake)
 
     await expect(
       deleteTaskPhoto(supabase, { photoId: 'photo-1', storagePath: path }),
     ).rejects.toThrow()
 
-    expect(fake.getStorageObjects()).toContain(path)
+    expect(fake.getTable('task_photos')).toHaveLength(1)
+  })
+
+  it('propagates a DB delete failure', async () => {
+    const path = `${FARM_A}/${TASK_A}/photo-1.webp`
+    const fake = new FakeSupabaseClient(
+      { task_photos: [photo({ id: 'photo-1', storage_path: path })] },
+      { table: 'task_photos', op: 'delete' },
+    )
+    const supabase = asSupabaseClient(fake)
+
+    await expect(
+      deleteTaskPhoto(supabase, { photoId: 'photo-1', storagePath: path }),
+    ).rejects.toThrow()
   })
 })
 
