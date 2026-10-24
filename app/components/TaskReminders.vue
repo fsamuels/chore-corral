@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { parseLocalDateString } from '~/services/tasks'
 import type { ReminderSummary } from '~/services/reminders'
+import { reminderPresets, type ReminderPreset } from '~/utils/reminder-presets'
 import { SNOOZE_OPTIONS, type SnoozeMinutes } from '~/utils/reminder-snooze'
 
 // Only rendered once a task exists (parent guards with v-if="task"), so a
@@ -26,6 +27,20 @@ function formatReminder(iso: string): string {
     hour: 'numeric',
     minute: '2-digit',
   })
+}
+
+// Quick-add chips. `presetsNow` only drives the labels ("This evening" turns
+// into "Tomorrow evening" after 6 PM); the tap re-reads the clock so the
+// stored time is never stale.
+const presetsNow = ref(new Date())
+onMounted(() => (presetsNow.value = new Date()))
+const presets = computed(() => reminderPresets(presetsNow.value))
+
+async function onPreset(key: ReminderPreset['key']): Promise<void> {
+  addError.value = null
+  presetsNow.value = new Date()
+  const preset = reminderPresets(presetsNow.value).find((p) => p.key === key)
+  if (preset) await add(preset.at.toISOString())
 }
 
 const newDate = ref('')
@@ -164,7 +179,24 @@ async function onSnooze(
       </div>
     </div>
 
-    <div class="cc-add-row reminder-add-row mt-3">
+    <div
+      class="reminder-presets mt-3"
+      role="group"
+      aria-label="Quick reminder times"
+    >
+      <button
+        v-for="preset in presets"
+        :key="preset.key"
+        type="button"
+        class="cc-pill-btn cc-pill-btn--surface cc-pill-btn--sm"
+        :disabled="adding"
+        @click="onPreset(preset.key)"
+      >
+        {{ preset.label }}
+      </button>
+    </div>
+
+    <div class="cc-add-row reminder-add-row mt-2">
       <v-text-field
         v-model="newDate"
         type="date"
@@ -210,6 +242,12 @@ async function onSnooze(
 </template>
 
 <style scoped>
+.reminder-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 /* cc-add-row, but wrapping so date + time + Add stack on narrow phones. */
 .reminder-add-row {
   flex-wrap: wrap;

@@ -174,6 +174,7 @@ async function performDelete() {
       v-if="farmsError"
       title="Couldn't load your farms"
       :message="farmsError"
+      :retry="() => fetchFarms()"
     />
     <template v-else-if="activeFarm">
       <PageHeader title="Categories" />
@@ -224,9 +225,10 @@ async function performDelete() {
         v-if="categoriesError"
         title="Couldn't load categories"
         :message="categoriesError"
+        :retry="() => fetchCategories()"
       />
 
-      <LoadingState v-else-if="loading && categories === null" />
+      <ListSkeleton v-else-if="loading && categories === null" />
 
       <EmptyState
         v-else-if="!categories || categories.length === 0"

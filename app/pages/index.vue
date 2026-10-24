@@ -172,15 +172,17 @@ async function toggleTimer(task: TaskSummary) {
       v-if="farmsError"
       title="Couldn't load your farms"
       :message="farmsError"
+      :retry="() => fetchFarms()"
     />
     <template v-else-if="activeFarm">
       <LoadErrorAlert
         v-if="tasksError"
         title="Couldn't load chores"
         :message="tasksError"
+        :retry="() => fetchTasks()"
       />
 
-      <LoadingState v-else-if="loading && tasks === null" />
+      <ListSkeleton v-else-if="loading && tasks === null" />
 
       <template v-else>
         <div class="cc-stat-row">

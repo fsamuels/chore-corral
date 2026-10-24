@@ -30,6 +30,13 @@ const {
 } = useFarms()
 const { task, taskError, loading, fetchTask } = useTask(taskId)
 const { setStatus, update, remove } = useTasks()
+const { showToast } = useToast()
+
+// Brief confirmation after an inline save succeeds; failures keep their
+// inline error display instead.
+function notifySaved(): void {
+  showToast('Saved', { timeout: 1500 })
+}
 const { categories, fetchCategories } = useCategories()
 const { tags, fetchTags } = useTags()
 const { locations, fetchLocations } = useLocations()
@@ -169,6 +176,7 @@ async function applyStatusChange(
   try {
     await setStatus(task.value.id, status, note, completers)
     await fetchTask()
+    notifySaved()
   } catch (error) {
     statusChangeError.value =
       error instanceof Error ? error.message : 'Failed to update status'
@@ -308,6 +316,7 @@ async function saveTaskField(
       ...patch,
     })
     await fetchTask()
+    notifySaved()
     return true
   } catch (error) {
     fieldSaveError.value =
@@ -572,6 +581,7 @@ async function saveCompleters(completers: TaskCompleter[]): Promise<void> {
       completers,
     })
     await fetchTask()
+    notifySaved()
     completedByMenu.value = false
   } catch (error) {
     fieldSaveError.value =
@@ -645,6 +655,7 @@ async function onAssignedToSave() {
       userIds: assignedToDraft.value,
     })
     await fetchTask()
+    notifySaved()
     assignedToMenu.value = false
   } catch (error) {
     fieldSaveError.value =
@@ -761,7 +772,7 @@ const EVENT_ICON: Record<string, string> = {
   task_created: 'mdi-plus-circle-outline',
   task_status_changed: 'mdi-swap-horizontal',
   task_priority_changed: 'mdi-flag-outline',
-  task_due_date_changed: 'mdi-calendar-clock',
+  task_due_date_changed: 'mdi-calendar-clock-outline',
   task_deleted: 'mdi-delete-outline',
 }
 
@@ -1570,7 +1581,7 @@ const taskLocation = computed(() =>
             </div>
           </template>
           <template v-else-if="taskLocation">
-            <v-chip prepend-icon="mdi-map-marker" class="mb-2">
+            <v-chip prepend-icon="mdi-map-marker-outline" class="mb-2">
               {{ taskLocation.name }}
             </v-chip>
             <div class="detail-map">

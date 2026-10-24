@@ -24,7 +24,7 @@ const showImage = computed(() => props.src !== null && !failed.value)
 <template>
   <v-avatar :size="size ?? 32" class="member-avatar">
     <v-img v-if="showImage" :src="src!" alt="" @error="failed = true" />
-    <v-icon v-else icon="mdi-account-circle" :size="size ?? 32" />
+    <v-icon v-else icon="mdi-account-circle-outline" :size="size ?? 32" />
   </v-avatar>
 </template>
 

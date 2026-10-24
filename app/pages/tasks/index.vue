@@ -15,6 +15,10 @@ import {
   type DueDateFilter,
 } from '~/utils/task-filters'
 import {
+  describeActiveFilters,
+  type FilterChipKey,
+} from '~/utils/task-filter-chips'
+import {
   listFarmMemberProfiles,
   type FarmMemberProfile,
 } from '~/services/members'
@@ -107,6 +111,11 @@ watch(activeFarmId, () => {
   fetchDonePage(true)
   fetchMembers()
 })
+
+// "Try again" on the chores load error: refetch both halves of the list.
+async function retryChores() {
+  await Promise.all([fetchTasks(), fetchDonePage(true)])
+}
 
 const memberLabels = computed(() => memberShortLabels(members.value))
 
@@ -229,6 +238,31 @@ function resetFilters() {
   filters.value = defaultTaskFilters()
 }
 
+// Everything except search and status lives in a collapsible panel so it
+// doesn't push the first chore off a phone screen; active ones surface as
+// removable chips below the controls.
+const filtersOpen = ref(false)
+
+const activeChips = computed(() =>
+  describeActiveFilters({
+    category: selectedCategory.value,
+    tag: selectedTag.value,
+    location: selectedLocation.value,
+    filters: filters.value,
+    categories: categories.value ?? [],
+    locations: locations.value ?? [],
+  }),
+)
+
+function removeFilter(key: FilterChipKey) {
+  if (key === 'category') selectedCategory.value = ALL_CATEGORIES
+  else if (key === 'tag') selectedTag.value = ALL_TAGS
+  else if (key === 'location') selectedLocation.value = ALL_LOCATIONS
+  else if (key === 'priority') filters.value.priority = ALL
+  else if (key === 'dueDate') filters.value.dueDate = ALL
+  else filters.value.overdueOnly = false
+}
+
 const filteredTasks = computed(() => {
   const all = tasks.value ?? []
   const byCategory =
@@ -263,48 +297,21 @@ function locationName(locationId: string | null): string | null {
       v-if="farmsError"
       title="Couldn't load your farms"
       :message="farmsError"
+      :retry="() => fetchFarms()"
     />
     <template v-else-if="activeFarm">
       <PageHeader title="Chores" />
 
-      <v-text-field
-        v-model="filters.search"
-        label="Search by title"
-        prepend-inner-icon="mdi-magnify"
-        density="comfortable"
-        variant="outlined"
-        hide-details
-        clearable
-        class="mb-4 tasks-search"
-      />
-
-      <div class="d-flex flex-wrap ga-4 align-center mb-4">
-        <v-select
-          v-model="selectedCategory"
-          :items="categoryFilterItems"
-          label="Category"
+      <div class="tasks-controls mb-4">
+        <v-text-field
+          v-model="filters.search"
+          label="Search by title"
+          prepend-inner-icon="mdi-magnify"
           density="comfortable"
           variant="outlined"
           hide-details
-          class="tasks-filter__field"
-        />
-        <v-select
-          v-model="selectedTag"
-          :items="tagFilterItems"
-          label="Tag"
-          density="comfortable"
-          variant="outlined"
-          hide-details
-          class="tasks-filter__field"
-        />
-        <v-select
-          v-model="selectedLocation"
-          :items="locationFilterItems"
-          label="Location"
-          density="comfortable"
-          variant="outlined"
-          hide-details
-          class="tasks-filter__field"
+          clearable
+          class="tasks-search"
         />
         <v-select
           v-model="filters.status"
@@ -315,30 +322,91 @@ function locationName(locationId: string | null): string | null {
           hide-details
           class="tasks-filter__field"
         />
-        <v-select
-          v-model="filters.priority"
-          :items="priorityFilterItems"
-          label="Priority"
-          density="comfortable"
-          variant="outlined"
-          hide-details
-          class="tasks-filter__field"
-        />
-        <v-select
-          v-model="filters.dueDate"
-          :items="dueDateFilterItems"
-          label="Due date"
-          density="comfortable"
-          variant="outlined"
-          hide-details
-          class="tasks-filter__field"
-        />
-        <v-checkbox
-          v-model="filters.overdueOnly"
-          label="Overdue only"
-          density="comfortable"
-          hide-details
-        />
+        <button
+          type="button"
+          class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm"
+          aria-controls="tasks-filter-panel"
+          :aria-expanded="filtersOpen"
+          @click="filtersOpen = !filtersOpen"
+        >
+          <v-icon icon="mdi-tune-variant" size="18" />
+          {{
+            activeChips.length ? `Filters · ${activeChips.length}` : 'Filters'
+          }}
+        </button>
+      </div>
+
+      <div v-if="filtersOpen" id="tasks-filter-panel" class="cc-card mb-4">
+        <div class="tasks-panel">
+          <v-select
+            v-model="selectedCategory"
+            :items="categoryFilterItems"
+            label="Category"
+            density="comfortable"
+            variant="outlined"
+            hide-details
+            class="tasks-filter__field"
+          />
+          <v-select
+            v-model="selectedTag"
+            :items="tagFilterItems"
+            label="Tag"
+            density="comfortable"
+            variant="outlined"
+            hide-details
+            class="tasks-filter__field"
+          />
+          <v-select
+            v-model="selectedLocation"
+            :items="locationFilterItems"
+            label="Location"
+            density="comfortable"
+            variant="outlined"
+            hide-details
+            class="tasks-filter__field"
+          />
+          <v-select
+            v-model="filters.priority"
+            :items="priorityFilterItems"
+            label="Priority"
+            density="comfortable"
+            variant="outlined"
+            hide-details
+            class="tasks-filter__field"
+          />
+          <v-select
+            v-model="filters.dueDate"
+            :items="dueDateFilterItems"
+            label="Due date"
+            density="comfortable"
+            variant="outlined"
+            hide-details
+            class="tasks-filter__field"
+          />
+          <v-checkbox
+            v-model="filters.overdueOnly"
+            label="Overdue only"
+            density="comfortable"
+            hide-details
+          />
+        </div>
+      </div>
+
+      <div
+        v-if="activeChips.length || hasActiveFilters"
+        class="tasks-chips mb-4"
+      >
+        <button
+          v-for="chip in activeChips"
+          :key="chip.key"
+          type="button"
+          class="cc-pill cc-pill--surface tasks-chip"
+          :aria-label="`Remove filter: ${chip.label}`"
+          @click="removeFilter(chip.key)"
+        >
+          {{ chip.label }}
+          <v-icon icon="mdi-close" size="14" />
+        </button>
         <button
           v-if="hasActiveFilters"
           type="button"
@@ -353,9 +421,10 @@ function locationName(locationId: string | null): string | null {
         v-if="tasksError"
         title="Couldn't load chores"
         :message="tasksError"
+        :retry="retryChores"
       />
 
-      <LoadingState v-else-if="loading && outstandingTasks === null" />
+      <ListSkeleton v-else-if="loading && outstandingTasks === null" />
 
       <EmptyState
         v-else-if="tasks.length === 0"
@@ -420,25 +489,65 @@ function locationName(locationId: string | null): string | null {
 </template>
 
 <style scoped>
+/* Search grows, status and the Filters button keep their natural width; on
+   phones the search takes a full row and the other two share the next. */
+.tasks-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
 .tasks-search {
+  flex: 1 1 260px;
   max-width: 400px;
 }
 
-/* Filter selects sit at a comfortable width on desktop but stretch to fill
-   the row on phones, so each stays an easy tap target instead of a cramped
-   square. */
 .tasks-filter__field {
-  max-width: 220px;
+  flex: 0 1 220px;
+  min-width: 160px;
+}
+
+.tasks-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+.tasks-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Chips are small visually, but the invisible extension keeps the tap target
+   at roughly 44px tall. */
+.tasks-chip {
+  position: relative;
+  cursor: pointer;
+}
+
+.tasks-chip::after {
+  content: '';
+  position: absolute;
+  inset: -8px -2px;
 }
 
 @media (max-width: 600px) {
   .tasks-search {
+    flex-basis: 100%;
     max-width: 100%;
   }
 
-  .tasks-filter__field {
-    max-width: none;
+  .tasks-controls .tasks-filter__field {
+    flex: 1 1 0;
+  }
+
+  .tasks-panel .tasks-filter__field {
     flex: 1 1 100%;
+    max-width: none;
   }
 }
 </style>
