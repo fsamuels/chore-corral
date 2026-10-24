@@ -146,8 +146,7 @@ async function onPushToggle() {
         </v-list-item>
         <p
           v-if="pushError"
-          class="text-caption text-error px-4 mt-n1 mb-1"
-          style="max-width: 260px"
+          class="text-caption text-error px-4 mt-n1 mb-1 drawer-error"
         >
           {{ pushError }}
         </p>
@@ -186,7 +185,7 @@ async function onPushToggle() {
             />
             <div class="app-header__title-group">
               <div class="cc-eyebrow">Chore Corral</div>
-              <h1 class="app-header__farm">{{ farmName }}</h1>
+              <p class="app-header__farm">{{ farmName }}</p>
             </div>
           </NuxtLink>
         </div>
@@ -194,7 +193,7 @@ async function onPushToggle() {
           <template v-if="!mobile">
             <NuxtLink
               to="/"
-              class="app-header__nav-btn"
+              class="cc-icon-btn app-header__nav-btn"
               aria-label="Home"
               title="Home"
             >
@@ -202,7 +201,7 @@ async function onPushToggle() {
             </NuxtLink>
             <NuxtLink
               to="/progress"
-              class="app-header__nav-btn"
+              class="cc-icon-btn app-header__nav-btn"
               aria-label="Progress"
               title="Progress"
             >
@@ -210,7 +209,7 @@ async function onPushToggle() {
             </NuxtLink>
             <NuxtLink
               to="/map"
-              class="app-header__nav-btn"
+              class="cc-icon-btn app-header__nav-btn"
               aria-label="Map"
               title="Map"
             >
@@ -219,7 +218,7 @@ async function onPushToggle() {
           </template>
           <button
             type="button"
-            class="app-header__nav-btn"
+            class="cc-icon-btn app-header__nav-btn"
             aria-label="Menu"
             title="Menu"
             @click="drawer = !drawer"
@@ -309,20 +308,9 @@ async function onPushToggle() {
   gap: 8px;
 }
 
-/* Circular white-bordered icon buttons (hamburger + desktop nav). */
+/* Header nav buttons are cc-icon-btn with a white ring and link reset. */
 .app-header__nav-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--cc-surface);
-  border: 2px solid #ffffff;
-  box-shadow: var(--cc-shadow);
-  color: var(--cc-ink);
-  cursor: pointer;
-  padding: 0;
+  border: 2px solid var(--cc-accent-contrast);
   text-decoration: none;
 }
 
@@ -346,6 +334,10 @@ async function onPushToggle() {
   letter-spacing: normal;
   font-size: 0.75rem;
   background: transparent;
+}
+
+.drawer-error {
+  max-width: 260px;
 }
 
 .timer-bar-spacer {

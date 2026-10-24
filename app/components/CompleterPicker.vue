@@ -51,8 +51,8 @@ const names = defineModel<string[]>('names', { default: () => [] })
         </v-chip>
       </template>
     </v-select>
-    <div class="text-caption text-medium-emphasis my-2">
-      and/or others (type a name, press enter)
+    <div class="cc-muted completer-hint">
+      And/or others. Type a name and press Enter.
     </div>
     <v-combobox
       v-model="names"
@@ -67,3 +67,10 @@ const names = defineModel<string[]>('names', { default: () => [] })
     />
   </div>
 </template>
+
+<style scoped>
+.completer-hint {
+  margin: 8px 0;
+  font-size: 0.75rem;
+}
+</style>

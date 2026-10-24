@@ -108,11 +108,8 @@ async function onSnooze(
       <v-progress-circular indeterminate size="24" color="primary" />
     </div>
 
-    <p
-      v-else-if="reminders && reminders.length === 0"
-      class="text-body-2 text-medium-emphasis"
-    >
-      No reminders set.
+    <p v-else-if="reminders && reminders.length === 0" class="cc-empty-inline">
+      No reminders yet.
     </p>
 
     <div v-else-if="reminders">
@@ -123,7 +120,7 @@ async function onSnooze(
       >
         <span
           class="text-body-2"
-          :class="{ 'text-medium-emphasis': reminder.sent_at !== null }"
+          :class="{ 'cc-muted': reminder.sent_at !== null }"
         >
           {{ formatReminder(reminder.remind_at) }}
           <span v-if="reminder.sent_at !== null" class="text-caption">
@@ -161,13 +158,13 @@ async function onSnooze(
               size="16"
               width="2"
             />
-            <v-icon v-else icon="mdi-delete-outline" size="18" />
+            <v-icon v-else icon="mdi-close" size="18" />
           </button>
         </div>
       </div>
     </div>
 
-    <div class="reminder-add-row mt-3">
+    <div class="cc-add-row reminder-add-row mt-3">
       <v-text-field
         v-model="newDate"
         type="date"
@@ -200,18 +197,22 @@ async function onSnooze(
       </button>
     </div>
 
-    <p v-if="displayError" class="text-caption text-error mt-1 mb-0">
+    <v-alert
+      v-if="displayError"
+      type="error"
+      variant="tonal"
+      density="compact"
+      class="mt-2"
+    >
       {{ displayError }}
-    </p>
+    </v-alert>
   </div>
 </template>
 
 <style scoped>
+/* cc-add-row, but wrapping so date + time + Add stack on narrow phones. */
 .reminder-add-row {
-  display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
 }
 
 .reminder-add-row > .v-input {
@@ -223,11 +224,9 @@ async function onSnooze(
   justify-content: flex-end;
 }
 
-/* Shrunk below cc-pill-btn's standard 44px touch target — these sit two-up
-   next to the delete button on an already-sent reminder's row, and at full
-   size they'd blow up the row on mobile. */
+/* Compact padding/type, but the full 44px touch target. */
 .reminder-snooze-btn {
-  height: 32px;
+  min-height: 44px;
   padding: 0 12px;
   font-size: 0.8125rem;
 }

@@ -187,29 +187,15 @@ async function submit() {
 </script>
 
 <template>
-  <v-container style="max-width: 640px">
-    <v-alert
+  <div class="cc-page cc-page--narrow">
+    <LoadErrorAlert
       v-if="farmsError"
-      type="error"
-      variant="tonal"
       title="Couldn't load your farms"
-      class="mb-4"
-    >
-      {{ farmsError }} — try reloading; if this persists, the database may not
-      be reachable.
-    </v-alert>
+      :message="farmsError"
+    />
 
     <template v-else-if="activeFarm">
-      <v-btn
-        variant="text"
-        prepend-icon="mdi-arrow-left"
-        to="/tasks"
-        class="mb-2"
-      >
-        Back to chores
-      </v-btn>
-
-      <h1 class="text-h4 mb-4">New chore</h1>
+      <PageHeader title="New chore" :back="{ to: '/tasks', label: 'Chores' }" />
 
       <v-form class="cc-card" @submit.prevent="submit">
         <v-text-field
@@ -283,14 +269,15 @@ async function submit() {
           :items="memberItems"
           item-title="title"
           item-value="value"
-          label="Assigned to (optional — anyone can do it)"
+          label="Assigned to"
+          hint="Leave empty — anyone can do it."
+          persistent-hint
           multiple
           chips
           closable-chips
           :disabled="creating"
           density="comfortable"
           variant="outlined"
-          hide-details
           class="mb-4"
         >
           <template #item="{ props: itemProps, item }">
@@ -346,19 +333,46 @@ async function submit() {
           {{ createError }}
         </v-alert>
 
-        <div class="d-flex justify-end ga-2 mt-6">
-          <v-btn size="large" :disabled="creating" to="/tasks">Cancel</v-btn>
-          <v-btn
+        <div class="new-chore-actions">
+          <button
             type="submit"
-            color="primary"
-            size="large"
-            :loading="creating"
-            :disabled="!title.trim()"
+            class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--lg cc-pill-btn--full"
+            :disabled="creating || !title.trim()"
           >
-            Create Chore
-          </v-btn>
+            <v-progress-circular
+              v-if="creating"
+              indeterminate
+              size="18"
+              width="2"
+            />
+            Create chore
+          </button>
+          <p v-if="!title.trim()" class="cc-muted new-chore-hint">
+            Add a title to create the chore.
+          </p>
+          <NuxtLink
+            class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--lg cc-pill-btn--full"
+            to="/tasks"
+          >
+            Cancel
+          </NuxtLink>
         </div>
       </v-form>
     </template>
-  </v-container>
+  </div>
 </template>
+
+<style scoped>
+.new-chore-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.new-chore-hint {
+  margin: 0;
+  text-align: center;
+  font-size: 0.875rem;
+}
+</style>

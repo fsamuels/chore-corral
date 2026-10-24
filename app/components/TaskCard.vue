@@ -143,7 +143,7 @@ function onToggleTimer() {
 <template>
   <NuxtLink
     :to="`/tasks/${task.id}`"
-    class="task-card"
+    class="cc-card cc-card--row task-card"
     :class="[
       `task-card--${task.priority}`,
       { 'task-card--has-thumbnail': showThumbnail },
@@ -201,7 +201,7 @@ function onToggleTimer() {
       <div class="task-card__meta">
         <span
           v-if="showPill"
-          class="cc-pill task-card__pill"
+          class="cc-pill cc-pill--sm"
           :class="isDone ? 'cc-pill--done' : `cc-pill--${task.priority}`"
         >
           <v-icon v-if="pillIcon" :icon="pillIcon" size="14" />
@@ -216,7 +216,7 @@ function onToggleTimer() {
         </span>
         <span
           v-if="locationName"
-          class="task-card__location"
+          class="cc-meta task-card__truncate"
           :title="locationName"
         >
           <v-icon
@@ -231,12 +231,13 @@ function onToggleTimer() {
           icon="mdi-map-marker-outline"
           size="16"
           class="task-card__meta-icon"
+          role="img"
           aria-label="Has location"
           title="Has location"
         />
         <span
           v-if="assigneeNames && assigneeNames.length > 0"
-          class="task-card__assignees"
+          class="cc-meta task-card__truncate"
           :title="assigneeNames.join(', ')"
         >
           <v-icon
@@ -248,7 +249,7 @@ function onToggleTimer() {
         </span>
         <span
           v-if="showPhotoIcon"
-          class="task-card__meta-photos"
+          class="cc-meta"
           :aria-label="photoCountLabel"
           :title="photoCountLabel"
         >
@@ -260,7 +261,7 @@ function onToggleTimer() {
           <span v-if="task.photo_count > 1">{{ task.photo_count }}</span>
         </span>
         <ClientOnly>
-          <span class="task-card__age">{{ ageOrTurnaroundText }}</span>
+          <span class="cc-meta">{{ ageOrTurnaroundText }}</span>
         </ClientOnly>
       </div>
     </div>
@@ -282,11 +283,6 @@ function onToggleTimer() {
   display: flex;
   align-items: center;
   gap: 14px;
-  background: var(--cc-surface);
-  border: 1px solid var(--cc-border);
-  border-radius: var(--cc-radius);
-  box-shadow: var(--cc-shadow);
-  padding: 14px 16px;
   text-decoration: none;
   color: var(--cc-ink);
 }
@@ -403,9 +399,12 @@ function onToggleTimer() {
   display: none;
 }
 
-.task-card__pill {
-  font-size: 0.75rem;
-  padding: 2px 10px;
+/* Location / assignee text truncates instead of wrapping the meta row. */
+.task-card__truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .task-card__due--overdue {
@@ -414,43 +413,6 @@ function onToggleTimer() {
 
 .task-card__meta-icon {
   color: var(--cc-ink-muted);
-}
-
-.task-card__meta-photos {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  color: var(--cc-ink-muted);
-  font-size: 0.75rem;
-}
-
-.task-card__age {
-  color: var(--cc-ink-muted);
-  font-size: 0.75rem;
-}
-
-.task-card__assignees {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  color: var(--cc-ink-muted);
-  font-size: 0.75rem;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.task-card__location {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  color: var(--cc-ink-muted);
-  font-size: 0.75rem;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .task-card--has-thumbnail {

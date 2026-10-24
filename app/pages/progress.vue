@@ -310,21 +310,15 @@ const weekTrackedText = computed(() =>
 </script>
 
 <template>
-  <v-container class="progress">
-    <v-alert
+  <div class="cc-page">
+    <LoadErrorAlert
       v-if="farmsError"
-      type="error"
-      variant="tonal"
       title="Couldn't load your farms"
-      class="mb-4"
-    >
-      {{ farmsError }} — try reloading; if this persists, the database may not
-      be reachable.
-    </v-alert>
+      :message="farmsError"
+    />
 
     <template v-else-if="activeFarm">
-      <h1 class="text-h4 mb-1">Progress</h1>
-      <p class="cc-eyebrow mb-6">{{ activeFarm.name }}</p>
+      <PageHeader title="Progress" />
 
       <div class="progress-week">
         <button
@@ -336,7 +330,9 @@ const weekTrackedText = computed(() =>
         >
           <v-icon icon="mdi-chevron-left" size="22" />
         </button>
-        <div class="progress-week__label">{{ weekHeaderText }}</div>
+        <div class="progress-week__label" aria-live="polite">
+          {{ weekHeaderText }}
+        </div>
         <button
           type="button"
           class="cc-icon-btn"
@@ -349,26 +345,16 @@ const weekTrackedText = computed(() =>
         </button>
       </div>
 
-      <v-alert
+      <LoadErrorAlert
         v-if="completedTasksError"
-        type="error"
-        variant="tonal"
         title="Couldn't load progress"
-        class="mb-4"
-      >
-        {{ completedTasksError }} — try reloading; if this persists, the
-        database may not be reachable.
-      </v-alert>
+        :message="completedTasksError"
+      />
 
-      <div
-        v-else-if="loading && completedTasks === null"
-        class="text-center py-8"
-      >
-        <v-progress-circular indeterminate color="primary" />
-      </div>
+      <LoadingState v-else-if="loading && completedTasks === null" />
 
       <template v-else>
-        <div class="progress-stats">
+        <div class="cc-stat-row">
           <span class="cc-pill cc-pill--surface">
             {{ weekTasks.length }} completed
           </span>
@@ -377,15 +363,9 @@ const weekTrackedText = computed(() =>
           </span>
         </div>
 
-        <div
-          v-if="dayGroups.length === 0"
-          class="text-center py-12 text-medium-emphasis"
-        >
-          <v-icon icon="mdi-progress-check" size="64" class="mb-4" />
-          <p class="text-body-1">
-            No activity {{ isCurrentWeek ? 'this week' : 'that week' }}.
-          </p>
-        </div>
+        <EmptyState v-if="dayGroups.length === 0" icon="mdi-progress-check">
+          No activity {{ isCurrentWeek ? 'this week' : 'that week' }}.
+        </EmptyState>
 
         <div v-else class="progress-days">
           <section
@@ -393,7 +373,7 @@ const weekTrackedText = computed(() =>
             :key="group.day"
             class="progress-day"
           >
-            <div class="progress-day__head">
+            <div class="cc-section-head progress-day__head">
               <h2 class="cc-section-title progress-day__heading">
                 {{ group.heading }}
               </h2>
@@ -407,12 +387,12 @@ const weekTrackedText = computed(() =>
                 </span>
               </div>
             </div>
-            <div class="progress-day__rows">
+            <div class="cc-card-list">
               <NuxtLink
                 v-for="row in group.rows"
                 :key="row.id"
                 :to="`/tasks/${row.id}`"
-                class="cc-card progress-row"
+                class="cc-card cc-card--row progress-row"
                 :class="{ 'progress-row--worked': row.kind !== 'completed' }"
               >
                 <div class="progress-row__time">{{ row.time }}</div>
@@ -420,10 +400,10 @@ const weekTrackedText = computed(() =>
                 <div class="progress-row__meta">
                   <span
                     v-if="row.statusLabel"
-                    class="cc-pill progress-row__status"
+                    class="cc-pill cc-pill--sm"
                     :class="
                       row.kind === 'in-progress'
-                        ? 'progress-row__status--active'
+                        ? 'cc-pill--accent'
                         : 'cc-pill--muted'
                     "
                   >
@@ -438,7 +418,7 @@ const weekTrackedText = computed(() =>
                   </span>
                   <span
                     v-if="row.category"
-                    class="cc-pill cc-pill--muted progress-row__category"
+                    class="cc-pill cc-pill--muted cc-pill--sm"
                   >
                     <span v-if="row.category.emoji" aria-hidden="true">
                       {{ row.category.emoji }}
@@ -455,14 +435,10 @@ const weekTrackedText = computed(() =>
         </div>
       </template>
     </template>
-  </v-container>
+  </div>
 </template>
 
 <style scoped>
-.progress {
-  max-width: 900px;
-}
-
 .progress-week {
   display: flex;
   align-items: center;
@@ -479,13 +455,6 @@ const weekTrackedText = computed(() =>
   color: var(--cc-ink);
 }
 
-.progress-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 24px;
-}
-
 .progress-days {
   display: flex;
   flex-direction: column;
@@ -493,9 +462,6 @@ const weekTrackedText = computed(() =>
 }
 
 .progress-day__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px 12px;
   margin-bottom: 12px;
@@ -511,33 +477,16 @@ const weekTrackedText = computed(() =>
   gap: 6px;
 }
 
-.progress-day__rows {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
 /* Worked-on-but-not-completed-today rows: a muted accent rail sets them
    apart from the day's completed rows without shouting. */
 .progress-row--worked {
   border-inline-start: 3px solid var(--cc-border);
 }
 
-.progress-row__status {
-  font-size: 0.75rem;
-  padding: 2px 10px;
-}
-
-.progress-row__status--active {
-  background: var(--cc-accent);
-  color: var(--cc-accent-contrast);
-}
-
 .progress-row {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 12px 16px;
   text-decoration: none;
   color: var(--cc-ink);
 }
@@ -563,11 +512,6 @@ const weekTrackedText = computed(() =>
   margin-top: 4px;
   font-size: 0.8125rem;
   color: var(--cc-ink-muted);
-}
-
-.progress-row__category {
-  font-size: 0.75rem;
-  padding: 2px 10px;
 }
 
 .progress-row__tracked {

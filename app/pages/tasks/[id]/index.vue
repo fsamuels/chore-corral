@@ -801,7 +801,29 @@ function statusChangeNote(entry: ActivityEntry): string | null {
 
 function formatTimestamp(iso: string): string {
   const date = new Date(iso)
-  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString()
+  return Number.isNaN(date.getTime())
+    ? iso
+    : date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+}
+
+// "Sat, Oct 31" for the due-date pill — the stored value is a date-only
+// string, so it's parsed as a local calendar date (not UTC midnight, which
+// would show the previous day in western timezones). The year is added only
+// when it isn't the current one.
+function formatDueDateLabel(dueDate: string): string {
+  const date = parseLocalDateString(dueDate)
+  if (Number.isNaN(date.getTime())) return dueDate
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    ...(date.getFullYear() !== new Date().getFullYear() && { year: 'numeric' }),
+  })
 }
 
 // The task's defined location, resolved for display — null when the task
@@ -812,45 +834,34 @@ const taskLocation = computed(() =>
 </script>
 
 <template>
-  <v-container style="max-width: 720px">
-    <v-alert
+  <div class="cc-page cc-page--narrow">
+    <LoadErrorAlert
       v-if="farmsError"
-      type="error"
-      variant="tonal"
       title="Couldn't load your farms"
-      class="mb-4"
-    >
-      {{ farmsError }} — try reloading; if this persists, the database may not
-      be reachable.
-    </v-alert>
+      :message="farmsError"
+    />
 
     <template v-else-if="activeFarm">
-      <v-alert
+      <LoadErrorAlert
         v-if="taskError"
-        type="error"
-        variant="tonal"
         title="Couldn't load chore"
-        class="mb-4"
-      >
-        {{ taskError }} — try reloading; if this persists, the database may not
-        be reachable.
-      </v-alert>
+        :message="taskError"
+      />
 
-      <div v-else-if="loading && task === undefined" class="text-center py-8">
-        <v-progress-circular indeterminate color="primary" />
-      </div>
+      <LoadingState v-else-if="loading && task === undefined" />
 
-      <div
-        v-else-if="task === null"
-        class="text-center py-12 text-medium-emphasis"
-      >
-        <v-icon icon="mdi-clipboard-alert-outline" size="64" class="mb-4" />
-        <p class="text-body-1 mb-4">
-          Chore not found. It may have been deleted, or the link may be out of
-          date.
-        </p>
-        <v-btn color="primary" to="/tasks">Back to chores</v-btn>
-      </div>
+      <EmptyState v-else-if="task === null" icon="mdi-clipboard-alert-outline">
+        Chore not found. It may have been deleted, or the link may be out of
+        date.
+        <template #action>
+          <NuxtLink
+            class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--sm"
+            to="/tasks"
+          >
+            Back to chores
+          </NuxtLink>
+        </template>
+      </EmptyState>
 
       <template v-else-if="task">
         <v-snackbar
@@ -875,6 +886,14 @@ const taskLocation = computed(() =>
           schedule — add them again from the Reminders section below.
         </v-snackbar>
 
+        <NuxtLink
+          class="cc-pill-btn cc-pill-btn--surface cc-pill-btn--sm detail-back"
+          to="/tasks"
+        >
+          <v-icon icon="mdi-arrow-left" size="18" />
+          Chores
+        </NuxtLink>
+
         <div class="d-flex align-start justify-space-between mb-4 ga-2">
           <v-text-field
             v-if="editingTitle"
@@ -883,20 +902,14 @@ const taskLocation = computed(() =>
             density="comfortable"
             variant="outlined"
             hide-details
-            class="text-h4 flex-grow-1"
+            class="detail-title-field flex-grow-1"
             :disabled="fieldSaving === 'title'"
             @blur="onTitleBlur"
             @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
             @keydown.esc.stop="onTitleCancel"
           />
           <template v-else>
-            <h1
-              class="text-h4 detail-title"
-              :class="{
-                'text-medium-emphasis text-decoration-line-through':
-                  task.status === 'done',
-              }"
-            >
+            <h1 class="cc-page-title detail-title">
               {{ task.title }}
             </h1>
             <button
@@ -917,7 +930,7 @@ const taskLocation = computed(() =>
               <button
                 type="button"
                 v-bind="activatorProps"
-                class="cc-pill cc-pill--pick cc-pill-btn--sm"
+                class="cc-pill-btn cc-pill-btn--sm"
                 :class="`cc-pill--${task.priority}`"
                 :disabled="fieldSaving !== null"
               >
@@ -945,7 +958,7 @@ const taskLocation = computed(() =>
 
           <span
             v-if="isTaskOverdue(task)"
-            class="cc-pill cc-pill--error cc-pill-btn--sm"
+            class="cc-pill cc-pill--error detail-overdue"
           >
             <v-icon :icon="OVERDUE_ICON" size="14" />
             Overdue
@@ -959,9 +972,8 @@ const taskLocation = computed(() =>
                 class="cc-pill-btn cc-pill-btn--surface cc-pill-btn--sm"
                 :disabled="fieldSaving !== null"
                 :class="{
-                  'text-medium-emphasis font-italic': categoryDisplay(
-                    task.category_id,
-                  ).deleted,
+                  'cc-muted detail-italic': categoryDisplay(task.category_id)
+                    .deleted,
                 }"
               >
                 {{ categoryDisplay(task.category_id).emoji }}
@@ -992,12 +1004,12 @@ const taskLocation = computed(() =>
                 "
                 :disabled="fieldSaving !== null"
               >
-                <v-icon
-                  v-if="!task.due_date"
-                  icon="mdi-calendar-plus"
-                  size="16"
-                />
-                {{ task.due_date ? `Due ${task.due_date}` : 'Add due date' }}
+                <v-icon v-if="!task.due_date" icon="mdi-plus" size="18" />
+                {{
+                  task.due_date
+                    ? `Due ${formatDueDateLabel(task.due_date)}`
+                    : 'Add due date'
+                }}
                 <v-icon v-if="task.due_date" icon="mdi-menu-down" size="16" />
               </button>
             </template>
@@ -1008,17 +1020,22 @@ const taskLocation = computed(() =>
                 show-adjacent-months
                 @update:model-value="onDueDatePick"
               />
-              <v-card-actions v-if="task.due_date">
-                <v-spacer />
-                <v-btn
-                  color="error"
-                  variant="text"
-                  :loading="fieldSaving === 'dueDate'"
+              <div v-if="task.due_date" class="cc-actions detail-menu-actions">
+                <button
+                  type="button"
+                  class="cc-pill-btn cc-pill-btn--danger cc-pill-btn--sm"
+                  :disabled="fieldSaving === 'dueDate'"
                   @click="onDueDateClear"
                 >
+                  <v-progress-circular
+                    v-if="fieldSaving === 'dueDate'"
+                    indeterminate
+                    size="18"
+                    width="2"
+                  />
                   Clear due date
-                </v-btn>
-              </v-card-actions>
+                </button>
+              </div>
             </v-card>
           </v-menu>
 
@@ -1037,13 +1054,13 @@ const taskLocation = computed(() =>
               >
                 <v-icon
                   v-if="task.estimated_minutes === null"
-                  icon="mdi-timer-outline"
-                  size="16"
+                  icon="mdi-plus"
+                  size="18"
                 />
                 {{
                   task.estimated_minutes !== null
                     ? `Est. ${formatEstimatedMinutes(task.estimated_minutes)}`
-                    : '+ Estimate'
+                    : 'Add estimate'
                 }}
                 <v-icon
                   v-if="task.estimated_minutes !== null"
@@ -1067,17 +1084,29 @@ const taskLocation = computed(() =>
                   @keydown.enter="onEstimateSave"
                 />
               </v-card-text>
-              <v-card-actions>
-                <v-spacer />
-                <v-btn @click="estimateMenu = false">Cancel</v-btn>
-                <v-btn
-                  color="primary"
-                  :loading="fieldSaving === 'estimate'"
+              <div class="cc-actions detail-menu-actions">
+                <button
+                  type="button"
+                  class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm"
+                  @click="estimateMenu = false"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--sm"
+                  :disabled="fieldSaving === 'estimate'"
                   @click="onEstimateSave"
                 >
+                  <v-progress-circular
+                    v-if="fieldSaving === 'estimate'"
+                    indeterminate
+                    size="18"
+                    width="2"
+                  />
                   Save
-                </v-btn>
-              </v-card-actions>
+                </button>
+              </div>
             </v-card>
           </v-menu>
         </div>
@@ -1093,7 +1122,7 @@ const taskLocation = computed(() =>
         </v-alert>
 
         <ClientOnly>
-          <div class="text-body-2 text-medium-emphasis mb-6">
+          <div class="cc-muted detail-age mb-6">
             {{
               task.status === 'done'
                 ? formatDaysToComplete(
@@ -1157,13 +1186,13 @@ const taskLocation = computed(() =>
               >
                 <v-icon
                   v-if="assignedToLabel === null"
-                  icon="mdi-account-plus-outline"
-                  size="16"
+                  icon="mdi-plus"
+                  size="18"
                 />
                 {{
                   assignedToLabel !== null
                     ? `Assigned to ${assignedToLabel}`
-                    : '+ Assign'
+                    : 'Assign'
                 }}
                 <v-icon
                   v-if="assignedToLabel !== null"
@@ -1211,29 +1240,41 @@ const taskLocation = computed(() =>
                     </v-chip>
                   </template>
                 </v-select>
-                <div class="text-caption text-medium-emphasis mt-2">
+                <div class="cc-muted detail-hint">
                   Leave empty — anyone can do it.
                 </div>
               </v-card-text>
-              <v-card-actions>
-                <v-btn
-                  color="error"
-                  variant="text"
-                  :loading="fieldSaving === 'assignedTo'"
+              <div class="cc-actions detail-menu-actions">
+                <button
+                  type="button"
+                  class="cc-pill-btn cc-pill-btn--danger cc-pill-btn--sm detail-menu-actions__start"
+                  :disabled="fieldSaving === 'assignedTo'"
                   @click="onAssignedToClear"
                 >
                   Clear
-                </v-btn>
-                <v-spacer />
-                <v-btn @click="assignedToMenu = false">Cancel</v-btn>
-                <v-btn
-                  color="primary"
-                  :loading="fieldSaving === 'assignedTo'"
+                </button>
+                <button
+                  type="button"
+                  class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm"
+                  @click="assignedToMenu = false"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--sm"
+                  :disabled="fieldSaving === 'assignedTo'"
                   @click="onAssignedToSave"
                 >
+                  <v-progress-circular
+                    v-if="fieldSaving === 'assignedTo'"
+                    indeterminate
+                    size="18"
+                    width="2"
+                  />
                   Save
-                </v-btn>
-              </v-card-actions>
+                </button>
+              </div>
             </v-card>
           </v-menu>
         </div>
@@ -1255,13 +1296,13 @@ const taskLocation = computed(() =>
               >
                 <v-icon
                   v-if="completedByLabel === null"
-                  icon="mdi-account-plus-outline"
-                  size="16"
+                  icon="mdi-plus"
+                  size="18"
                 />
                 {{
                   completedByLabel !== null
                     ? `Completed by ${completedByLabel}`
-                    : '+ Completed by'
+                    : 'Add who completed it'
                 }}
                 <v-icon
                   v-if="completedByLabel !== null"
@@ -1278,25 +1319,37 @@ const taskLocation = computed(() =>
                   :member-items="memberItems"
                 />
               </v-card-text>
-              <v-card-actions>
-                <v-btn
-                  color="error"
-                  variant="text"
-                  :loading="fieldSaving === 'completedBy'"
+              <div class="cc-actions detail-menu-actions">
+                <button
+                  type="button"
+                  class="cc-pill-btn cc-pill-btn--danger cc-pill-btn--sm detail-menu-actions__start"
+                  :disabled="fieldSaving === 'completedBy'"
                   @click="onCompletedByClear"
                 >
                   Clear
-                </v-btn>
-                <v-spacer />
-                <v-btn @click="completedByMenu = false">Cancel</v-btn>
-                <v-btn
-                  color="primary"
-                  :loading="fieldSaving === 'completedBy'"
+                </button>
+                <button
+                  type="button"
+                  class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm"
+                  @click="completedByMenu = false"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--sm"
+                  :disabled="fieldSaving === 'completedBy'"
                   @click="onCompletedBySave"
                 >
+                  <v-progress-circular
+                    v-if="fieldSaving === 'completedBy'"
+                    indeterminate
+                    size="18"
+                    width="2"
+                  />
                   Save
-                </v-btn>
-              </v-card-actions>
+                </button>
+              </div>
             </v-card>
           </v-menu>
         </div>
@@ -1316,13 +1369,21 @@ const taskLocation = computed(() =>
                 "
                 :disabled="fieldSaving !== null"
               >
-                <v-icon icon="mdi-calendar-clock" size="16" />
+                <v-icon
+                  v-if="completedAtLabel === null"
+                  icon="mdi-plus"
+                  size="18"
+                />
                 {{
                   completedAtLabel !== null
                     ? `Completed ${completedAtLabel}`
-                    : 'Set completion date'
+                    : 'Add completion date'
                 }}
-                <v-icon icon="mdi-menu-down" size="16" />
+                <v-icon
+                  v-if="completedAtLabel !== null"
+                  icon="mdi-menu-down"
+                  size="16"
+                />
               </button>
             </template>
             <v-card min-width="280">
@@ -1342,22 +1403,34 @@ const taskLocation = computed(() =>
                   hide-details
                 />
               </v-card-text>
-              <v-card-actions>
-                <v-spacer />
-                <v-btn @click="completedAtMenu = false">Cancel</v-btn>
-                <v-btn
-                  color="primary"
-                  :loading="fieldSaving === 'completedAt'"
+              <div class="cc-actions detail-menu-actions">
+                <button
+                  type="button"
+                  class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm"
+                  @click="completedAtMenu = false"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--sm"
+                  :disabled="fieldSaving === 'completedAt'"
                   @click="onCompletedAtSave"
                 >
+                  <v-progress-circular
+                    v-if="fieldSaving === 'completedAt'"
+                    indeterminate
+                    size="18"
+                    width="2"
+                  />
                   Save
-                </v-btn>
-              </v-card-actions>
+                </button>
+              </div>
             </v-card>
           </v-menu>
         </div>
 
-        <div class="cc-card mb-6">
+        <div class="cc-card detail-section mb-6">
           <TaskTimer
             :task-id="task.id"
             :estimated-minutes="task.estimated_minutes"
@@ -1366,7 +1439,7 @@ const taskLocation = computed(() =>
           />
         </div>
 
-        <div class="cc-card mb-6">
+        <div class="cc-card detail-section mb-6">
           <p class="cc-eyebrow mb-2">Tags</p>
           <template v-if="editingTags">
             <v-combobox
@@ -1382,57 +1455,55 @@ const taskLocation = computed(() =>
               :disabled="fieldSaving === 'tags'"
               @keydown.esc.stop="onTagsCancel"
             />
-            <div class="d-flex justify-end ga-2 mt-2">
-              <v-btn
-                size="small"
+            <div class="cc-actions">
+              <button
+                type="button"
+                class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm"
                 :disabled="fieldSaving === 'tags'"
                 @click="onTagsCancel"
               >
                 Cancel
-              </v-btn>
-              <v-btn
-                size="small"
-                color="primary"
-                :loading="fieldSaving === 'tags'"
+              </button>
+              <button
+                type="button"
+                class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--sm"
+                :disabled="fieldSaving === 'tags'"
                 @click="onTagsSave"
               >
+                <v-progress-circular
+                  v-if="fieldSaving === 'tags'"
+                  indeterminate
+                  size="18"
+                  width="2"
+                />
                 Save
-              </v-btn>
+              </button>
             </div>
           </template>
-          <div
-            v-else
-            role="button"
-            tabindex="0"
-            style="cursor: pointer"
+          <button
+            v-else-if="task.tags.length > 0"
+            type="button"
+            class="detail-tags-btn cc-focusable"
+            aria-label="Edit tags"
             @click="startEditingTags"
-            @keydown.enter="startEditingTags"
           >
-            <div
-              v-if="task.tags.length > 0"
-              class="d-flex flex-wrap align-center ga-1"
-            >
-              <v-chip v-for="tag in task.tags" :key="tag.id" size="small">
-                {{ tag.name }}
-              </v-chip>
-              <v-icon
-                icon="mdi-pencil-outline"
-                size="small"
-                class="text-medium-emphasis"
-              />
-            </div>
-            <button
-              v-else
-              type="button"
-              class="cc-pill-btn cc-pill-btn--ghost cc-pill-btn--sm"
-              @click="startEditingTags"
-            >
-              + Add tags
-            </button>
-          </div>
+            <v-chip v-for="tag in task.tags" :key="tag.id" size="small">
+              {{ tag.name }}
+            </v-chip>
+            <v-icon icon="mdi-pencil-outline" size="small" class="cc-muted" />
+          </button>
+          <button
+            v-else
+            type="button"
+            class="cc-pill-btn cc-pill-btn--ghost cc-pill-btn--sm"
+            @click="startEditingTags"
+          >
+            <v-icon icon="mdi-plus" size="18" />
+            Add tags
+          </button>
         </div>
 
-        <div class="cc-card mb-6">
+        <div class="cc-card detail-section mb-6">
           <p class="cc-eyebrow mb-2">Notes</p>
           <textarea
             v-if="editingNotes"
@@ -1444,21 +1515,27 @@ const taskLocation = computed(() =>
             @blur="onNotesBlur"
             @keydown.esc.stop="onNotesCancel"
           />
-          <p
-            v-else
-            class="text-body-1"
-            :class="{ 'text-medium-emphasis font-italic': !task.notes }"
-            style="white-space: pre-wrap; cursor: pointer"
-            role="button"
-            tabindex="0"
+          <button
+            v-else-if="task.notes"
+            type="button"
+            class="detail-notes-btn cc-focusable"
+            aria-label="Edit notes"
             @click="startEditingNotes"
-            @keydown.enter="startEditingNotes"
           >
-            {{ task.notes || 'Add notes' }}
-          </p>
+            {{ task.notes }}
+          </button>
+          <button
+            v-else
+            type="button"
+            class="cc-pill-btn cc-pill-btn--ghost cc-pill-btn--sm"
+            @click="startEditingNotes"
+          >
+            <v-icon icon="mdi-plus" size="18" />
+            Add notes
+          </button>
         </div>
 
-        <div class="cc-card mb-6">
+        <div class="cc-card detail-section mb-6">
           <p class="cc-eyebrow mb-2">Location</p>
           <template v-if="editingLocation">
             <TaskLocationInput
@@ -1467,22 +1544,29 @@ const taskLocation = computed(() =>
               :fallback-center="farmCenter"
               :disabled="fieldSaving === 'location'"
             />
-            <div class="d-flex justify-end ga-2 mt-2">
-              <v-btn
-                size="small"
+            <div class="cc-actions">
+              <button
+                type="button"
+                class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm"
                 :disabled="fieldSaving === 'location'"
                 @click="onLocationCancel"
               >
                 Cancel
-              </v-btn>
-              <v-btn
-                size="small"
-                color="primary"
-                :loading="fieldSaving === 'location'"
+              </button>
+              <button
+                type="button"
+                class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--sm"
+                :disabled="fieldSaving === 'location'"
                 @click="onLocationSave"
               >
+                <v-progress-circular
+                  v-if="fieldSaving === 'location'"
+                  indeterminate
+                  size="18"
+                  width="2"
+                />
                 Save
-              </v-btn>
+              </button>
             </div>
           </template>
           <template v-else-if="taskLocation">
@@ -1521,7 +1605,7 @@ const taskLocation = computed(() =>
             <!-- location_id set but unresolved: the referenced location was
                  soft-deleted after this (non-active) task was assigned to
                  it, so useLocations() no longer returns it. -->
-            <p class="text-body-1 text-medium-emphasis font-italic mb-2">
+            <p class="cc-muted detail-italic mb-2">
               Location no longer available
             </p>
             <button
@@ -1539,28 +1623,29 @@ const taskLocation = computed(() =>
             class="cc-pill-btn cc-pill-btn--ghost cc-pill-btn--sm"
             @click="startEditingLocation"
           >
-            + Add location
+            <v-icon icon="mdi-plus" size="18" />
+            Add location
           </button>
         </div>
 
-        <div class="cc-card mb-6">
+        <div class="cc-card detail-section mb-6">
           <TaskPhotos :task-id="task.id" />
         </div>
 
-        <div class="cc-card mb-6">
+        <div class="cc-card detail-section mb-6">
           <TaskShoppingList :task-id="task.id" />
         </div>
 
-        <div class="cc-card mb-6">
+        <div class="cc-card detail-section mb-6">
           <TaskTools :task-id="task.id" />
         </div>
 
-        <div class="cc-card mb-6">
+        <div class="cc-card detail-section mb-6">
           <TaskReminders :task-id="task.id" />
         </div>
 
-        <div class="cc-card mb-6">
-          <h2 class="cc-section-title mb-3">Activity</h2>
+        <div class="cc-card detail-section mb-6">
+          <p class="cc-eyebrow mb-3">Activity</p>
           <v-alert
             v-if="activityError"
             type="error"
@@ -1572,9 +1657,9 @@ const taskLocation = computed(() =>
           </v-alert>
           <p
             v-else-if="activity && activity.length === 0"
-            class="text-body-2 text-medium-emphasis"
+            class="cc-empty-inline"
           >
-            No activity recorded yet.
+            No activity yet.
           </p>
           <v-timeline v-else-if="activity" density="compact" side="end">
             <v-timeline-item
@@ -1584,14 +1669,10 @@ const taskLocation = computed(() =>
               size="small"
             >
               <div class="text-body-2">{{ eventLabel(entry) }}</div>
-              <div
-                v-if="statusChangeNote(entry)"
-                class="text-body-2 text-medium-emphasis"
-                style="font-style: italic"
-              >
+              <div v-if="statusChangeNote(entry)" class="cc-muted detail-note">
                 "{{ statusChangeNote(entry) }}"
               </div>
-              <div class="text-caption text-medium-emphasis">
+              <div class="cc-muted detail-stamp">
                 {{ formatTimestamp(entry.created_at) }}
                 <template v-if="entry.actor_label">
                   · by {{ entry.actor_label }}
@@ -1613,41 +1694,16 @@ const taskLocation = computed(() =>
           </button>
         </div>
 
-        <v-dialog v-model="confirmingDelete" max-width="420" persistent>
-          <v-card>
-            <v-card-title>Delete chore?</v-card-title>
-            <v-card-text>
-              Delete "{{ task.title }}"? This can't be undone.
-              <v-alert
-                v-if="deleteError"
-                type="error"
-                variant="tonal"
-                density="compact"
-                class="mt-3"
-              >
-                {{ deleteError }}
-              </v-alert>
-            </v-card-text>
-            <v-card-actions>
-              <v-spacer />
-              <v-btn
-                size="large"
-                :disabled="deleting"
-                @click="confirmingDelete = false"
-              >
-                Cancel
-              </v-btn>
-              <v-btn
-                color="error"
-                size="large"
-                :loading="deleting"
-                @click="performDelete"
-              >
-                Delete
-              </v-btn>
-            </v-card-actions>
-          </v-card>
-        </v-dialog>
+        <ConfirmDialog
+          v-model="confirmingDelete"
+          title="Delete chore?"
+          confirm-label="Delete"
+          :busy="deleting"
+          :error="deleteError"
+          @confirm="performDelete"
+        >
+          “{{ task.title }}” will be permanently deleted.
+        </ConfirmDialog>
 
         <v-dialog
           v-model="statusNoteDialog"
@@ -1655,7 +1711,7 @@ const taskLocation = computed(() =>
           location="top"
           persistent
         >
-          <v-card class="status-dialog-card">
+          <v-card class="cc-dialog-card status-dialog-card">
             <v-card-title>{{ statusNoteDialogTitle }}</v-card-title>
             <v-card-text>
               {{ statusNotePrompt }}
@@ -1689,10 +1745,10 @@ const taskLocation = computed(() =>
                 {{ statusChangeError }}
               </v-alert>
             </v-card-text>
-            <v-card-actions class="status-dialog-actions">
+            <div class="cc-dialog-actions">
               <button
                 type="button"
-                class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--lg status-dialog-btn"
+                class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--lg"
                 :disabled="statusChanging"
                 @click="statusNoteDialog = false"
               >
@@ -1701,7 +1757,7 @@ const taskLocation = computed(() =>
               <button
                 type="button"
                 :class="[
-                  'cc-pill-btn cc-pill-btn--lg status-dialog-btn',
+                  'cc-pill-btn cc-pill-btn--lg',
                   pendingStatus === 'done'
                     ? 'cc-pill-btn--success'
                     : 'cc-pill-btn--accent',
@@ -1717,33 +1773,98 @@ const taskLocation = computed(() =>
                 />
                 <template v-else>{{ statusNoteConfirmLabel }}</template>
               </button>
-            </v-card-actions>
+            </div>
           </v-card>
         </v-dialog>
       </template>
     </template>
-  </v-container>
+  </div>
 </template>
 
 <style scoped>
 /* Each section below is a .cc-card, whose shared 20px padding is more top
    space than a section needs once its eyebrow label sits right at the
    top edge — trim just the top side, keep the rest for breathing room. */
-.cc-card {
+.detail-section {
   padding-top: 8px;
 }
 
-/* Clickable priority pill (menu activator) — reset button chrome, keep the
-   cc-pill look, add a disabled state to match the surrounding v-chips. */
-.cc-pill--pick {
-  border: none;
-  cursor: pointer;
-  font-family: var(--cc-font-sans);
+.detail-back {
+  margin-bottom: 12px;
 }
 
-.cc-pill--pick:disabled {
-  opacity: 0.6;
-  cursor: default;
+/* The "Overdue" tag matches the 44px height of the pill buttons beside it. */
+.detail-overdue {
+  height: 44px;
+  padding: 0 14px;
+}
+
+.detail-italic {
+  font-style: italic;
+}
+
+.detail-age {
+  font-size: 0.875rem;
+}
+
+.detail-hint {
+  margin-top: 8px;
+  font-size: 0.75rem;
+}
+
+.detail-note {
+  font-size: 0.875rem;
+  font-style: italic;
+}
+
+.detail-stamp {
+  font-size: 0.75rem;
+}
+
+/* Save/Cancel row inside a menu card: .cc-actions with the card's own
+   inset, and an optional leading Clear pushed to the left. */
+.detail-menu-actions {
+  margin-top: 0;
+  padding: 0 16px 16px;
+}
+
+.detail-menu-actions__start {
+  margin-right: auto;
+}
+
+/* Tag chips as one real button (the pencil is decorative inside it). */
+.detail-tags-btn {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+/* Notes text as one real button; line breaks in the notes are preserved. */
+.detail-notes-btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--cc-font-sans);
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--cc-ink);
+  white-space: pre-wrap;
+}
+
+.detail-title-field :deep(input) {
+  font-family: var(--cc-font-slab);
+  font-size: 1.75rem;
+  font-weight: 700;
 }
 
 .detail-title {
@@ -1770,17 +1891,6 @@ const taskLocation = computed(() =>
    safe-area inset plus some breathing room. */
 .status-dialog-card {
   margin-top: calc(env(safe-area-inset-top, 0px) + 40px);
-}
-
-/* Cancel / confirm pair on the status-change dialog — full-width pill
-   buttons matching the rest of the app, instead of Vuetify's default
-   text buttons, so they're easy to spot and hit on mobile. */
-.status-dialog-actions {
-  gap: 12px;
-}
-
-.status-dialog-btn {
-  flex: 1 1 0;
 }
 
 /* Ring the activity timeline's dots in the shared track color instead of

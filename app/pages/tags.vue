@@ -31,51 +31,35 @@ function statusEntries(tag: TagSummaryWithCount) {
 </script>
 
 <template>
-  <v-container>
-    <v-alert
+  <div class="cc-page">
+    <LoadErrorAlert
       v-if="farmsError"
-      type="error"
-      variant="tonal"
       title="Couldn't load your farms"
-      class="mb-4"
-    >
-      {{ farmsError }} — try reloading; if this persists, the database may not
-      be reachable.
-    </v-alert>
+      :message="farmsError"
+    />
     <template v-else-if="activeFarm">
-      <h1 class="text-h4 mb-1">Tags</h1>
-      <p class="cc-eyebrow mb-6">{{ activeFarm.name }}</p>
+      <PageHeader title="Tags" />
 
-      <v-alert
+      <LoadErrorAlert
         v-if="tagsError"
-        type="error"
-        variant="tonal"
         title="Couldn't load tags"
-        class="mb-4"
-      >
-        {{ tagsError }} — try reloading; if this persists, the database may not
-        be reachable.
-      </v-alert>
+        :message="tagsError"
+      />
 
-      <div v-else-if="loading && tags === null" class="text-center py-8">
-        <v-progress-circular indeterminate color="primary" />
-      </div>
+      <LoadingState v-else-if="loading && tags === null" />
 
-      <div
+      <EmptyState
         v-else-if="!tags || tags.length === 0"
-        class="text-center py-12 text-medium-emphasis"
+        icon="mdi-tag-multiple-outline"
       >
-        <v-icon icon="mdi-tag-multiple-outline" size="64" class="mb-4" />
-        <p class="text-body-1">
-          No tags yet. Tags are created by adding them to a chore.
-        </p>
-      </div>
+        No tags yet. Tags are created by adding them to a chore.
+      </EmptyState>
 
-      <div v-else class="tags-list">
-        <div v-for="tag in tags" :key="tag.id" class="cc-card tag-row">
+      <div v-else class="cc-card-list">
+        <div v-for="tag in tags" :key="tag.id" class="cc-card cc-card--row">
           <NuxtLink :to="tasksLink(tag)" class="tag-row__head">
             <v-icon icon="mdi-tag-outline" size="20" class="tag-row__icon" />
-            <span class="tag-row__name">{{ tag.name }}</span>
+            <span class="cc-slab tag-row__name">{{ tag.name }}</span>
             <span class="cc-pill cc-pill--muted tag-row__total">
               {{ tag.taskCount }} chore{{ tag.taskCount === 1 ? '' : 's' }}
             </span>
@@ -86,12 +70,12 @@ function statusEntries(tag: TagSummaryWithCount) {
               <NuxtLink
                 v-if="entry.count > 0"
                 :to="entry.to"
-                class="tag-status tag-status--link"
+                class="cc-status-chip cc-status-chip--link"
               >
                 <v-icon :icon="entry.icon" size="14" />
                 <span>{{ entry.count }} {{ entry.label.toLowerCase() }}</span>
               </NuxtLink>
-              <span v-else class="tag-status tag-status--empty">
+              <span v-else class="cc-status-chip cc-status-chip--empty">
                 <v-icon :icon="entry.icon" size="14" />
                 <span>0 {{ entry.label.toLowerCase() }}</span>
               </span>
@@ -100,20 +84,10 @@ function statusEntries(tag: TagSummaryWithCount) {
         </div>
       </div>
     </template>
-  </v-container>
+  </div>
 </template>
 
 <style scoped>
-.tags-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.tag-row {
-  padding: 14px 16px;
-}
-
 .tag-row__head {
   display: flex;
   align-items: center;
@@ -127,7 +101,6 @@ function statusEntries(tag: TagSummaryWithCount) {
 }
 
 .tag-row__name {
-  font-family: var(--cc-font-slab);
   font-size: 1.125rem;
   font-weight: 600;
   overflow-wrap: anywhere;
@@ -142,35 +115,5 @@ function statusEntries(tag: TagSummaryWithCount) {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
-}
-
-/* Status count chip: a filter link when non-zero, a dimmed label at zero. */
-.tag-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  line-height: 1.4;
-  white-space: nowrap;
-  text-decoration: none;
-}
-
-.tag-status--link {
-  background: var(--cc-field);
-  border: 1px solid var(--cc-field-border);
-  color: var(--cc-ink);
-}
-
-.tag-status--link:hover {
-  border-color: var(--cc-accent);
-  color: var(--cc-accent);
-}
-
-.tag-status--empty {
-  color: var(--cc-ink-muted);
-  opacity: 0.6;
 }
 </style>

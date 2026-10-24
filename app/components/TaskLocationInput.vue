@@ -82,19 +82,28 @@ function onPinChange(value: { lat: number; lng: number } | null) {
 
 <template>
   <div>
-    <v-btn-toggle
-      :model-value="mode"
-      mandatory
-      density="comfortable"
-      variant="outlined"
-      color="primary"
-      class="mb-3"
-      :disabled="disabled"
-      @update:model-value="(value: Mode) => setMode(value)"
-    >
-      <v-btn value="defined" size="small">Defined location</v-btn>
-      <v-btn value="pin" size="small">Custom pin</v-btn>
-    </v-btn-toggle>
+    <div class="cc-segmented mb-3" role="group" aria-label="Location type">
+      <button
+        type="button"
+        class="cc-segmented__option"
+        :class="{ 'cc-segmented__option--active': mode === 'defined' }"
+        :aria-pressed="mode === 'defined'"
+        :disabled="disabled"
+        @click="setMode('defined')"
+      >
+        Saved location
+      </button>
+      <button
+        type="button"
+        class="cc-segmented__option"
+        :class="{ 'cc-segmented__option--active': mode === 'pin' }"
+        :aria-pressed="mode === 'pin'"
+        :disabled="disabled"
+        @click="setMode('pin')"
+      >
+        Custom pin
+      </button>
+    </div>
 
     <v-select
       v-if="mode === 'defined'"

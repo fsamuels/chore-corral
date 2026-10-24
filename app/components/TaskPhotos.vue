@@ -68,7 +68,13 @@ async function onDelete(photo: PhotoSummary): Promise<void> {
 
 function formatTaken(takenAt: string): string {
   const date = new Date(takenAt)
-  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString()
+  return Number.isNaN(date.getTime())
+    ? ''
+    : date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
 }
 
 // Fullscreen gallery: opened from a thumbnail, `activeIndex` tracks which
@@ -151,6 +157,14 @@ watch(photos, (list) => {
         <v-icon icon="mdi-image-multiple" size="16" />
         Gallery
       </button>
+      <v-progress-circular
+        v-if="uploading"
+        indeterminate
+        size="18"
+        width="2"
+        aria-label="Uploading photo"
+        class="photos-actions__spinner"
+      />
     </div>
 
     <v-alert
@@ -177,33 +191,32 @@ watch(photos, (list) => {
       <v-progress-circular indeterminate size="24" color="primary" />
     </div>
 
-    <p
-      v-else-if="photos && photos.length === 0"
-      class="text-body-2 text-medium-emphasis"
-    >
+    <p v-else-if="photos && photos.length === 0" class="cc-empty-inline">
       No photos yet.
     </p>
 
     <div v-else-if="photos" class="d-flex flex-wrap ga-3">
-      <div
-        v-for="(photo, index) in photos"
-        :key="photo.id"
-        style="width: 140px"
-      >
+      <div v-for="(photo, index) in photos" :key="photo.id" class="photos-item">
         <div class="position-relative">
-          <v-img
-            :src="photoUrls.get(photo.id)"
-            width="140"
-            height="140"
-            cover
-            class="photos-thumb cursor-pointer"
+          <button
+            type="button"
+            class="photos-thumb__open cc-focusable"
+            :aria-label="`Open photo ${index + 1}`"
             @click="openLightbox(index)"
-          />
+          >
+            <v-img
+              :src="photoUrls.get(photo.id)"
+              width="140"
+              height="140"
+              cover
+              class="photos-thumb"
+            />
+          </button>
           <button
             type="button"
             class="cc-icon-btn cc-icon-btn--sm photos-thumb__remove"
             :disabled="pendingDeletes.has(photo.id)"
-            :aria-label="`Delete photo`"
+            aria-label="Delete photo"
             title="Delete photo"
             @click="onDelete(photo)"
           >
@@ -213,17 +226,18 @@ watch(photos, (list) => {
               size="14"
               width="2"
             />
-            <v-icon v-else icon="mdi-close" size="16" />
+            <v-icon v-else icon="mdi-delete-outline" size="16" />
           </button>
         </div>
         <input
           v-model="captions[photo.id]"
           type="text"
           placeholder="Add a caption"
+          aria-label="Photo caption"
           class="cc-field photos-caption mt-2"
           @blur="onCaptionBlur(photo)"
         />
-        <p class="text-caption text-medium-emphasis mb-0 mt-1">
+        <p class="text-caption cc-muted mb-0 mt-1">
           Added {{ formatTaken(photo.taken_at) }}
         </p>
       </div>
@@ -243,13 +257,13 @@ watch(photos, (list) => {
           <v-btn
             icon="mdi-close"
             color="white"
-            aria-label="Close gallery"
+            aria-label="Close"
             @click="lightboxOpen = false"
           />
         </v-toolbar>
         <v-carousel
           v-model="activeIndex"
-          height="calc(100vh - 48px)"
+          height="calc(100dvh - 48px)"
           hide-delimiters
           show-arrows="hover"
           color="white"
@@ -287,6 +301,24 @@ watch(photos, (list) => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+.photos-actions__spinner {
+  align-self: center;
+}
+
+.photos-item {
+  width: 140px;
+}
+
+/* Native button wrapper so the thumbnail is keyboard-reachable. */
+.photos-thumb__open {
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: var(--cc-radius);
+  cursor: pointer;
 }
 
 .photos-thumb {

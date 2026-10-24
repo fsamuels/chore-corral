@@ -68,11 +68,13 @@ const elapsedLabel = computed(() => {
               taskTitle ?? 'View chore'
             }}</span>
           </span>
-          <span class="timer-bar__elapsed">{{ elapsedLabel }}</span>
+          <span class="timer-bar__elapsed" role="timer">{{
+            elapsedLabel
+          }}</span>
         </NuxtLink>
         <button
           type="button"
-          class="timer-bar__stop"
+          class="cc-icon-btn cc-icon-btn--danger"
           :disabled="stopping"
           aria-label="Stop timer"
           title="Stop timer"
@@ -102,7 +104,7 @@ const elapsedLabel = computed(() => {
   z-index: 9;
   background: var(--cc-surface);
   border-top: 1px solid var(--cc-border);
-  box-shadow: 0 -2px 10px rgba(43, 33, 24, 0.06);
+  box-shadow: 0 -2px 10px color-mix(in srgb, var(--cc-ink) 6%, transparent);
   /* Clear the home-indicator inset when installed to the home screen. */
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -151,11 +153,11 @@ const elapsedLabel = computed(() => {
   0%,
   100% {
     opacity: 1;
-    box-shadow: 0 0 0 0 rgba(181, 84, 30, 0.35);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--cc-accent) 35%, transparent);
   }
   50% {
     opacity: 0.7;
-    box-shadow: 0 0 0 5px rgba(181, 84, 30, 0);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--cc-accent) 0%, transparent);
   }
 }
 
@@ -190,28 +192,6 @@ const elapsedLabel = computed(() => {
   font-weight: 700;
   color: var(--cc-ink);
   white-space: nowrap;
-}
-
-/* Filled danger circle, sized to the app's 44px touch-target minimum. */
-.timer-bar__stop {
-  flex: none;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--cc-urgent-ring);
-  color: #ffffff;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  box-shadow: 0 2px 6px rgba(192, 57, 31, 0.3);
-}
-
-.timer-bar__stop:disabled {
-  opacity: 0.6;
-  cursor: default;
 }
 
 /* Slide up from the bottom edge when a timer starts, back down when it

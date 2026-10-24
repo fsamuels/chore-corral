@@ -385,6 +385,261 @@ textarea.cc-field {
 }
 
 /*
+ * App-wide consistency layer. Everything above defines the ranch look;
+ * the classes below are the shared page scaffolding (container, header,
+ * states, dialogs, list rows) so pages stop re-implementing it in scoped
+ * CSS at slightly different sizes.
+ */
+
+/* Vuetify uppercases v-btn labels by default; every cc-* control is
+   sentence case, so match it rather than mixing CANCEL with Cancel. */
+.v-application .v-btn {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* Keyboard focus ring for every cc-* control (cc-field has its own). */
+.cc-pill-btn:focus-visible,
+.cc-icon-btn:focus-visible,
+.cc-segmented__option:focus-visible,
+.cc-text-link:focus-visible,
+.cc-status-chip:focus-visible,
+.cc-focusable:focus-visible {
+  outline: 2px solid var(--cc-accent);
+  outline-offset: 2px;
+}
+
+/* Page container: same 900px column as the app header, so page content
+   lines up under the farm name. `--narrow` is for single-column forms and
+   the chore detail page. */
+.cc-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 12px 16px 24px;
+}
+
+.cc-page--narrow {
+  max-width: 720px;
+}
+
+/* Page title (PageHeader.vue). The layout header's farm name is not a
+   heading, so this is each page's single h1. */
+.cc-page-title {
+  font-family: var(--cc-font-slab);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--cc-ink);
+  margin: 0;
+}
+
+/* Muted secondary text in the cc-ink-muted token (instead of Vuetify's
+   opacity-based text-medium-emphasis). */
+.cc-muted {
+  color: var(--cc-ink-muted);
+}
+
+/* Centered empty / loading states (EmptyState.vue, LoadingState.vue). */
+.cc-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--cc-ink-muted);
+}
+
+.cc-empty__text {
+  margin: 0;
+  max-width: 360px;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.cc-loading {
+  display: flex;
+  justify-content: center;
+  padding: 32px 0;
+}
+
+/* Inline (section-level) empty text, e.g. "No photos yet." */
+.cc-empty-inline {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--cc-ink-muted);
+}
+
+/* Card modifiers: a flush list card (v-list inside, clipped corners) and a
+   compact row card (task cards, progress rows, tag rows). */
+.cc-card--list {
+  padding: 0;
+  overflow: hidden;
+}
+
+.cc-card--row {
+  padding: 14px 16px;
+}
+
+/* Vertical stack of cards with the standard 10px gap. */
+.cc-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Wrapping row of stat pills above a list. */
+.cc-stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+/* Section heading row: title on the left, count/link on the right. */
+.cc-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Smaller pill for dense rows (task cards, progress rows). */
+.cc-pill--sm {
+  padding: 2px 10px;
+  font-size: 0.75rem;
+}
+
+.cc-pill--accent {
+  background: var(--cc-accent);
+  color: var(--cc-accent-contrast);
+}
+
+/* Status-count chip on categories/locations/tags: a filter link when
+   non-zero, a dimmed label at zero. */
+.cc-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.cc-status-chip--link {
+  background: var(--cc-field);
+  border: 1px solid var(--cc-field-border);
+  color: var(--cc-ink);
+}
+
+.cc-status-chip--link:hover {
+  border-color: var(--cc-accent);
+  color: var(--cc-accent);
+}
+
+.cc-status-chip--empty {
+  color: var(--cc-ink-muted);
+  opacity: 0.6;
+}
+
+/* Small muted meta line item (icon + text) on cards. */
+.cc-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.75rem;
+  color: var(--cc-ink-muted);
+}
+
+/* Filled danger pill — the confirm button inside a delete dialog (the
+   outlined --danger pill is the button that opens it). */
+.cc-pill-btn--danger-solid {
+  background: var(--cc-urgent-ring);
+  color: var(--cc-accent-contrast);
+  box-shadow: 0 2px 6px rgba(192, 57, 31, 0.3);
+}
+
+/* The 36px icon button keeps its look but gets a 44px invisible hit area. */
+.cc-icon-btn--sm {
+  position: relative;
+}
+
+.cc-icon-btn--sm::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+}
+
+/* Filled danger circle (dock-bar stop). */
+.cc-icon-btn--danger {
+  background: var(--cc-urgent-ring);
+  border-color: var(--cc-urgent-ring);
+  color: var(--cc-accent-contrast);
+}
+
+/* Pressed/selected state for an icon button used as a picker option. */
+.cc-icon-btn--active {
+  box-shadow: 0 0 0 2px var(--cc-accent);
+}
+
+/* Inline add row: a pill-shaped cc-field plus a round submit button
+   (shopping list, tools, reminders, invite, new farm). */
+.cc-add-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cc-add-row > .cc-field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cc-field--pill {
+  border-radius: 999px;
+  height: 48px;
+  padding: 0 18px;
+}
+
+/* Right-aligned Cancel / Save row under an inline editor. */
+.cc-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Dialog card (ConfirmDialog.vue and the chore status dialog): slab title,
+   full-width pill button pair. */
+.cc-dialog-card {
+  padding: 4px;
+}
+
+.cc-dialog-card .v-card-title {
+  font-family: var(--cc-font-slab);
+  font-weight: 700;
+  font-size: 1.25rem;
+  white-space: normal;
+}
+
+.cc-dialog-actions {
+  display: flex;
+  gap: 12px;
+  padding: 8px 16px 16px;
+}
+
+.cc-dialog-actions > .cc-pill-btn {
+  flex: 1 1 0;
+}
+
+/*
  * Login screen: full-bleed farm scene (sky/sun/hill, matching the app icon's
  * gradients in public/icon.svg) with the sign-in card overlapping its base.
  */

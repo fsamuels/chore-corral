@@ -78,10 +78,15 @@ function choose(emoji: string) {
 
 <template>
   <v-dialog v-model="open" max-width="520" scrollable>
-    <v-card class="emoji-dialog">
+    <v-card
+      class="cc-dialog-card emoji-dialog"
+      aria-labelledby="emoji-dialog-title"
+    >
       <div class="emoji-dialog__head">
         <div class="d-flex align-center justify-space-between mb-3">
-          <span class="cc-eyebrow">Choose an emoji</span>
+          <span id="emoji-dialog-title" class="cc-eyebrow"
+            >Choose an emoji</span
+          >
           <button
             type="button"
             class="cc-icon-btn cc-icon-btn--sm"
@@ -95,7 +100,8 @@ function choose(emoji: string) {
         <v-text-field
           v-model="search"
           autofocus
-          placeholder="Search emoji"
+          label="Search emoji"
+          aria-label="Search emoji"
           prepend-inner-icon="mdi-magnify"
           density="comfortable"
           variant="outlined"
@@ -126,7 +132,7 @@ function choose(emoji: string) {
           <v-progress-circular indeterminate color="primary" />
         </div>
 
-        <div v-else-if="error" class="emoji-dialog__state text-medium-emphasis">
+        <div v-else-if="error" class="emoji-dialog__state cc-muted">
           <v-icon icon="mdi-wifi-off" size="40" class="mb-2" />
           <p class="text-body-2">
             Couldn't load the emoji list. Check your connection and try
@@ -136,7 +142,7 @@ function choose(emoji: string) {
 
         <template v-else>
           <div v-if="searching">
-            <p v-if="!results.length" class="text-medium-emphasis text-body-2">
+            <p v-if="!results.length" class="cc-muted text-body-2">
               No emoji match “{{ search.trim() }}”.
             </p>
             <div v-else class="emoji-dialog__grid">
@@ -214,7 +220,7 @@ function choose(emoji: string) {
 .emoji-dialog {
   display: flex;
   flex-direction: column;
-  max-height: 80vh;
+  max-height: 80dvh;
 }
 
 /* Search + group bar stays put while the grid below scrolls. */

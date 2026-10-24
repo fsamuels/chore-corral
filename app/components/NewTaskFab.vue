@@ -77,7 +77,7 @@ watch(
 <style scoped>
 .new-task-fab {
   position: fixed;
-  right: 24px;
+  right: calc(24px + env(safe-area-inset-right, 0px));
   /* Clear the home-indicator inset when installed to the home screen. */
   bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   z-index: 10;
@@ -94,7 +94,7 @@ watch(
   font-weight: 600;
   font-size: 0.9375rem;
   text-decoration: none;
-  box-shadow: 0 4px 12px rgba(43, 33, 24, 0.25);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--cc-ink) 25%, transparent);
   transition: transform 0.25s ease;
 }
 

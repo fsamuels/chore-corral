@@ -13,7 +13,7 @@ import {
 
 const supabase = useSupabaseClient<Database>()
 const user = useSupabaseUser()
-const { fetchFarms, activeFarm, activeFarmId } = useFarms()
+const { fetchFarms, activeFarm, activeFarmId, farmsError } = useFarms()
 
 await fetchFarms()
 
@@ -78,6 +78,21 @@ async function addInvite() {
 }
 
 const revokingId = ref<string | null>(null)
+// The target outlives the open flag so the dialog body keeps its email
+// while the close transition plays.
+const toRevoke = ref<FarmInvite | null>(null)
+const revokeOpen = ref(false)
+
+function askRevoke(invite: FarmInvite) {
+  toRevoke.value = invite
+  revokeOpen.value = true
+}
+
+async function confirmRevoke() {
+  if (!toRevoke.value) return
+  await revoke(toRevoke.value)
+  revokeOpen.value = false
+}
 
 async function revoke(invite: FarmInvite) {
   if (revokingId.value) return
@@ -96,91 +111,95 @@ async function revoke(invite: FarmInvite) {
 </script>
 
 <template>
-  <v-container max-width="600">
-    <h1 class="text-h4 mb-1">Farm members</h1>
-    <p class="text-body-2 text-medium-emphasis mb-4">
-      Everyone with access to
-      <strong>{{ activeFarm?.name ?? 'this farm' }}</strong> — all members can
-      create, edit, and complete chores.
-    </p>
+  <div class="cc-page cc-page--narrow">
+    <LoadErrorAlert
+      v-if="farmsError"
+      title="Couldn't load your farms"
+      :message="farmsError"
+    />
+    <template v-else-if="activeFarm">
+      <PageHeader title="Farm members">
+        Everyone with access to <strong>{{ activeFarm.name }}</strong> — all
+        members can create, edit, and complete chores.
+      </PageHeader>
 
-    <v-alert v-if="loadError" type="error" variant="tonal" class="mb-4">
-      {{ loadError }}
-    </v-alert>
+      <LoadErrorAlert
+        v-if="loadError"
+        title="Couldn't load members"
+        :message="loadError"
+      />
 
-    <div v-if="loading" class="text-center py-8">
-      <v-progress-circular indeterminate color="primary" />
-    </div>
+      <LoadingState v-else-if="loading" label="Loading members" />
 
-    <template v-else>
-      <div class="cc-card pa-0 mb-6" style="overflow: hidden">
-        <v-list>
-          <v-list-item
-            v-for="member in members"
-            :key="member.user_id"
-            :title="member.display_name ?? member.email ?? member.user_id"
-            :subtitle="
-              member.display_name ? (member.email ?? undefined) : undefined
-            "
-          >
-            <template #prepend>
-              <MemberAvatar :src="member.avatar_url" class="mr-3" />
-            </template>
-            <template #append>
-              <v-chip
-                v-if="member.user_id === myUserId"
-                size="small"
-                variant="tonal"
-                class="mr-2"
-              >
-                you
-              </v-chip>
-              <v-chip
-                v-if="member.role === 'owner'"
-                size="small"
-                color="primary"
-                variant="tonal"
-              >
-                owner
-              </v-chip>
-            </template>
-          </v-list-item>
-        </v-list>
-      </div>
+      <template v-else>
+        <div class="cc-card cc-card--list mb-6">
+          <v-list>
+            <v-list-item
+              v-for="member in members"
+              :key="member.user_id"
+              :title="member.display_name ?? member.email ?? member.user_id"
+              :subtitle="
+                member.display_name ? (member.email ?? undefined) : undefined
+              "
+            >
+              <template #prepend>
+                <MemberAvatar :src="member.avatar_url" class="mr-3" />
+              </template>
+              <template #append>
+                <span
+                  v-if="member.user_id === myUserId"
+                  class="cc-pill cc-pill--sm cc-pill--muted mr-2"
+                >
+                  You
+                </span>
+                <span
+                  v-if="member.role === 'owner'"
+                  class="cc-pill cc-pill--sm cc-pill--accent"
+                >
+                  Owner
+                </span>
+              </template>
+            </v-list-item>
+          </v-list>
+        </div>
 
-      <template v-if="isOwner">
-        <h2 class="text-h6 mb-1">Invite someone</h2>
-        <p class="text-body-2 text-medium-emphasis mb-3">
-          No email is sent — as soon as they sign in with Google using this
-          address, they're added to the farm automatically.
-        </p>
+        <template v-if="isOwner">
+          <h2 class="cc-section-title mb-1">Invite someone</h2>
+          <p class="cc-muted mb-3">
+            No email is sent — as soon as they sign in with Google using this
+            address, they're added to the farm automatically.
+          </p>
 
-        <v-alert v-if="inviteError" type="error" variant="tonal" class="mb-3">
-          {{ inviteError }}
-        </v-alert>
+          <v-alert v-if="inviteError" type="error" variant="tonal" class="mb-3">
+            {{ inviteError }}
+          </v-alert>
 
-        <v-form class="d-flex ga-2 mb-6" @submit.prevent="addInvite">
-          <v-text-field
-            v-model="inviteEmail"
-            label="Google account email"
-            type="email"
-            density="comfortable"
-            hide-details
-          />
-          <v-btn
-            type="submit"
-            color="primary"
-            height="48"
-            :loading="inviting"
-            :disabled="inviteEmail.trim().length === 0"
-          >
-            Invite
-          </v-btn>
-        </v-form>
+          <v-form class="cc-add-row mb-6" @submit.prevent="addInvite">
+            <v-text-field
+              v-model="inviteEmail"
+              label="Google account email"
+              type="email"
+              variant="outlined"
+              density="comfortable"
+              hide-details
+            />
+            <button
+              type="submit"
+              class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--sm"
+              :disabled="inviting || inviteEmail.trim().length === 0"
+            >
+              <v-progress-circular
+                v-if="inviting"
+                indeterminate
+                size="18"
+                width="2"
+              />
+              Invite
+            </button>
+          </v-form>
 
-        <template v-if="invites.length > 0">
-          <h2 class="text-h6 mb-2">Pending invites</h2>
-          <div class="cc-card pa-0" style="overflow: hidden">
+          <h2 class="cc-section-title mb-3">Pending invites</h2>
+          <div v-if="invites.length > 0" class="cc-card cc-card--list">
             <v-list>
               <v-list-item
                 v-for="invite in invites"
@@ -189,20 +208,34 @@ async function revoke(invite: FarmInvite) {
                 prepend-icon="mdi-email-outline"
               >
                 <template #append>
-                  <v-btn
-                    icon="mdi-close"
-                    size="small"
-                    variant="text"
-                    :loading="revokingId === invite.id"
+                  <button
+                    type="button"
+                    class="cc-icon-btn cc-icon-btn--sm"
+                    :disabled="revokingId === invite.id"
                     :aria-label="`Revoke invite for ${invite.email}`"
-                    @click="revoke(invite)"
-                  />
+                    :title="`Revoke invite for ${invite.email}`"
+                    @click="askRevoke(invite)"
+                  >
+                    <v-icon icon="mdi-close" size="18" />
+                  </button>
                 </template>
               </v-list-item>
             </v-list>
           </div>
+          <p v-else class="cc-empty-inline">No pending invites.</p>
         </template>
+        <p v-else class="cc-muted">Only farm owners can invite people.</p>
       </template>
     </template>
-  </v-container>
+
+    <ConfirmDialog
+      v-model="revokeOpen"
+      title="Revoke invite?"
+      confirm-label="Revoke"
+      :busy="revokingId !== null"
+      @confirm="confirmRevoke"
+    >
+      The invite for “{{ toRevoke?.email }}” will be revoked.
+    </ConfirmDialog>
+  </div>
 </template>

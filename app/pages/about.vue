@@ -207,13 +207,11 @@ const stack = computed(() =>
 </script>
 
 <template>
-  <v-container max-width="720">
-    <p class="cc-eyebrow mb-1">About</p>
-    <h1 class="cc-slab text-h4 mb-2">Chore Corral</h1>
-    <p class="text-body-1 mb-6">
-      A mobile-first chore tracker for the farm. Created by
+  <div class="cc-page cc-page--narrow">
+    <PageHeader title="About">
+      Chore Corral is a mobile-first chore tracker for the farm. Created by
       <strong>Forrest Samuels</strong> and <strong>Claude</strong>.
-    </p>
+    </PageHeader>
 
     <section class="cc-card mb-6">
       <h2 class="cc-section-title mb-3">This build</h2>
@@ -231,7 +229,7 @@ const stack = computed(() =>
           <span v-else>unknown</span>
           <span
             v-if="build.commitMessage"
-            class="d-block text-body-2 text-medium-emphasis"
+            class="d-block text-body-2 cc-muted"
             >{{ build.commitMessage }}</span
           >
         </dd>
@@ -242,7 +240,7 @@ const stack = computed(() =>
         <dt>Built</dt>
         <dd>
           {{ formatDateTime(build.builtAt) }}
-          <span v-if="relative(build.builtAt)" class="text-medium-emphasis">
+          <span v-if="relative(build.builtAt)" class="cc-muted">
             ({{ relative(build.builtAt) }})</span
           >
         </dd>
@@ -258,10 +256,7 @@ const stack = computed(() =>
           <dt>First commit</dt>
           <dd>
             {{ formatDateTime(build.firstCommitDate) }}
-            <span
-              v-if="relative(build.firstCommitDate)"
-              class="text-medium-emphasis"
-            >
+            <span v-if="relative(build.firstCommitDate)" class="cc-muted">
               ({{ relative(build.firstCommitDate) }})</span
             >
           </dd>
@@ -294,7 +289,11 @@ const stack = computed(() =>
         More app-wide totals are on the way.
       </v-alert>
       <div v-if="dataTiles.length" class="about-tiles">
-        <div v-for="tile in dataTiles" :key="tile.label" class="about-tile">
+        <div
+          v-for="tile in dataTiles"
+          :key="tile.label"
+          class="cc-card cc-card--row"
+        >
           <v-icon :icon="tile.icon" size="20" color="primary" />
           <div class="about-tile__value cc-slab">{{ tile.value }}</div>
           <div class="cc-eyebrow">{{ tile.label }}</div>
@@ -305,7 +304,11 @@ const stack = computed(() =>
     <section class="mb-6">
       <h2 class="cc-section-title mb-3">Under the hood</h2>
       <div class="about-tiles mb-4">
-        <div v-for="tile in codeTiles" :key="tile.label" class="about-tile">
+        <div
+          v-for="tile in codeTiles"
+          :key="tile.label"
+          class="cc-card cc-card--row"
+        >
           <div class="about-tile__value cc-slab">{{ tile.value }}</div>
           <div class="cc-eyebrow">{{ tile.label }}</div>
         </div>
@@ -334,7 +337,7 @@ const stack = computed(() =>
             <span class="about-coverage__headline cc-slab"
               >{{ coverage.lines }}%</span
             >
-            <span class="text-body-2 text-medium-emphasis">
+            <span class="text-body-2 cc-muted">
               of lines ({{ fmt(coverage.coveredLines) }} of
               {{ fmt(coverage.totalLines) }})
             </span>
@@ -361,13 +364,13 @@ const stack = computed(() =>
             </span>
             <span class="about-bar__value">{{ Math.round(area.pct) }}%</span>
           </div>
-          <p class="text-caption text-medium-emphasis mt-3 mb-0">
+          <p class="text-caption cc-muted mt-3 mb-0">
             Unit tests (Vitest) across every file in app/ and server/; files no
             test loads count as 0%. The Playwright end-to-end suite isn't
             included.
           </p>
         </template>
-        <p v-else class="text-body-2 text-medium-emphasis mb-0">
+        <p v-else class="text-body-2 cc-muted mb-0">
           Coverage wasn't measured for this build.
         </p>
       </div>
@@ -380,12 +383,12 @@ const stack = computed(() =>
       </ul>
     </section>
 
-    <p class="text-body-2 text-medium-emphasis text-center mb-8">
+    <p class="text-body-2 cc-muted text-center mb-8">
       <a :href="REPO_URL" target="_blank" rel="noopener" class="cc-text-link"
         >View the source on GitHub</a
       >
     </p>
-  </v-container>
+  </div>
 </template>
 
 <style scoped>
@@ -410,12 +413,6 @@ const stack = computed(() =>
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 12px;
-}
-.about-tile {
-  background: var(--cc-surface);
-  border: 1px solid var(--cc-border);
-  border-radius: var(--cc-radius);
-  padding: 14px;
 }
 .about-tile__value {
   font-size: 1.5rem;

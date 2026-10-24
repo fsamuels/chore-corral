@@ -258,20 +258,14 @@ function locationName(locationId: string | null): string | null {
 </script>
 
 <template>
-  <v-container>
-    <v-alert
+  <div class="cc-page">
+    <LoadErrorAlert
       v-if="farmsError"
-      type="error"
-      variant="tonal"
       title="Couldn't load your farms"
-      class="mb-4"
-    >
-      {{ farmsError }} — try reloading; if this persists, the database may not
-      be reachable.
-    </v-alert>
+      :message="farmsError"
+    />
     <template v-else-if="activeFarm">
-      <h1 class="text-h4 mb-1">Chores</h1>
-      <p class="cc-eyebrow mb-4">{{ activeFarm.name }}</p>
+      <PageHeader title="Chores" />
 
       <v-text-field
         v-model="filters.search"
@@ -345,63 +339,52 @@ function locationName(locationId: string | null): string | null {
           density="comfortable"
           hide-details
         />
-        <v-btn
+        <button
           v-if="hasActiveFilters"
-          variant="text"
-          density="comfortable"
-          prepend-icon="mdi-filter-remove-outline"
+          type="button"
+          class="cc-text-link"
           @click="resetFilters"
         >
           Clear filters
-        </v-btn>
+        </button>
       </div>
 
-      <v-alert
+      <LoadErrorAlert
         v-if="tasksError"
-        type="error"
-        variant="tonal"
         title="Couldn't load chores"
-        class="mb-4"
-      >
-        {{ tasksError }} — try reloading; if this persists, the database may not
-        be reachable.
-      </v-alert>
+        :message="tasksError"
+      />
 
-      <div
-        v-else-if="loading && outstandingTasks === null"
-        class="text-center py-8"
-      >
-        <v-progress-circular indeterminate color="primary" />
-      </div>
+      <LoadingState v-else-if="loading && outstandingTasks === null" />
 
-      <div
+      <EmptyState
         v-else-if="tasks.length === 0"
-        class="text-center py-12 text-medium-emphasis"
+        icon="mdi-clipboard-text-outline"
       >
-        <v-icon icon="mdi-clipboard-text-outline" size="64" class="mb-4" />
-        <p class="text-body-1 mb-4">
-          No chores yet. Add one to start tracking work on this farm.
-        </p>
-        <v-btn color="primary" size="large" to="/tasks/new">New chore</v-btn>
-      </div>
+        No chores yet. Add one to start tracking work on this farm.
+        <template #action>
+          <NuxtLink
+            class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--sm"
+            to="/tasks/new"
+          >
+            New chore
+          </NuxtLink>
+        </template>
+      </EmptyState>
 
-      <div
+      <EmptyState
         v-else-if="filteredTasks.length === 0"
-        class="text-center py-12 text-medium-emphasis"
+        icon="mdi-filter-variant-remove"
       >
-        <v-icon icon="mdi-filter-variant-remove" size="64" class="mb-4" />
-        <p class="text-body-1">No chores match the current filters.</p>
-        <v-btn
-          v-if="hasActiveFilters"
-          variant="text"
-          class="mt-2"
-          @click="resetFilters"
-        >
-          Clear filters
-        </v-btn>
-      </div>
+        No chores match the current filters.
+        <template v-if="hasActiveFilters" #action>
+          <button type="button" class="cc-text-link" @click="resetFilters">
+            Clear filters
+          </button>
+        </template>
+      </EmptyState>
 
-      <div v-else class="tasks-list__cards">
+      <div v-else class="cc-card-list">
         <TaskCard
           v-for="item in filteredTasks"
           :key="item.id"
@@ -417,25 +400,26 @@ function locationName(locationId: string | null): string | null {
       </div>
 
       <div v-if="doneHasMore" class="text-center mt-4">
-        <v-btn
-          variant="outlined"
-          :loading="doneLoading"
+        <button
+          type="button"
+          class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm"
+          :disabled="doneLoading"
           @click="fetchDonePage(false)"
         >
+          <v-progress-circular
+            v-if="doneLoading"
+            indeterminate
+            size="18"
+            width="2"
+          />
           Load more completed chores
-        </v-btn>
+        </button>
       </div>
     </template>
-  </v-container>
+  </div>
 </template>
 
 <style scoped>
-.tasks-list__cards {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
 .tasks-search {
   max-width: 400px;
 }
