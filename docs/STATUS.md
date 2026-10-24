@@ -2,7 +2,38 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-10-13 (test coverage on the About page)
+**Last updated:** 2026-10-24 (UI consistency pass)
+
+**UI consistency pass (2026-10-24).** Direct user ask: review the signed-in UI for consistency and fix what isn't. Login, landing, confirm, welcome and the components demo were deliberately left alone. **Shared scaffolding:**
+
+- New `main.css` classes: `cc-page` (900px column matching the header, `--narrow` 720px), `cc-page-title`, `cc-muted`, the empty/loading states, `cc-card--list` and `--row`, `cc-card-list`, `cc-stat-row`, `cc-section-head`, `cc-pill--sm` and `--accent`, `cc-status-chip`, `cc-meta`, `cc-add-row` with `cc-field--pill`, `cc-actions`, the dialog classes and `cc-pill-btn--danger-solid`.
+- `:focus-visible` rings on every cc-* control.
+- A 44px hit area on the 36px `cc-icon-btn--sm`.
+- `v-btn` labels are no longer uppercased.
+- New components: `PageHeader`, `EmptyState`, `LoadingState`, `LoadErrorAlert` and `ConfirmDialog`.
+- The header's farm name is no longer an `<h1>`, so each page has one.
+
+**Applied** across Home, Chores, New chore, chore detail, Progress, Map, Categories, Locations, Tags, Members, Farm, About and the detail-section components:
+
+- Raw `v-btn`s became cc pill or icon buttons.
+- Copy-pasted alert, spinner and empty-state blocks became the shared components.
+- Hand-rolled delete dialogs became `ConfirmDialog`.
+- Scoped CSS that copied a shared class was deleted.
+- Hex colours became tokens.
+
+**Small UX fixes:**
+
+- The chore detail page has a back link, shows due dates as "Due Sat, Oct 31", and no longer strikes through done titles.
+- The "Add …" ghost pills use one wording style.
+- The tags and notes editors are real buttons, with no nested interactive elements.
+- Revoking an invite asks first, and non-owners see why they can't invite.
+- The new-farm form can be cancelled.
+- The timer's "Pause" is now "Stop timer", matching the dock bar.
+- Shopping, tools and reminders share one add-row and remove-button pattern, with "Remove" for list items and "Delete" for saved records.
+- Every input has a label, and photo thumbnails can be opened from the keyboard.
+- Section empty text reads "No <noun> yet."
+
+**Checks:** `eslint`, `prettier --check`, `nuxt typecheck`, the 486-case suite and `nuxt build` are clean. **Not checked:** nothing was looked at in a browser, because the session had no Supabase credentials. Check visually on a phone-width preview before merging.
 
 **Test coverage tracking, shown on the About page (2026-10-13).** Direct user ask. **Tooling:** added `@vitest/coverage-v8` and a `pnpm test:coverage` script. The Vitest config now covers every source file in `app/` and `server/` (minus generated `app/types/`), with untested files at 0%. That needed `@vitejs/plugin-vue` (so `.vue` files no test imports can be parsed) and Nuxt's `~`, `~~` and `#supabase/server` aliases, without which the coverage tool silently drops the file. **Build:** `pnpm build` now runs `pnpm test:coverage --silent; nuxt build`, about 6 seconds extra. A failing test doesn't block the build; it leaves no report, and the page says coverage wasn't measured (checked by building with a deliberately failing test). **CI** runs `pnpm test:coverage` in place of `pnpm test` and reports the number without a threshold. **About page:** a new _Test coverage_ card under _Under the hood_ shows the whole-app line percentage, statement, branch and function pills, and per-area line bars (services, utils, pages, …), read by `scripts/build-info.ts` from `coverage/coverage-summary.json` via a new pure `summarizeCoverage` (2 new Vitest cases). At the time: 23.6% of lines whole-app; services 94%, utils 88%, every other area 0%. See DECISIONS.md D-4 for why the headline counts untested files and why there's no floor. `eslint`, `prettier --check`, `nuxt typecheck`, `pnpm build` and the 486-case suite are clean, and the card was screenshotted at phone width. One unchecked assumption: Vercel is expected to run the `package.json` `build` script. If the project's build command is overridden to `nuxt build`, the deployed page will say coverage wasn't measured.
 

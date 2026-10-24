@@ -33,7 +33,7 @@ Relevant Vuetify components anticipated:
 - `v-bottom-navigation` — primary mobile navigation (Home and Map only, on smAndDown)
 - `v-navigation-drawer` — secondary navigation (Tasks management, Categories management, Change Farm page, Sign out) on all screen sizes, opened from the header hamburger button; includes signed-in user's email at the top
 - Custom app header (`app/layouts/default.vue`) — replaces `v-app-bar`; shows "Chore Corral" eyebrow + active farm name (links home), circular Home/Map icon buttons on desktop, and the hamburger trigger on the right
-- Ranch design system (`app/assets/css/main.css`) — warm cream/surface palette, priority color tokens (`--cc-urgent-*` / `--cc-soon-*` / `--cc-whenever-*`), shared utility classes (`cc-card`, `cc-pill`, `cc-eyebrow`, `cc-section-title`), and Zilla Slab + Inter typography loaded via `nuxt.config.ts`; a single Vuetify theme (`ranch`) mirrors the same palette for component defaults
+- Ranch design system (`app/assets/css/main.css`) — warm cream/surface palette, priority color tokens (`--cc-urgent-*` / `--cc-soon-*` / `--cc-whenever-*`), shared utility classes (`cc-card`, `cc-pill`, `cc-pill-btn`, `cc-icon-btn`, `cc-field`, `cc-eyebrow`, `cc-section-title`, and page scaffolding such as `cc-page`, `cc-page-title` and the empty, loading and dialog classes), with shared page components (`PageHeader`, `EmptyState`, `LoadingState`, `LoadErrorAlert`, `ConfirmDialog`), and Zilla Slab + Inter typography loaded via `nuxt.config.ts`; a single Vuetify theme (`ranch`) mirrors the same palette for component defaults
 - Form components paired with VeeValidate + Zod
 
 ### Forms: VeeValidate + Zod
