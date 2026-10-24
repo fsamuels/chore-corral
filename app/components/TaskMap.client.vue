@@ -9,6 +9,7 @@ import {
   type Map as LeafletMap,
 } from 'leaflet'
 import type { TaskPriority, TaskStatus, TaskSummary } from '~/services/tasks'
+import { highestPriority, PRIORITY_LABELS } from '~/utils/map-groups'
 import type { LocationSummary } from '~/services/locations'
 
 const props = withDefaults(
@@ -33,11 +34,7 @@ const emit = defineEmits<{
   open: [taskId: string]
 }>()
 
-const priorityLabels: Record<TaskPriority, string> = {
-  urgent: 'Urgent',
-  soon: 'Soon',
-  whenever: 'Whenever',
-}
+const priorityLabels = PRIORITY_LABELS
 
 const statusDisplay: Record<TaskStatus, string> = {
   not_started: 'Not started',
@@ -128,9 +125,11 @@ function locationIcon(name: string): Icon {
 // lands exactly on the coordinate, the same convention Google's own pins use.
 const PIN_WIDTH = 32
 const PIN_HEIGHT = 40
-function countIcon(count: number): Icon {
+// The pin is tinted by priority (CSS modifier, so it follows the theme tokens);
+// a shared pin passes its highest priority.
+function countIcon(count: number, priority: TaskPriority): Icon {
   return divIcon({
-    className: 'cc-task-count-marker',
+    className: `cc-task-count-marker cc-task-count-marker--${priority}`,
     html: `
       <svg width="${PIN_WIDTH}" height="${PIN_HEIGHT}" viewBox="0 0 32 40" class="cc-task-count-marker__pin">
         <path
@@ -190,7 +189,7 @@ function openTask(taskId: string) {
       v-for="pin in pins"
       :key="pin.id"
       :lat-lng="[pin.lat, pin.lng]"
-      :icon="countIcon(pin.tasks.length)"
+      :icon="countIcon(pin.tasks.length, highestPriority(pin.tasks))"
     >
       <LPopup>
         <div
@@ -269,6 +268,25 @@ function openTask(taskId: string) {
   fill: var(--cc-ink);
   stroke: var(--cc-accent-contrast);
   stroke-width: 2;
+}
+
+/* Priority tint: same ring tokens as the chore cards' priority ring. */
+.cc-task-count-marker--urgent .cc-task-count-marker__pin-shape {
+  fill: var(--cc-urgent-ring);
+}
+
+.cc-task-count-marker--soon .cc-task-count-marker__pin-shape {
+  fill: var(--cc-soon-ring);
+}
+
+.cc-task-count-marker--whenever .cc-task-count-marker__pin-shape {
+  fill: var(--cc-whenever-ring);
+}
+
+/* The lighter soon/whenever fills need dark digits to stay readable. */
+.cc-task-count-marker--soon .cc-task-count-marker__number,
+.cc-task-count-marker--whenever .cc-task-count-marker__number {
+  color: var(--cc-ink);
 }
 
 .cc-task-count-marker__number {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TaskSummary } from '~/services/tasks'
+import { PRIORITY_LABELS, PRIORITY_ORDER } from '~/utils/map-groups'
 
 const { fetchFarms, activeFarm, farmsError } = useFarms()
 // The map only ever plots outstanding work, so skip Done tasks entirely
@@ -138,6 +139,20 @@ function onOpen(taskId: string) {
             @open="onOpen"
           />
         </div>
+
+        <!-- Pins are tinted by priority; this explains the colours. -->
+        <ul class="map-legend" aria-label="Pin colours">
+          <li v-for="priority in PRIORITY_ORDER" :key="priority">
+            <span class="cc-pill cc-pill--sm cc-pill--surface">
+              <span
+                class="map-legend__dot"
+                :class="`map-legend__dot--${priority}`"
+                aria-hidden="true"
+              ></span>
+              {{ PRIORITY_LABELS[priority] }}
+            </span>
+          </li>
+        </ul>
       </template>
     </template>
   </div>
@@ -147,6 +162,34 @@ function onOpen(taskId: string) {
 .map-frame {
   height: calc((100dvh - 220px) * 0.9);
   min-height: 288px;
+}
+
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.map-legend__dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.map-legend__dot--urgent {
+  background: var(--cc-urgent-ring);
+}
+
+.map-legend__dot--soon {
+  background: var(--cc-soon-ring);
+}
+
+.map-legend__dot--whenever {
+  background: var(--cc-whenever-ring);
 }
 
 /* Matches /tasks' .tasks-filter__field: a comfortable fixed width on desktop,
