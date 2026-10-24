@@ -240,6 +240,7 @@ async function onPushToggle() {
       @stop="stopRunningTimer"
     />
     <NewTaskFab v-if="user" :lifted="showTimerBar" />
+    <AppToast :lifted="showTimerBar" />
 
     <v-bottom-navigation
       v-if="user && mobile"
