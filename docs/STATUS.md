@@ -2,7 +2,17 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-10-24 (UI consistency pass)
+**Last updated:** 2026-10-24 (chore detail UX follow-ups)
+
+**Chore detail UX follow-ups (2026-10-24).** Follow-up to the UI consistency pass.
+
+- **Toasts:** a single `AppToast` host in the layout, driven by `useToast()`. It sits above the bottom nav, the FAB and the running-timer bar.
+- **Undo:** removing a shopping item, tool or reminder, or deleting a photo, hides it at once and shows an "Undo" toast for 5s. The real delete runs after that. If the delete fails, the item comes back and an error toast shows. The timing lives in the pure `app/utils/undoable-removal.ts`, which has fake-timer tests; `useUndoableRemove` wraps it. Before this, photo deletion had no confirmation at all. Chore, category, location and timer-session deletes keep their confirm dialogs.
+- **Reminder presets:** "In 1 hour", "This evening" (becomes "Tomorrow evening" after 6 PM) and "Tomorrow morning", on both the detail and create pages. The times come from `app/utils/reminder-presets.ts`, which has tests.
+- **"Saved" toast:** every inline field save on the chore detail page shows one. Failures keep the inline error.
+- **Icons:** decorative icons now use the `-outline` variant where one exists.
+
+**Checks:** lint, format, typecheck, the 501-case suite and `nuxt build` pass. Not checked in a browser; in particular, check the toast position above the FAB.
 
 **UI consistency pass (2026-10-24).** Direct user ask: review the signed-in UI for consistency and fix what isn't. Login, landing, confirm, welcome and the components demo were deliberately left alone. **Shared scaffolding:**
 
