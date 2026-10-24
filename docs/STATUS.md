@@ -2,7 +2,17 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-10-24 (UI consistency pass)
+**Last updated:** 2026-10-24 (map UX follow-ups)
+
+**Map UX follow-ups (2026-10-24).** Follow-up to the UI consistency pass.
+
+- **Pins:** chore count pins are coloured by priority using the ring tokens. A pin shared by several chores takes the highest priority among them. A legend under the map shows the three colours.
+- **List view:** a Map/List toggle (`cc-segmented`) adds a list view. It shows the same open, category-filtered chores, grouped by named location, then "Custom pins", then "No location". This is the keyboard and screen-reader alternative to the map.
+- **No-location link:** in the map view, "N chores have no location" jumps to the list's "No location" group.
+- **URL sync:** the view and the category filter now sync to the URL (`?view=list&category=<id|none>`).
+- **Helpers:** the grouping, counting and priority logic is in `app/utils/map-groups.ts`, which has tests.
+
+**Checks:** lint, format, typecheck, the 494-case suite and `nuxt build` pass. Not checked in a browser.
 
 **UI consistency pass (2026-10-24).** Direct user ask: review the signed-in UI for consistency and fix what isn't. Login, landing, confirm, welcome and the components demo were deliberately left alone. **Shared scaffolding:**
 
