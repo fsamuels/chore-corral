@@ -60,17 +60,35 @@ async function onAdd(): Promise<void> {
 // since only one action per row makes sense at a time.
 const pendingIds = ref<Set<string>>(new Set())
 
-async function onRemove(reminder: ReminderSummary): Promise<void> {
-  const next = new Set(pendingIds.value)
-  next.add(reminder.id)
-  pendingIds.value = next
-  try {
-    await remove(reminder)
-  } finally {
-    const done = new Set(pendingIds.value)
-    done.delete(reminder.id)
-    pendingIds.value = done
-  }
+// Removal is undoable: the row is hidden right away and the real delete only
+// runs once the Undo toast times out. `remove` reports failure via
+// `mutationError` rather than throwing, so surface that as a failed commit
+// (which restores the row).
+const hiddenIds = ref<Set<string>>(new Set())
+const visibleReminders = computed(
+  () => reminders.value?.filter((r) => !hiddenIds.value.has(r.id)) ?? null,
+)
+
+function setHidden(id: string, hidden: boolean): void {
+  const next = new Set(hiddenIds.value)
+  if (hidden) next.add(id)
+  else next.delete(id)
+  hiddenIds.value = next
+}
+
+const { removeWithUndo } = useUndoableRemove()
+
+function onRemove(reminder: ReminderSummary): void {
+  removeWithUndo({
+    hide: () => setHidden(reminder.id, true),
+    restore: () => setHidden(reminder.id, false),
+    commit: async () => {
+      await remove(reminder)
+      if (mutationError.value) throw new Error(mutationError.value)
+      setHidden(reminder.id, false)
+    },
+    message: 'Reminder removed',
+  })
 }
 
 async function onSnooze(
@@ -108,13 +126,16 @@ async function onSnooze(
       <v-progress-circular indeterminate size="24" color="primary" />
     </div>
 
-    <p v-else-if="reminders && reminders.length === 0" class="cc-empty-inline">
+    <p
+      v-else-if="visibleReminders && visibleReminders.length === 0"
+      class="cc-empty-inline"
+    >
       No reminders yet.
     </p>
 
-    <div v-else-if="reminders">
+    <div v-else-if="visibleReminders">
       <div
-        v-for="reminder in reminders"
+        v-for="reminder in visibleReminders"
         :key="reminder.id"
         class="d-flex align-center justify-space-between ga-2 py-1 flex-wrap"
       >
