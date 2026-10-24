@@ -556,6 +556,24 @@ textarea.cc-field {
   color: var(--cc-ink-muted);
 }
 
+/* Leaflet's stylesheet colors every link in a map
+   (`.leaflet-container a`, blue), which outranks a single pill class and
+   turned the popup's "Open chore" label blue on orange. Restore the pill
+   colors for links inside a map. */
+.leaflet-container a.cc-pill-btn {
+  color: var(--cc-ink);
+}
+
+.leaflet-container a.cc-pill-btn--accent,
+.leaflet-container a.cc-pill-btn--success,
+.leaflet-container a.cc-pill-btn--danger-solid {
+  color: var(--cc-accent-contrast);
+}
+
+.leaflet-container a.cc-pill-btn--danger {
+  color: var(--cc-urgent-ring);
+}
+
 /* Filled danger pill — the confirm button inside a delete dialog (the
    outlined --danger pill is the button that opens it). */
 .cc-pill-btn--danger-solid {
