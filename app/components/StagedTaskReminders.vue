@@ -6,6 +6,7 @@
 // succeeds.
 import { parseLocalDateString } from '~/services/tasks'
 import { assertValidReminderTime } from '~/services/reminders'
+import { reminderPresets, type ReminderPreset } from '~/utils/reminder-presets'
 
 export interface StagedReminder {
   localId: string
@@ -28,6 +29,27 @@ const newDate = ref('')
 const newTime = ref('')
 const addError = ref<string | null>(null)
 
+// Validates and stages a reminder time; shared by the manual row and the
+// quick-add chips. Returns whether it was staged.
+function stage(combined: Date): boolean {
+  const remindAtIso = combined.toISOString()
+  try {
+    // Same guard `addReminder` applies server-side — checked here too so a
+    // staged reminder never silently fails once the chore is actually
+    // created (by which point this form is gone).
+    assertValidReminderTime(remindAtIso)
+  } catch (error) {
+    addError.value =
+      error instanceof Error ? error.message : 'Invalid reminder time'
+    return false
+  }
+  staged.value = [
+    ...staged.value,
+    { localId: crypto.randomUUID(), remindAtIso },
+  ]
+  return true
+}
+
 function onAdd(): void {
   addError.value = null
   if (!newDate.value || !newTime.value) {
@@ -42,23 +64,23 @@ function onAdd(): void {
     addError.value = 'Enter a valid date and time.'
     return
   }
-  const remindAtIso = combined.toISOString()
-  try {
-    // Same guard `addReminder` applies server-side — checked here too so a
-    // staged reminder never silently fails once the chore is actually
-    // created (by which point this form is gone).
-    assertValidReminderTime(remindAtIso)
-  } catch (error) {
-    addError.value =
-      error instanceof Error ? error.message : 'Invalid reminder time'
-    return
+  if (stage(combined)) {
+    newDate.value = ''
+    newTime.value = ''
   }
-  staged.value = [
-    ...staged.value,
-    { localId: crypto.randomUUID(), remindAtIso },
-  ]
-  newDate.value = ''
-  newTime.value = ''
+}
+
+// Quick-add chips. `presetsNow` only drives the labels ("This evening" turns
+// into "Tomorrow evening" after 6 PM); the tap re-reads the clock.
+const presetsNow = ref(new Date())
+onMounted(() => (presetsNow.value = new Date()))
+const presets = computed(() => reminderPresets(presetsNow.value))
+
+function onPreset(key: ReminderPreset['key']): void {
+  addError.value = null
+  presetsNow.value = new Date()
+  const preset = reminderPresets(presetsNow.value).find((p) => p.key === key)
+  if (preset) stage(preset.at)
 }
 
 function onRemove(reminder: StagedReminder): void {
@@ -94,6 +116,22 @@ function onRemove(reminder: StagedReminder): void {
           <v-icon icon="mdi-close" size="16" />
         </button>
       </div>
+    </div>
+
+    <div
+      class="reminder-presets mt-2"
+      role="group"
+      aria-label="Quick reminder times"
+    >
+      <button
+        v-for="preset in presets"
+        :key="preset.key"
+        type="button"
+        class="cc-pill-btn cc-pill-btn--surface cc-pill-btn--sm"
+        @click="onPreset(preset.key)"
+      >
+        {{ preset.label }}
+      </button>
     </div>
 
     <div class="reminder-add-row mt-2">
@@ -137,6 +175,12 @@ function onRemove(reminder: StagedReminder): void {
 </template>
 
 <style scoped>
+.reminder-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .reminder-add-row {
   display: flex;
   align-items: center;

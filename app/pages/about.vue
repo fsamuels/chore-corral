@@ -74,7 +74,7 @@ const dataTiles = computed(() => {
       ? []
       : [
           {
-            icon: 'mdi-clipboard-list',
+            icon: 'mdi-clipboard-list-outline',
             label: 'Chores',
             value: fmt(fallbackChores.value),
           },
@@ -82,23 +82,43 @@ const dataTiles = computed(() => {
   }
   return [
     { icon: 'mdi-barn', label: 'Farms', value: fmt(s.farms) },
-    { icon: 'mdi-account-group', label: 'Accounts', value: fmt(s.accounts) },
-    { icon: 'mdi-clipboard-list', label: 'Chores', value: fmt(s.chores) },
     {
-      icon: 'mdi-check-circle',
+      icon: 'mdi-account-group-outline',
+      label: 'Accounts',
+      value: fmt(s.accounts),
+    },
+    {
+      icon: 'mdi-clipboard-list-outline',
+      label: 'Chores',
+      value: fmt(s.chores),
+    },
+    {
+      icon: 'mdi-check-circle-outline',
       label: 'Chores done',
       value: fmt(s.chores_done),
     },
-    { icon: 'mdi-camera', label: 'Photos', value: fmt(s.photos) },
+    { icon: 'mdi-camera-outline', label: 'Photos', value: fmt(s.photos) },
     {
       icon: 'mdi-timer-outline',
       label: 'Time tracked',
       value: formatElapsedDuration(s.tracked_seconds * 1000),
     },
-    { icon: 'mdi-shape', label: 'Categories', value: fmt(s.categories) },
-    { icon: 'mdi-map-marker', label: 'Locations', value: fmt(s.locations) },
-    { icon: 'mdi-tag', label: 'Tags', value: fmt(s.tags) },
-    { icon: 'mdi-cart', label: 'Shopping items', value: fmt(s.shopping_items) },
+    {
+      icon: 'mdi-shape-outline',
+      label: 'Categories',
+      value: fmt(s.categories),
+    },
+    {
+      icon: 'mdi-map-marker-outline',
+      label: 'Locations',
+      value: fmt(s.locations),
+    },
+    { icon: 'mdi-tag-outline', label: 'Tags', value: fmt(s.tags) },
+    {
+      icon: 'mdi-cart-outline',
+      label: 'Shopping items',
+      value: fmt(s.shopping_items),
+    },
     { icon: 'mdi-hammer-wrench', label: 'Tools listed', value: fmt(s.tools) },
     {
       icon: 'mdi-history',
