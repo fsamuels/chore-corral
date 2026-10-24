@@ -33,12 +33,11 @@ const emit = defineEmits<{
   open: [taskId: string]
 }>()
 
-const priorityDisplay: Record<TaskPriority, { color: string; label: string }> =
-  {
-    urgent: { color: 'error', label: 'Urgent' },
-    soon: { color: 'warning', label: 'Soon' },
-    whenever: { color: '', label: 'Whenever' },
-  }
+const priorityLabels: Record<TaskPriority, string> = {
+  urgent: 'Urgent',
+  soon: 'Soon',
+  whenever: 'Whenever',
+}
 
 const statusDisplay: Record<TaskStatus, string> = {
   not_started: 'Not started',
@@ -137,8 +136,6 @@ function countIcon(count: number): Icon {
         <path
           class="cc-task-count-marker__pin-shape"
           d="M16 0C8.268 0 2 6.268 2 14c0 10.5 14 26 14 26s14-15.5 14-26C30 6.268 23.732 0 16 0z"
-          stroke="#fff"
-          stroke-width="2"
         />
       </svg>
       <span class="cc-task-count-marker__number">${count}</span>
@@ -199,20 +196,22 @@ function openTask(taskId: string) {
         <div
           v-for="(task, index) in pin.tasks"
           :key="task.id"
-          :style="
-            index > 0
-              ? 'margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(0, 0, 0, 0.12)'
-              : undefined
-          "
+          :class="{ 'map-popup__task--next': index > 0 }"
         >
           <div class="font-weight-bold">{{ task.title }}</div>
           <div class="text-body-2 mb-2">
-            {{ priorityDisplay[task.priority].label }} &middot;
+            {{ priorityLabels[task.priority] }} &middot;
             {{ statusDisplay[task.status] }}
           </div>
-          <v-btn size="small" color="primary" @click="openTask(task.id)">
+          <!-- Real href for semantics/middle-click; the plain click still goes
+               through the `open` emit so the page owns navigation. -->
+          <a
+            :href="`/tasks/${task.id}`"
+            class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--sm"
+            @click.prevent="openTask(task.id)"
+          >
             Open chore
-          </v-btn>
+          </a>
         </div>
       </LPopup>
     </LMarker>
@@ -235,20 +234,20 @@ function openTask(taskId: string) {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: var(--cc-ink, #2b2118);
-  border: 2px solid #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  background: var(--cc-ink);
+  border: 2px solid var(--cc-accent-contrast);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--cc-ink) 40%, transparent);
 }
 
 .cc-location-marker__label {
-  background: var(--cc-ink, #2b2118);
-  color: #fff;
-  font-family: var(--cc-font-sans, sans-serif);
+  background: var(--cc-ink);
+  color: var(--cc-accent-contrast);
+  font-family: var(--cc-font-sans);
   font-size: 11px;
   font-weight: 600;
   padding: 2px 6px;
   border-radius: 4px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--cc-ink) 30%, transparent);
 }
 
 .cc-task-count-marker {
@@ -261,11 +260,15 @@ function openTask(taskId: string) {
   position: absolute;
   top: 0;
   left: 0;
-  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.4));
+  filter: drop-shadow(
+    0 1px 3px color-mix(in srgb, var(--cc-ink) 40%, transparent)
+  );
 }
 
 .cc-task-count-marker__pin-shape {
-  fill: var(--cc-ink, #2b2118);
+  fill: var(--cc-ink);
+  stroke: var(--cc-accent-contrast);
+  stroke-width: 2;
 }
 
 .cc-task-count-marker__number {
@@ -274,11 +277,20 @@ function openTask(taskId: string) {
   left: 0;
   width: 32px;
   text-align: center;
-  color: #fff;
-  font-family: var(--cc-font-sans, sans-serif);
+  color: var(--cc-accent-contrast);
+  font-family: var(--cc-font-sans);
   font-weight: 700;
   font-size: 13px;
   line-height: 16px;
   pointer-events: none;
+}
+</style>
+
+<style scoped>
+/* Stacked tasks sharing one pin are separated by a hairline. */
+.map-popup__task--next {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--cc-border);
 }
 </style>

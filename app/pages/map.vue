@@ -75,18 +75,15 @@ function onOpen(taskId: string) {
 </script>
 
 <template>
-  <v-container>
-    <v-alert
+  <div class="cc-page">
+    <LoadErrorAlert
       v-if="farmsError"
-      type="error"
-      variant="tonal"
       title="Couldn't load your farms"
-      class="mb-4"
-    >
-      {{ farmsError }} — try reloading; if this persists, the database may not
-      be reachable.
-    </v-alert>
+      :message="farmsError"
+    />
     <template v-else-if="activeFarm">
+      <PageHeader title="Map" />
+
       <div class="d-flex flex-wrap ga-4 align-center mb-4">
         <v-select
           v-model="selectedCategory"
@@ -97,54 +94,43 @@ function onOpen(taskId: string) {
           hide-details
           class="map-filter__field"
         />
-        <v-btn
+        <button
           v-if="selectedCategory !== ALL_CATEGORIES"
-          variant="text"
-          density="comfortable"
-          prepend-icon="mdi-filter-remove-outline"
+          type="button"
+          class="cc-text-link"
           @click="selectedCategory = ALL_CATEGORIES"
         >
           Clear filter
-        </v-btn>
+        </button>
       </div>
 
-      <v-alert
+      <LoadErrorAlert
         v-if="tasksError"
-        type="error"
-        variant="tonal"
         title="Couldn't load chores"
-        class="mb-4"
-      >
-        {{ tasksError }} — try reloading; if this persists, the database may not
-        be reachable.
-      </v-alert>
+        :message="tasksError"
+      />
 
-      <div v-else-if="loading && tasks === null" class="text-center py-8">
-        <v-progress-circular indeterminate color="primary" />
-      </div>
+      <LoadingState v-else-if="loading && tasks === null" />
 
       <template v-else>
-        <v-card
+        <EmptyState
           v-if="
             locatedTasks.length === 0 &&
             (selectedCategory !== ALL_CATEGORIES ||
               (locations ?? []).length === 0)
           "
-          variant="tonal"
-          class="mb-4"
+          icon="mdi-map-marker-off-outline"
         >
-          <v-card-text>
-            <template v-if="selectedCategory === ALL_CATEGORIES">
-              No chores have a location yet. Add one from a chore's location
-              field.
-            </template>
-            <template v-else>
-              No chores in this category have a location yet.
-            </template>
-          </v-card-text>
-        </v-card>
+          <template v-if="selectedCategory === ALL_CATEGORIES">
+            No chores have a location yet. Add one from a chore's location
+            field.
+          </template>
+          <template v-else>
+            No chores in this category have a location yet.
+          </template>
+        </EmptyState>
 
-        <div style="height: calc((100vh - 220px) * 0.9); min-height: 288px">
+        <div class="map-frame">
           <TaskMap
             :tasks="locatedTasks"
             :locations="locations ?? []"
@@ -154,10 +140,15 @@ function onOpen(taskId: string) {
         </div>
       </template>
     </template>
-  </v-container>
+  </div>
 </template>
 
 <style scoped>
+.map-frame {
+  height: calc((100dvh - 220px) * 0.9);
+  min-height: 288px;
+}
+
 /* Matches /tasks' .tasks-filter__field: a comfortable fixed width on desktop,
    full-width on phones so it stays an easy tap target. */
 .map-filter__field {

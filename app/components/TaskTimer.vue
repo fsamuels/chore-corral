@@ -205,9 +205,12 @@ async function onEditSave(): Promise<void> {
 // --- Session delete (confirm dialog, mirroring the task-delete pattern) ---
 const confirmingDeleteEntry = ref<TimeEntrySummary | null>(null)
 
-const deleteDurationLabel = computed(() => {
-  const entry = confirmingDeleteEntry.value
-  return entry ? formatTracked(totalTrackedMs([entry], now.value), false) : ''
+// ConfirmDialog is boolean-driven; closing it clears the pending entry.
+const confirmingDeleteOpen = computed({
+  get: () => confirmingDeleteEntry.value !== null,
+  set: (open) => {
+    if (!open) confirmingDeleteEntry.value = null
+  },
 })
 
 async function performDeleteEntry(): Promise<void> {
@@ -249,50 +252,47 @@ async function performDeleteEntry(): Promise<void> {
     </div>
 
     <template v-else-if="entries">
-      <div class="cc-timer-readout mb-3">
-        <div v-if="runningHere" class="cc-timer-stat">
+      <div class="timer-readout mb-3">
+        <div v-if="runningHere" class="timer-stat">
           <span class="cc-eyebrow">This session</span>
-          <span class="cc-timer-time cc-timer-time--running">
+          <span class="timer-time timer-time--running">
             {{ sessionLabel }}
           </span>
           <span
             v-if="!showTotal && estimatedMinutes !== null"
-            class="text-body-2 text-medium-emphasis"
+            class="text-body-2 cc-muted"
           >
             of {{ formatEstimatedMinutes(estimatedMinutes) }} estimated
           </span>
         </div>
-        <div v-if="showTotal" class="cc-timer-stat">
+        <div v-if="showTotal" class="timer-stat">
           <span class="cc-eyebrow">Total</span>
           <span
-            class="cc-timer-time"
-            :class="{ 'cc-timer-time--running': runningHere }"
+            class="timer-time"
+            :class="{ 'timer-time--running': runningHere }"
           >
             <template v-if="trackedMs > 0 || runningHere">{{
               trackedLabel
             }}</template>
             <template v-else>0s</template>
           </span>
-          <span
-            v-if="estimatedMinutes !== null"
-            class="text-body-2 text-medium-emphasis"
-          >
+          <span v-if="estimatedMinutes !== null" class="text-body-2 cc-muted">
             of {{ formatEstimatedMinutes(estimatedMinutes) }} estimated
           </span>
           <span
             v-else-if="trackedMs === 0 && !runningHere"
-            class="text-body-2 text-medium-emphasis"
+            class="text-body-2 cc-muted"
           >
             No time tracked yet.
           </span>
         </div>
       </div>
 
-      <div class="cc-timer-actions">
+      <div class="timer-actions">
         <template v-if="runningHere">
           <button
             type="button"
-            class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--lg cc-timer-btn"
+            class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--lg timer-btn"
             :disabled="mutating"
             @click="stop"
           >
@@ -302,12 +302,12 @@ async function performDeleteEntry(): Promise<void> {
               size="18"
               width="2"
             />
-            <v-icon v-else icon="mdi-pause" size="20" />
-            Pause
+            <v-icon v-else icon="mdi-stop" size="20" />
+            Stop timer
           </button>
           <button
             type="button"
-            class="cc-pill-btn cc-pill-btn--success cc-pill-btn--lg cc-timer-btn"
+            class="cc-pill-btn cc-pill-btn--success cc-pill-btn--lg timer-btn"
             :disabled="mutating"
             @click="onStopAndComplete"
           >
@@ -324,7 +324,7 @@ async function performDeleteEntry(): Promise<void> {
         <button
           v-else
           type="button"
-          class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--lg cc-timer-btn cc-pill-btn--full"
+          class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--lg timer-btn cc-pill-btn--full"
           :disabled="mutating"
           @click="onStart"
         >
@@ -342,7 +342,8 @@ async function performDeleteEntry(): Promise<void> {
       <div v-if="entries.length > 0" class="mt-3">
         <button
           type="button"
-          class="cc-text-link cc-text-link--muted cc-timer-sessions-toggle"
+          class="cc-text-link cc-text-link--muted timer-sessions-toggle"
+          :aria-expanded="sessionsOpen"
           @click="sessionsOpen = !sessionsOpen"
         >
           {{ sessionsLabel }}
@@ -356,18 +357,18 @@ async function performDeleteEntry(): Promise<void> {
           <div
             v-for="sessionEntry in entries"
             :key="sessionEntry.id"
-            class="cc-timer-session"
+            class="timer-session"
           >
             <div
               v-if="editingEntryId === sessionEntry.id"
-              class="cc-timer-session-edit"
+              class="timer-session-edit"
             >
-              <div class="cc-timer-session-edit__fields">
+              <div class="timer-session-edit__fields">
                 <v-text-field
                   v-model="editStartDate"
                   type="date"
                   label="Start date"
-                  density="compact"
+                  density="comfortable"
                   variant="outlined"
                   hide-details
                   :disabled="mutating"
@@ -376,7 +377,7 @@ async function performDeleteEntry(): Promise<void> {
                   v-model="editStartTime"
                   type="time"
                   label="Start time"
-                  density="compact"
+                  density="comfortable"
                   variant="outlined"
                   hide-details
                   :disabled="mutating"
@@ -385,7 +386,7 @@ async function performDeleteEntry(): Promise<void> {
                   v-model="editEndDate"
                   type="date"
                   label="End date"
-                  density="compact"
+                  density="comfortable"
                   variant="outlined"
                   hide-details
                   :disabled="mutating"
@@ -394,47 +395,64 @@ async function performDeleteEntry(): Promise<void> {
                   v-model="editEndTime"
                   type="time"
                   label="End time"
-                  density="compact"
+                  density="comfortable"
                   variant="outlined"
                   hide-details
                   :disabled="mutating"
                 />
               </div>
-              <p v-if="editError" class="text-caption text-error mt-1 mb-0">
+              <v-alert
+                v-if="editError"
+                type="error"
+                variant="tonal"
+                density="compact"
+                class="mt-2"
+              >
                 {{ editError }}
-              </p>
-              <div class="d-flex justify-end ga-2 mt-2">
-                <v-btn size="small" :disabled="mutating" @click="onEditCancel">
+              </v-alert>
+              <div class="cc-actions">
+                <button
+                  type="button"
+                  class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm"
+                  :disabled="mutating"
+                  @click="onEditCancel"
+                >
                   Cancel
-                </v-btn>
-                <v-btn
-                  size="small"
-                  color="primary"
-                  :loading="mutating"
+                </button>
+                <button
+                  type="button"
+                  class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--sm"
+                  :disabled="mutating"
                   @click="onEditSave"
                 >
+                  <v-progress-circular
+                    v-if="mutating"
+                    indeterminate
+                    size="18"
+                    width="2"
+                  />
                   Save
-                </v-btn>
+                </button>
               </div>
             </div>
             <template v-else>
-              <div class="cc-timer-session__info">
+              <div class="timer-session__info">
                 <span class="text-body-2">
                   {{ entryRangeLabel(sessionEntry) }}
                 </span>
-                <span class="text-caption text-medium-emphasis">
+                <span class="text-caption cc-muted">
                   {{ entryDurationLabel(sessionEntry) }}
                 </span>
                 <span
                   v-if="sessionEntry.ended_at === null"
-                  class="text-caption cc-timer-session__running"
+                  class="text-caption timer-session__running"
                 >
                   Running
                 </span>
               </div>
               <div
                 v-if="sessionEntry.ended_at !== null"
-                class="cc-timer-session__actions"
+                class="timer-session__actions"
               >
                 <button
                   type="button"
@@ -462,50 +480,25 @@ async function performDeleteEntry(): Promise<void> {
         </div>
       </div>
 
-      <v-dialog
-        :model-value="confirmingDeleteEntry !== null"
-        max-width="420"
-        persistent
+      <ConfirmDialog
+        v-model="confirmingDeleteOpen"
+        title="Delete session?"
+        confirm-label="Delete"
+        :busy="mutating"
+        @confirm="performDeleteEntry"
       >
-        <v-card>
-          <v-card-title>Delete session?</v-card-title>
-          <v-card-text>
-            Delete this session? Its {{ deleteDurationLabel }} of tracked time
-            will be removed. This can't be undone.
-          </v-card-text>
-          <v-card-actions>
-            <v-spacer />
-            <v-btn
-              size="large"
-              :disabled="mutating"
-              @click="confirmingDeleteEntry = null"
-            >
-              Cancel
-            </v-btn>
-            <v-btn
-              color="error"
-              size="large"
-              :loading="mutating"
-              @click="performDeleteEntry"
-            >
-              Delete
-            </v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+        This time entry will be permanently deleted.
+      </ConfirmDialog>
     </template>
 
-    <p
-      v-if="runningElsewhere"
-      class="text-caption text-medium-emphasis mt-1 mb-0"
-    >
+    <p v-if="runningElsewhere" class="text-caption cc-muted mt-1 mb-0">
       You have a timer running on another chore — starting here will stop it.
     </p>
   </div>
 </template>
 
 <style scoped>
-.cc-timer-readout {
+.timer-readout {
   display: flex;
   align-items: flex-start;
   flex-wrap: wrap;
@@ -515,13 +508,13 @@ async function performDeleteEntry(): Promise<void> {
 /* One labelled counter column ("This session" / "Total"): small eyebrow
    label stacked over the slab-serif time, with the estimate/empty note (if
    any) below. */
-.cc-timer-stat {
+.timer-stat {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.cc-timer-time {
+.timer-time {
   font-family: var(--cc-font-slab);
   font-size: 1.75rem;
   font-weight: 700;
@@ -530,29 +523,29 @@ async function performDeleteEntry(): Promise<void> {
   font-variant-numeric: tabular-nums;
 }
 
-.cc-timer-time--running {
+.timer-time--running {
   color: var(--cc-accent);
 }
 
-.cc-timer-actions {
+.timer-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
 }
 
-.cc-timer-btn {
+.timer-btn {
   flex: 1 1 140px;
 }
 
 /* Sessions disclosure: a quiet toggle over a simple divided list. */
-.cc-timer-sessions-toggle {
+.timer-sessions-toggle {
   display: inline-flex;
   align-items: center;
   gap: 2px;
   font-size: 0.875rem;
 }
 
-.cc-timer-session {
+.timer-session {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -560,34 +553,34 @@ async function performDeleteEntry(): Promise<void> {
   padding: 8px 0;
 }
 
-.cc-timer-session + .cc-timer-session {
+.timer-session + .timer-session {
   border-top: 1px solid var(--cc-border);
 }
 
-.cc-timer-session__info {
+.timer-session__info {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   column-gap: 8px;
 }
 
-.cc-timer-session__actions {
+.timer-session__actions {
   display: flex;
   gap: 6px;
   flex: none;
 }
 
-.cc-timer-session__running {
+.timer-session__running {
   color: var(--cc-accent);
   font-weight: 600;
 }
 
-.cc-timer-session-edit {
+.timer-session-edit {
   flex: 1;
   padding: 4px 0;
 }
 
-.cc-timer-session-edit__fields {
+.timer-session-edit__fields {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;

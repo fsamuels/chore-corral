@@ -114,10 +114,7 @@ function onRemove(item: ToolItemSummary): void {
       <v-progress-circular indeterminate size="24" color="primary" />
     </div>
 
-    <p
-      v-else-if="items && items.length === 0"
-      class="text-body-2 text-medium-emphasis"
-    >
+    <p v-else-if="items && items.length === 0" class="cc-empty-inline">
       No tools yet.
     </p>
 
@@ -125,7 +122,7 @@ function onRemove(item: ToolItemSummary): void {
       <div
         v-for="item in items"
         :key="item.id"
-        class="d-flex align-center ga-1"
+        class="d-flex align-center ga-1 mb-1"
       >
         <v-checkbox-btn
           :model-value="item.checked"
@@ -135,43 +132,47 @@ function onRemove(item: ToolItemSummary): void {
           class="flex-grow-0"
           @update:model-value="onToggle(item)"
         />
-        <v-text-field
+        <input
           v-model="drafts[item.id]"
-          density="compact"
-          variant="underlined"
-          hide-details
-          class="flex-grow-1"
-          :class="{
-            'text-medium-emphasis text-decoration-line-through': item.checked,
-          }"
+          type="text"
+          class="cc-field item-name"
+          :class="{ 'item-name--checked': item.checked }"
+          aria-label="Tool name"
           @blur="onNameBlur(item)"
           @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
         />
-        <v-btn
-          icon="mdi-close"
-          size="x-small"
-          variant="text"
-          :loading="pendingIds.has(item.id)"
+        <button
+          type="button"
+          class="cc-icon-btn cc-icon-btn--sm"
           :disabled="pendingIds.has(item.id)"
           aria-label="Remove tool"
           title="Remove tool"
           @click="onRemove(item)"
-        />
+        >
+          <v-progress-circular
+            v-if="pendingIds.has(item.id)"
+            indeterminate
+            size="16"
+            width="2"
+          />
+          <v-icon v-else icon="mdi-close" size="18" />
+        </button>
       </div>
     </div>
 
-    <div class="add-row mt-2">
+    <div class="cc-add-row mt-2">
       <input
         v-model="newItemName"
         type="text"
-        placeholder="Add a tool needed"
-        class="cc-field add-row__input"
+        placeholder="Add a tool you'll need"
+        class="cc-field cc-field--pill"
+        aria-label="New tool name"
         :disabled="adding"
         @keydown.enter.prevent="onAdd"
       />
       <button
         type="button"
-        class="cc-icon-btn add-row__submit"
+        class="cc-icon-btn"
         :disabled="adding || !newItemName.trim()"
         aria-label="Add tool"
         title="Add tool"
@@ -185,21 +186,15 @@ function onRemove(item: ToolItemSummary): void {
 </template>
 
 <style scoped>
-.add-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.item-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+  padding: 8px 12px;
 }
 
-.add-row__input {
-  height: 52px;
-  border-radius: 999px;
-  padding: 0 18px;
-}
-
-.add-row__submit {
-  width: 52px;
-  height: 52px;
-  background: #ebe2ce;
+.item-name--checked {
+  color: var(--cc-ink-muted);
+  text-decoration: line-through;
 }
 </style>

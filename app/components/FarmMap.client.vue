@@ -22,8 +22,9 @@ const props = withDefaults(
     center: [number, number]
     zoom?: number
     height?: string
+    ariaLabel?: string
   }>(),
-  { zoom: 16, height: '400px' },
+  { zoom: 16, height: '400px', ariaLabel: 'Map' },
 )
 
 const emit = defineEmits<{
@@ -49,7 +50,12 @@ function onReady(map: LeafletMap) {
 </script>
 
 <template>
-  <div :style="{ height: props.height }">
+  <div
+    class="farm-map"
+    role="region"
+    :aria-label="props.ariaLabel"
+    :style="{ height: props.height }"
+  >
     <LMap
       :center="props.center"
       :zoom="props.zoom"
@@ -73,3 +79,11 @@ function onReady(map: LeafletMap) {
     </LMap>
   </div>
 </template>
+
+<style scoped>
+.farm-map {
+  border-radius: var(--cc-radius);
+  border: 1px solid var(--cc-border);
+  overflow: hidden;
+}
+</style>

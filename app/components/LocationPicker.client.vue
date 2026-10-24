@@ -111,35 +111,39 @@ function removePin() {
 <template>
   <div>
     <div class="d-flex align-center flex-wrap ga-2 mb-2">
-      <v-btn
-        size="small"
-        variant="tonal"
-        prepend-icon="mdi-crosshairs-gps"
-        :loading="locating"
-        :disabled="disabled"
+      <button
+        type="button"
+        class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm"
+        :disabled="disabled || locating"
         @click="capture"
       >
+        <v-progress-circular
+          v-if="locating"
+          indeterminate
+          size="18"
+          width="2"
+        />
+        <v-icon v-else icon="mdi-crosshairs-gps" size="18" />
         Use my location
-      </v-btn>
-      <v-btn
+      </button>
+      <button
         v-if="!showMap"
-        size="small"
-        variant="text"
+        type="button"
+        class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm"
         :disabled="disabled || locating"
         @click="placing = true"
       >
         Place pin manually
-      </v-btn>
-      <v-btn
+      </button>
+      <button
         v-if="pin"
-        size="small"
-        variant="text"
-        color="error"
+        type="button"
+        class="cc-pill-btn cc-pill-btn--danger cc-pill-btn--sm"
         :disabled="disabled"
         @click="removePin"
       >
-        Remove location
-      </v-btn>
+        Remove pin
+      </button>
     </div>
 
     <v-alert
@@ -166,7 +170,7 @@ function removePin() {
           @update:lat-lng="onMarkerMoved"
         />
       </FarmMap>
-      <p class="text-caption text-medium-emphasis mt-1 mb-0">
+      <p class="text-caption cc-muted mt-1 mb-0">
         {{
           pin
             ? 'Tap the map or drag the pin to adjust.'

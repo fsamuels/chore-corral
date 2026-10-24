@@ -167,35 +167,23 @@ async function toggleTimer(task: TaskSummary) {
 </script>
 
 <template>
-  <v-container class="home">
-    <v-alert
+  <div class="cc-page">
+    <LoadErrorAlert
       v-if="farmsError"
-      type="error"
-      variant="tonal"
       title="Couldn't load your farms"
-      class="mb-4"
-    >
-      {{ farmsError }} — try reloading; if this persists, the database may not
-      be reachable.
-    </v-alert>
+      :message="farmsError"
+    />
     <template v-else-if="activeFarm">
-      <v-alert
+      <LoadErrorAlert
         v-if="tasksError"
-        type="error"
-        variant="tonal"
         title="Couldn't load chores"
-        class="mb-4"
-      >
-        {{ tasksError }} — try reloading; if this persists, the database may not
-        be reachable.
-      </v-alert>
+        :message="tasksError"
+      />
 
-      <div v-else-if="loading && tasks === null" class="text-center py-8">
-        <v-progress-circular indeterminate color="primary" />
-      </div>
+      <LoadingState v-else-if="loading && tasks === null" />
 
       <template v-else>
-        <div class="home__stats">
+        <div class="cc-stat-row">
           <span class="cc-pill cc-pill--surface">
             {{ outstandingTasks.length }} open
           </span>
@@ -218,46 +206,43 @@ async function toggleTimer(task: TaskSummary) {
           v-model="searchQuery"
           placeholder="Search chores"
           prepend-inner-icon="mdi-magnify"
-          density="compact"
+          density="comfortable"
           variant="outlined"
           hide-details
           clearable
           class="home__search mb-4"
         />
 
-        <div
+        <EmptyState
           v-if="!tasks || tasks.length === 0"
-          class="text-center py-12 text-medium-emphasis"
+          icon="mdi-clipboard-text-outline"
         >
-          <v-icon icon="mdi-clipboard-text-outline" size="64" class="mb-4" />
-          <p class="text-body-1 mb-4">
-            No chores yet. Add one to start tracking work on this farm.
-          </p>
-          <v-btn color="primary" variant="tonal" size="large" to="/tasks/new"
-            >New chore</v-btn
-          >
-        </div>
+          No chores yet. Add one to start tracking work on this farm.
+          <template #action>
+            <NuxtLink
+              class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--sm"
+              to="/tasks/new"
+            >
+              New chore
+            </NuxtLink>
+          </template>
+        </EmptyState>
 
-        <div
+        <EmptyState
           v-else-if="outstandingTasks.length === 0"
-          class="text-center py-12 text-medium-emphasis"
+          icon="mdi-check-circle-outline"
         >
-          <v-icon icon="mdi-check-circle-outline" size="64" class="mb-4" />
-          <p class="text-body-1">Nothing outstanding — every chore is done.</p>
-        </div>
+          Nothing outstanding — every chore is done.
+        </EmptyState>
 
-        <div
-          v-else-if="searchedTasks.length === 0"
-          class="text-center py-12 text-medium-emphasis"
-        >
-          <v-icon icon="mdi-magnify" size="64" class="mb-4" />
-          <p class="text-body-1">No chores match “{{ searchQuery }}”.</p>
-        </div>
+        <EmptyState v-else-if="searchedTasks.length === 0" icon="mdi-magnify">
+          No chores match “{{ searchQuery }}”.
+        </EmptyState>
 
         <template v-else>
           <section v-if="upNext.length > 0" class="home__section">
             <h2 class="cc-section-title home__section-heading">Up next</h2>
-            <div class="home__cards">
+            <div class="cc-card-list">
               <TaskCard
                 v-for="task in upNext"
                 :key="task.id"
@@ -277,14 +262,14 @@ async function toggleTimer(task: TaskSummary) {
           </section>
 
           <section v-if="backlog.length > 0" class="home__section">
-            <div class="home__section-heading home__section-heading--row">
+            <div class="cc-section-head home__section-heading">
               <h2 class="cc-section-title">Backlog</h2>
-              <span class="home__section-count">
+              <span class="cc-muted home__section-count">
                 {{ backlog.length }}
                 {{ backlog.length === 1 ? 'chore' : 'chores' }}
               </span>
             </div>
-            <div class="home__cards">
+            <div class="cc-card-list">
               <TaskCard
                 v-for="task in backlog"
                 :key="task.id"
@@ -315,21 +300,10 @@ async function toggleTimer(task: TaskSummary) {
     <v-snackbar v-model="showSnackbar" :color="snackbarColor" :timeout="4000">
       {{ snackbarMessage }}
     </v-snackbar>
-  </v-container>
+  </div>
 </template>
 
 <style scoped>
-.home {
-  max-width: 900px;
-}
-
-.home__stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 24px;
-}
-
 .home__search {
   max-width: 320px;
 }
@@ -348,21 +322,7 @@ async function toggleTimer(task: TaskSummary) {
   margin-bottom: 12px;
 }
 
-.home__section-heading--row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
 .home__section-count {
-  color: var(--cc-ink-muted);
   font-size: 0.8125rem;
-}
-
-.home__cards {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
 }
 </style>
