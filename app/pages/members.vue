@@ -29,28 +29,26 @@ const isOwner = computed(() =>
   ),
 )
 
-watch(
-  activeFarmId,
-  async (farmId) => {
-    if (!farmId) return
-    loading.value = true
-    loadError.value = null
-    try {
-      members.value = await listFarmMemberProfiles(supabase, farmId)
-      // Invites are owner-only (RLS would return nothing anyway — don't
-      // bother asking unless the members list says we're an owner).
-      invites.value = isOwner.value
-        ? await listPendingInvites(supabase, farmId)
-        : []
-    } catch (error) {
-      loadError.value =
-        error instanceof Error ? error.message : 'Something went wrong.'
-    } finally {
-      loading.value = false
-    }
-  },
-  { immediate: true },
-)
+async function loadMembers() {
+  const farmId = activeFarmId.value
+  if (!farmId) return
+  loading.value = true
+  loadError.value = null
+  try {
+    members.value = await listFarmMemberProfiles(supabase, farmId)
+    // Invites are owner-only (RLS would return nothing anyway — don't
+    // bother asking unless the members list says we're an owner).
+    invites.value = isOwner.value
+      ? await listPendingInvites(supabase, farmId)
+      : []
+  } catch (error) {
+    loadError.value =
+      error instanceof Error ? error.message : 'Something went wrong.'
+  } finally {
+    loading.value = false
+  }
+}
+watch(activeFarmId, loadMembers, { immediate: true })
 
 const inviteEmail = ref('')
 const inviting = ref(false)
@@ -116,6 +114,7 @@ async function revoke(invite: FarmInvite) {
       v-if="farmsError"
       title="Couldn't load your farms"
       :message="farmsError"
+      :retry="() => fetchFarms()"
     />
     <template v-else-if="activeFarm">
       <PageHeader title="Farm members">
@@ -127,9 +126,10 @@ async function revoke(invite: FarmInvite) {
         v-if="loadError"
         title="Couldn't load members"
         :message="loadError"
+        :retry="loadMembers"
       />
 
-      <LoadingState v-else-if="loading" label="Loading members" />
+      <ListSkeleton v-else-if="loading" />
 
       <template v-else>
         <div class="cc-card cc-card--list mb-6">

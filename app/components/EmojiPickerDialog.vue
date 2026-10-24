@@ -135,9 +135,16 @@ function choose(emoji: string) {
         <div v-else-if="error" class="emoji-dialog__state cc-muted">
           <v-icon icon="mdi-wifi-off" size="40" class="mb-2" />
           <p class="text-body-2">
-            Couldn't load the emoji list. Check your connection and try
-            reopening.
+            Couldn't load the emoji list. Check your connection and try again.
           </p>
+          <button
+            type="button"
+            class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm mt-3"
+            @click="ensureLoaded"
+          >
+            <v-icon icon="mdi-refresh" size="18" />
+            Try again
+          </button>
         </div>
 
         <template v-else>

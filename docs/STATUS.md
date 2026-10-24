@@ -13,6 +13,19 @@ Current state of the project. Update this as work progresses — it should alway
 
 **Checks:** lint, format, typecheck, the 493-case suite and `nuxt build` pass. Not checked in a browser; in particular, check the "Saved" toast position above the FAB.
 
+**Chore list UX follow-ups (2026-10-24).** Follow-up to the UI consistency pass.
+
+- **Chores filters:** search and status stay visible. Category, tag, location, priority, due date and "Overdue only" sit behind a "Filters · N" button, and active ones show as removable chips. Chip labels come from the new pure helper `describeActiveFilters` in `app/utils/task-filter-chips.ts`, which has Vitest tests.
+- **TaskCard:**
+  - The card is now a stretched-link card, so the timer button is a sibling of the title link instead of nesting inside it.
+  - On touch devices, which have no hover, the play glyph shows as a small badge on the category emoji.
+- **Loading and errors:**
+  - Lists show the new `ListSkeleton` placeholder rows while loading.
+  - `LoadErrorAlert` takes an optional `retry` function and shows "Try again" with a busy state.
+  - The emoji picker's load error also has "Try again".
+
+**Checks:** lint, format, typecheck, the 491-case suite and `nuxt build` pass. Not checked in a browser.
+
 **UI consistency pass (2026-10-24).** Direct user ask: review the signed-in UI for consistency and fix what isn't. Login, landing, confirm, welcome and the components demo were deliberately left alone. **Shared scaffolding:**
 
 - New `main.css` classes: `cc-page` (900px column matching the header, `--narrow` 720px), `cc-page-title`, `cc-muted`, the empty/loading states, `cc-card--list` and `--row`, `cc-card-list`, `cc-stat-row`, `cc-section-head`, `cc-pill--sm` and `--accent`, `cc-status-chip`, `cc-meta`, `cc-add-row` with `cc-field--pill`, `cc-actions`, the dialog classes and `cc-pill-btn--danger-solid`.
