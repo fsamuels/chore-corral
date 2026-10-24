@@ -2,7 +2,15 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-10-24 (map popup button contrast fix)
+**Last updated:** 2026-10-24 (map legend readability)
+
+**Map legend readability (2026-10-24).** User-reported from a phone: the priority legend was hard to read.
+
+- **Placement:** it sat below the map, where the bottom nav covered it on a phone. It now sits above the map.
+- **Size:** it uses the regular pill size instead of `cc-pill--sm`, with 12px colour dots.
+- **Map height:** the map is shorter, `calc((100dvh - 280px) * 0.75)` with a 260px minimum, down from `(100dvh - 220px) * 0.9`. The toggle, filter, legend and the "no location" link now fit around it on a typical phone.
+
+**Checks:** lint, typecheck and tests pass. Not checked in a browser.
 
 **Map popup button contrast fix (2026-10-24).** User-reported from a phone screenshot: the map popup's "Open chore" label was blue on the orange pill and hard to read. Leaflet's stylesheet colours every link in a map (`.leaflet-container a`), and that rule outranks a single `cc-pill-btn--*` class. New rules in `main.css` (`.leaflet-container a.cc-pill-btn…`) restore the pill colours for links inside a map. Checked in headless Chromium against Leaflet's real stylesheet: the label computed to `rgb(0, 120, 168)` before the fix and to white after.
 
