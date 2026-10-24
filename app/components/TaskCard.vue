@@ -141,8 +141,10 @@ function onToggleTimer() {
 </script>
 
 <template>
-  <NuxtLink
-    :to="`/tasks/${task.id}`"
+  <!-- Stretched-link pattern: the card is a plain element and the title link's
+       ::after covers it, so the whole card is clickable while the timer
+       button stays a sibling of (not nested in) the <a>. -->
+  <div
     class="cc-card cc-card--row task-card"
     :class="[
       `task-card--${task.priority}`,
@@ -164,7 +166,7 @@ function onToggleTimer() {
       "
       :title="timerRunning ? 'Stop timer' : 'Start timer'"
       :disabled="updating"
-      @click.stop.prevent="onToggleTimer"
+      @click="onToggleTimer"
     >
       <v-progress-circular
         v-if="updating"
@@ -197,7 +199,9 @@ function onToggleTimer() {
 
     <div class="task-card__content">
       <div class="cc-eyebrow task-card__category">{{ categoryName }}</div>
-      <div class="task-card__title">{{ task.title }}</div>
+      <NuxtLink :to="`/tasks/${task.id}`" class="task-card__title">{{
+        task.title
+      }}</NuxtLink>
       <div class="task-card__meta">
         <span
           v-if="showPill"
@@ -275,16 +279,23 @@ function onToggleTimer() {
       decoding="async"
       @error="onThumbnailError"
     />
-  </NuxtLink>
+  </div>
 </template>
 
 <style scoped>
 .task-card {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 14px;
-  text-decoration: none;
   color: var(--cc-ink);
+}
+
+/* Keyboard focus lands on the title link; ring the whole card since the
+   link's own box is only the title text. */
+.task-card:has(.task-card__title:focus-visible) {
+  outline: 2px solid var(--cc-accent);
+  outline-offset: 2px;
 }
 
 .task-card--urgent {
@@ -305,6 +316,13 @@ function onToggleTimer() {
   justify-content: center;
   cursor: pointer;
   padding: 0;
+  /* Above the title link's stretched ::after so it receives its own taps. */
+  z-index: 1;
+}
+
+.task-card__check:focus-visible {
+  outline: 2px solid var(--cc-accent);
+  outline-offset: 2px;
 }
 
 .task-card__check--urgent {
@@ -378,12 +396,25 @@ function onToggleTimer() {
 }
 
 .task-card__title {
+  display: block;
+  text-decoration: none;
   font-family: var(--cc-font-slab);
   font-size: 1.125rem;
   font-weight: 600;
   line-height: 1.3;
   color: var(--cc-ink);
   overflow-wrap: anywhere;
+}
+
+.task-card__title:focus-visible {
+  outline: none;
+}
+
+.task-card__title::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--cc-radius);
 }
 
 .task-card__meta {
@@ -442,5 +473,19 @@ function onToggleTimer() {
   object-fit: cover;
   border-radius: calc(var(--cc-radius) / 2);
   background: var(--cc-border);
+  /* Taps on the photo fall through to the stretched title link. */
+  pointer-events: none;
+}
+
+/* Touch devices have no hover, so show the play glyph at rest (the emoji
+   steps aside) to make the circle read as a button. */
+@media (hover: none) {
+  .task-card__check-play {
+    opacity: 1;
+  }
+
+  .task-card__check-emoji {
+    opacity: 0;
+  }
 }
 </style>
