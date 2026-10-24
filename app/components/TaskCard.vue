@@ -477,15 +477,26 @@ function onToggleTimer() {
   pointer-events: none;
 }
 
-/* Touch devices have no hover, so show the play glyph at rest (the emoji
-   steps aside) to make the circle read as a button. */
+/* Touch devices have no hover, so the play glyph can't wait to be revealed.
+   Keep the category emoji (it identifies the chore at a glance) and pin the
+   play glyph as a small badge on the circle's corner instead. */
 @media (hover: none) {
-  .task-card__check-play {
+  .task-card__check-play:not(.task-card__check-play--solo) {
     opacity: 1;
+    top: auto;
+    left: auto;
+    right: -4px;
+    bottom: -4px;
+    /* v-icon sizes itself inline, so shrink the badge with a transform. */
+    transform: scale(0.7);
+    transform-origin: bottom right;
+    border-radius: 50%;
+    background: var(--cc-surface);
+    box-shadow: 0 0 0 1px var(--cc-border);
   }
 
-  .task-card__check-emoji {
-    opacity: 0;
+  .task-card__check-play--solo {
+    opacity: 1;
   }
 }
 </style>
