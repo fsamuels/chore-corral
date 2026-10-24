@@ -26,6 +26,12 @@ const newFarmName = ref('')
 const creating = ref(false)
 const createError = ref<string | null>(null)
 
+function cancelNewFarm() {
+  showNewFarmForm.value = false
+  newFarmName.value = ''
+  createError.value = null
+}
+
 async function createNewFarm() {
   if (creating.value) return
   creating.value = true
@@ -45,30 +51,30 @@ async function createNewFarm() {
 </script>
 
 <template>
-  <v-container max-width="600">
-    <h1 class="text-h4 mb-1">Change farm</h1>
-    <p class="text-body-2 text-medium-emphasis mb-4">
+  <div class="cc-page cc-page--narrow">
+    <PageHeader title="Change farm">
       Everything in the app — chores, categories, the map — is scoped to the
       selected farm.
-    </p>
+    </PageHeader>
 
-    <v-alert
+    <LoadErrorAlert
       v-if="farmsError"
-      type="error"
-      variant="tonal"
       title="Couldn't load your farms"
-    >
-      {{ farmsError }} — try reloading; if this persists, the database may not
-      be reachable.
-    </v-alert>
+      :message="farmsError"
+    />
 
-    <div v-else class="cc-card pa-0" style="overflow: hidden">
+    <EmptyState v-else-if="(farms?.length ?? 0) === 0" icon="mdi-barn">
+      You don't belong to any farms yet.
+    </EmptyState>
+
+    <div v-else class="cc-card cc-card--list">
       <v-list>
         <v-list-item
-          v-for="farm in farms ?? []"
+          v-for="farm in farms"
           :key="farm.id"
           :title="farm.name"
           :active="farm.id === activeFarmId"
+          :aria-current="farm.id === activeFarmId ? 'true' : undefined"
           prepend-icon="mdi-barn"
           @click="selectFarm(farm.id)"
         >
@@ -77,57 +83,70 @@ async function createNewFarm() {
               v-if="farm.id === activeFarmId"
               icon="mdi-check"
               size="small"
+              aria-label="Current farm"
             />
           </template>
         </v-list-item>
       </v-list>
-      <p
-        v-if="(farms?.length ?? 0) === 1"
-        class="text-body-2 text-medium-emphasis px-4 pb-4"
-      >
+      <p v-if="farms?.length === 1" class="cc-muted px-4 pb-4">
         You belong to one farm, so there's nothing to switch — you're all set.
       </p>
     </div>
 
     <div class="mt-6">
-      <v-btn
+      <button
         v-if="!showNewFarmForm"
-        variant="tonal"
-        color="primary"
-        prepend-icon="mdi-plus"
+        type="button"
+        class="cc-pill-btn cc-pill-btn--ghost cc-pill-btn--sm"
         @click="showNewFarmForm = true"
       >
+        <v-icon icon="mdi-plus" size="18" />
         New farm
-      </v-btn>
+      </button>
 
       <template v-else>
-        <h2 class="text-h6 mb-2">New farm</h2>
+        <h2 class="cc-section-title mb-2">New farm</h2>
         <v-alert v-if="createError" type="error" variant="tonal" class="mb-3">
           {{ createError }}
         </v-alert>
-        <v-form class="d-flex ga-2" @submit.prevent="createNewFarm">
+        <v-form @submit.prevent="createNewFarm">
           <v-text-field
             v-model="newFarmName"
             label="Farm name"
+            variant="outlined"
             density="comfortable"
             :maxlength="FARM_NAME_MAX_LENGTH"
             hide-details
             autofocus
           />
-          <v-btn
-            type="submit"
-            color="primary"
-            height="48"
-            :loading="creating"
-            :disabled="newFarmName.trim().length === 0"
-          >
-            Create
-          </v-btn>
+          <div class="cc-actions">
+            <button
+              type="button"
+              class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm"
+              :disabled="creating"
+              @click="cancelNewFarm"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--sm"
+              :disabled="creating || newFarmName.trim().length === 0"
+            >
+              <v-progress-circular
+                v-if="creating"
+                indeterminate
+                size="18"
+                width="2"
+              />
+              Create
+            </button>
+          </div>
         </v-form>
-        <p class="text-body-2 text-medium-emphasis mt-2 mb-0">
+        <p class="cc-muted mt-2 mb-0">
           You'll be the new farm's owner, and it becomes your active farm.
         </p>
       </template>
     </div>
-  </v-container>
+  </div>
 </template>

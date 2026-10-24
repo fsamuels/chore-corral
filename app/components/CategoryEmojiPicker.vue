@@ -75,11 +75,11 @@ function onCustomInput(value: string) {
 
 <template>
   <div class="emoji-picker">
-    <div class="emoji-picker__grid">
+    <div class="emoji-picker__grid" role="group" aria-label="Suggested emoji">
       <button
         type="button"
-        class="emoji-picker__option emoji-picker__option--none"
-        :class="{ 'emoji-picker__option--active': model === null }"
+        class="cc-icon-btn emoji-picker__option emoji-picker__option--muted"
+        :class="{ 'cc-icon-btn--active': model === null }"
         :disabled="disabled"
         aria-label="No emoji"
         title="No emoji"
@@ -91,8 +91,8 @@ function onCustomInput(value: string) {
         v-for="emoji in SUGGESTIONS"
         :key="emoji"
         type="button"
-        class="emoji-picker__option"
-        :class="{ 'emoji-picker__option--active': model === emoji }"
+        class="cc-icon-btn emoji-picker__option"
+        :class="{ 'cc-icon-btn--active': model === emoji }"
         :disabled="disabled"
         :aria-label="`Use ${emoji}`"
         :aria-pressed="model === emoji"
@@ -102,7 +102,7 @@ function onCustomInput(value: string) {
       </button>
       <button
         type="button"
-        class="emoji-picker__option emoji-picker__option--more"
+        class="cc-icon-btn emoji-picker__option emoji-picker__option--muted"
         :disabled="disabled"
         aria-label="Browse all emoji"
         title="Browse all emoji"
@@ -123,8 +123,7 @@ function onCustomInput(value: string) {
       density="comfortable"
       variant="outlined"
       hide-details
-      class="mt-3"
-      style="max-width: 240px"
+      class="emoji-picker__custom mt-3"
       @update:model-value="onCustomInput"
     />
   </div>
@@ -137,34 +136,17 @@ function onCustomInput(value: string) {
   gap: 8px;
 }
 
+/* cc-icon-btn supplies the round button; this just sizes the emoji glyph. */
 .emoji-picker__option {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   font-size: 1.25rem;
   line-height: 1;
-  background: var(--cc-surface);
-  border: 1px solid var(--cc-border);
-  box-shadow: var(--cc-shadow);
-  cursor: pointer;
-  padding: 0;
 }
 
-.emoji-picker__option--none,
-.emoji-picker__option--more {
+.emoji-picker__option--muted {
   color: var(--cc-ink-muted);
 }
 
-.emoji-picker__option--active {
-  border-color: var(--cc-accent);
-  box-shadow: 0 0 0 2px var(--cc-accent);
-}
-
-.emoji-picker__option:disabled {
-  opacity: 0.6;
-  cursor: default;
+.emoji-picker__custom {
+  max-width: 240px;
 }
 </style>

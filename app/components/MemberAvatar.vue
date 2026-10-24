@@ -22,8 +22,16 @@ const showImage = computed(() => props.src !== null && !failed.value)
 </script>
 
 <template>
-  <v-avatar :size="size ?? 32" color="surface-variant" variant="tonal">
+  <v-avatar :size="size ?? 32" class="member-avatar">
     <v-img v-if="showImage" :src="src!" alt="" @error="failed = true" />
     <v-icon v-else icon="mdi-account-circle" :size="size ?? 32" />
   </v-avatar>
 </template>
+
+<style scoped>
+/* surface-variant isn't in the Vuetify theme; use the app tokens. */
+.member-avatar {
+  background: var(--cc-track);
+  color: var(--cc-ink-muted);
+}
+</style>

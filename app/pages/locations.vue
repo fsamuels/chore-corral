@@ -148,9 +148,13 @@ function confirmDelete(location: LocationSummary) {
   deleteError.value = null
 }
 
-function cancelDelete() {
-  toDelete.value = null
-}
+// ConfirmDialog drives its own open state; closing (Cancel) clears the target.
+const deleteOpen = computed({
+  get: () => toDelete.value !== null,
+  set: (open: boolean) => {
+    if (!open) toDelete.value = null
+  },
+})
 
 async function performDelete() {
   if (!toDelete.value) return
@@ -178,20 +182,14 @@ async function performDelete() {
 </script>
 
 <template>
-  <v-container>
-    <v-alert
+  <div class="cc-page">
+    <LoadErrorAlert
       v-if="farmsError"
-      type="error"
-      variant="tonal"
       title="Couldn't load your farms"
-      class="mb-4"
-    >
-      {{ farmsError }} — try reloading; if this persists, the database may not
-      be reachable.
-    </v-alert>
+      :message="farmsError"
+    />
     <template v-else-if="activeFarm">
-      <h1 class="text-h4 mb-1">Locations</h1>
-      <p class="cc-eyebrow mb-6">{{ activeFarm.name }}</p>
+      <PageHeader title="Locations" />
 
       <v-form
         ref="createForm"
@@ -213,16 +211,6 @@ async function performDelete() {
           :fallback-center="farmCenter"
           :disabled="creating"
         />
-        <div class="d-flex justify-end mt-3">
-          <v-btn
-            type="submit"
-            color="primary"
-            :loading="creating"
-            :disabled="!newName.trim() || !newPin"
-          >
-            Add
-          </v-btn>
-        </div>
         <v-alert
           v-if="createError"
           type="error"
@@ -232,36 +220,40 @@ async function performDelete() {
         >
           {{ createError }}
         </v-alert>
+        <div class="cc-actions">
+          <button
+            type="submit"
+            class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--sm"
+            :disabled="creating || !newName.trim() || !newPin"
+          >
+            <v-progress-circular
+              v-if="creating"
+              indeterminate
+              size="18"
+              width="2"
+            />
+            Add location
+          </button>
+        </div>
       </v-form>
 
-      <v-alert
+      <LoadErrorAlert
         v-if="locationsError"
-        type="error"
-        variant="tonal"
         title="Couldn't load locations"
-        class="mb-4"
-      >
-        {{ locationsError }} — try reloading; if this persists, the database may
-        not be reachable.
-      </v-alert>
+        :message="locationsError"
+      />
 
-      <div v-else-if="loading && locations === null" class="text-center py-8">
-        <v-progress-circular indeterminate color="primary" />
-      </div>
+      <LoadingState v-else-if="loading && locations === null" />
 
-      <div
+      <EmptyState
         v-else-if="!locations || locations.length === 0"
-        class="text-center py-12 text-medium-emphasis"
+        icon="mdi-map-marker-multiple-outline"
       >
-        <v-icon icon="mdi-map-marker-multiple-outline" size="64" class="mb-4" />
-        <p class="text-body-1">
-          No locations yet. Add one above to start pinning chores to named
-          places.
-        </p>
-      </div>
+        No locations yet. Add one above to start pinning chores to named places.
+      </EmptyState>
 
-      <div v-else class="cc-card pa-0" style="overflow: hidden">
-        <v-list lines="two">
+      <div v-else class="cc-card cc-card--list">
+        <v-list lines="three">
           <template v-for="location in locations" :key="location.id">
             <div v-if="editingId === location.id" class="pa-4">
               <v-text-field
@@ -288,19 +280,29 @@ async function performDelete() {
               >
                 {{ saveError }}
               </v-alert>
-              <div class="d-flex justify-end ga-2 mt-3">
-                <v-btn size="small" :disabled="saving" @click="cancelEditing">
+              <div class="cc-actions">
+                <button
+                  type="button"
+                  class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm"
+                  :disabled="saving"
+                  @click="cancelEditing"
+                >
                   Cancel
-                </v-btn>
-                <v-btn
-                  size="small"
-                  color="primary"
-                  :loading="saving"
-                  :disabled="!editName.trim() || !editPin"
+                </button>
+                <button
+                  type="button"
+                  class="cc-pill-btn cc-pill-btn--accent cc-pill-btn--sm"
+                  :disabled="saving || !editName.trim() || !editPin"
                   @click="saveEditing"
                 >
+                  <v-progress-circular
+                    v-if="saving"
+                    indeterminate
+                    size="18"
+                    width="2"
+                  />
                   Save
-                </v-btn>
+                </button>
               </div>
             </div>
             <v-list-item v-else lines="three">
@@ -324,14 +326,14 @@ async function performDelete() {
                     <NuxtLink
                       v-if="entry.count > 0"
                       :to="entry.to"
-                      class="entity-status entity-status--link"
+                      class="cc-status-chip cc-status-chip--link"
                     >
                       <v-icon :icon="entry.icon" size="14" />
                       <span
                         >{{ entry.count }} {{ entry.label.toLowerCase() }}</span
                       >
                     </NuxtLink>
-                    <span v-else class="entity-status entity-status--empty">
+                    <span v-else class="cc-status-chip cc-status-chip--empty">
                       <v-icon :icon="entry.icon" size="14" />
                       <span>0 {{ entry.label.toLowerCase() }}</span>
                     </span>
@@ -367,35 +369,21 @@ async function performDelete() {
       </div>
     </template>
 
-    <v-dialog :model-value="toDelete !== null" max-width="420" persistent>
-      <v-card>
-        <v-card-title>Delete location?</v-card-title>
-        <v-card-text>
-          Delete “{{ toDelete?.name }}”? This can't be undone.
-          <v-alert
-            v-if="deleteError"
-            type="error"
-            variant="tonal"
-            density="compact"
-            class="mt-3"
-          >
-            {{ deleteError }}
-          </v-alert>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn :disabled="deleting" @click="cancelDelete">Cancel</v-btn>
-          <v-btn color="error" :loading="deleting" @click="performDelete">
-            Delete
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <ConfirmDialog
+      v-model="deleteOpen"
+      title="Delete location?"
+      confirm-label="Delete"
+      :busy="deleting"
+      :error="deleteError"
+      @confirm="performDelete"
+    >
+      “{{ toDelete?.name }}” will be permanently deleted.
+    </ConfirmDialog>
 
     <v-snackbar v-model="showBlocked" color="warning" :timeout="6000">
       {{ blockedMessage }}
     </v-snackbar>
-  </v-container>
+  </div>
 </template>
 
 <style scoped>
@@ -417,34 +405,5 @@ async function performDelete() {
   gap: 6px;
   margin-top: 6px;
   white-space: normal;
-}
-
-.entity-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1.4;
-  white-space: nowrap;
-  text-decoration: none;
-}
-
-.entity-status--link {
-  background: var(--cc-field);
-  border: 1px solid var(--cc-field-border);
-  color: var(--cc-ink);
-}
-
-.entity-status--link:hover {
-  border-color: var(--cc-accent);
-  color: var(--cc-accent);
-}
-
-.entity-status--empty {
-  color: var(--cc-ink-muted);
-  opacity: 0.6;
 }
 </style>
