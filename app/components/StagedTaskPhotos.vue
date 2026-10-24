@@ -31,7 +31,7 @@ function onFileSelected(event: Event): void {
 
   sizeError.value = null
   if (file.size > MAX_UPLOAD_BYTES) {
-    sizeError.value = 'Photo is too large — the maximum is 10MB.'
+    sizeError.value = `Photo is too large — the maximum is ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB.`
     return
   }
 
@@ -107,12 +107,12 @@ onUnmounted(() => {
       {{ sizeError }}
     </v-alert>
 
-    <p v-if="staged.length === 0" class="text-body-2 text-medium-emphasis">
+    <p v-if="staged.length === 0" class="cc-empty-inline">
       No photos yet — added photos will upload once the chore is created.
     </p>
 
     <div v-else class="d-flex flex-wrap ga-3">
-      <div v-for="photo in staged" :key="photo.localId" style="width: 140px">
+      <div v-for="photo in staged" :key="photo.localId" class="photos-item">
         <div class="position-relative">
           <v-img
             :src="photo.previewUrl"
@@ -131,13 +131,12 @@ onUnmounted(() => {
             <v-icon icon="mdi-close" size="16" />
           </button>
         </div>
-        <v-text-field
+        <input
           v-model="photo.caption"
+          type="text"
+          class="cc-field photos-caption"
           placeholder="Add a caption"
-          density="compact"
-          variant="underlined"
-          hide-details
-          class="mt-1"
+          aria-label="Photo caption"
         />
       </div>
     </div>
@@ -150,6 +149,15 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+.photos-item {
+  width: 140px;
+}
+
+.photos-caption {
+  width: 100%;
+  margin-top: 4px;
 }
 
 .photos-thumb {

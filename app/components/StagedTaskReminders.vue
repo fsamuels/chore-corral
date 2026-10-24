@@ -70,7 +70,7 @@ function onRemove(reminder: StagedReminder): void {
   <div>
     <p class="cc-eyebrow mb-2">Reminders</p>
 
-    <p v-if="staged.length === 0" class="text-body-2 text-medium-emphasis">
+    <p v-if="staged.length === 0" class="cc-empty-inline">
       No reminders yet — added reminders will be scheduled once the chore is
       created.
     </p>
@@ -124,9 +124,15 @@ function onRemove(reminder: StagedReminder): void {
       </button>
     </div>
 
-    <p v-if="addError" class="text-caption text-error mt-1 mb-0">
+    <v-alert
+      v-if="addError"
+      type="error"
+      variant="tonal"
+      density="compact"
+      class="mt-2"
+    >
       {{ addError }}
-    </p>
+    </v-alert>
   </div>
 </template>
 
