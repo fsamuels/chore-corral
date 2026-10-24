@@ -161,7 +161,7 @@ watch(visiblePhotos, (list) => {
         :disabled="uploading"
         @click="cameraInput?.click()"
       >
-        <v-icon icon="mdi-camera" size="16" />
+        <v-icon icon="mdi-camera-outline" size="16" />
         Take photo
       </button>
       <button
@@ -170,7 +170,7 @@ watch(visiblePhotos, (list) => {
         :disabled="uploading"
         @click="galleryInput?.click()"
       >
-        <v-icon icon="mdi-image-multiple" size="16" />
+        <v-icon icon="mdi-image-multiple-outline" size="16" />
         Gallery
       </button>
       <v-progress-circular

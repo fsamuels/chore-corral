@@ -110,7 +110,7 @@ async function onPushToggle() {
         />
         <v-list-item
           title="Locations"
-          prepend-icon="mdi-map-marker-multiple"
+          prepend-icon="mdi-map-marker-multiple-outline"
           to="/locations"
           @click="drawer = false"
         />

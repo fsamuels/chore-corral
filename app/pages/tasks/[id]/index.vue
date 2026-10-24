@@ -772,7 +772,7 @@ const EVENT_ICON: Record<string, string> = {
   task_created: 'mdi-plus-circle-outline',
   task_status_changed: 'mdi-swap-horizontal',
   task_priority_changed: 'mdi-flag-outline',
-  task_due_date_changed: 'mdi-calendar-clock',
+  task_due_date_changed: 'mdi-calendar-clock-outline',
   task_deleted: 'mdi-delete-outline',
 }
 
@@ -1581,7 +1581,7 @@ const taskLocation = computed(() =>
             </div>
           </template>
           <template v-else-if="taskLocation">
-            <v-chip prepend-icon="mdi-map-marker" class="mb-2">
+            <v-chip prepend-icon="mdi-map-marker-outline" class="mb-2">
               {{ taskLocation.name }}
             </v-chip>
             <div class="detail-map">

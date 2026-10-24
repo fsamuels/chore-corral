@@ -84,7 +84,7 @@ onUnmounted(() => {
         class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm"
         @click="cameraInput?.click()"
       >
-        <v-icon icon="mdi-camera" size="16" />
+        <v-icon icon="mdi-camera-outline" size="16" />
         Take photo
       </button>
       <button
@@ -92,7 +92,7 @@ onUnmounted(() => {
         class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm"
         @click="galleryInput?.click()"
       >
-        <v-icon icon="mdi-image-multiple" size="16" />
+        <v-icon icon="mdi-image-multiple-outline" size="16" />
         Gallery
       </button>
     </div>
