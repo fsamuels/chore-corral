@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~/types/database.types'
 import { changeTaskStatus, type TaskStatus } from './tasks'
+import { chunk } from '../utils/chunk'
 
 export interface TimeEntrySummary {
   id: string
@@ -33,6 +34,43 @@ export async function listTimeEntries(
     .order('id')
   if (error) throw new Error(error.message)
   return data
+}
+
+/** The start/end pair `totalTrackedMs` needs — all a summary view reads. */
+export type TrackedSpan = Pick<TimeEntrySummary, 'started_at' | 'ended_at'>
+
+/**
+ * Every time entry for a set of tasks, grouped by task id, for list views
+ * that show per-task tracked time (task cards, the Progress page). One query
+ * per `chunk` of ids (see `IN_FILTER_CHUNK_SIZE`), so a large list doesn't
+ * blow the URL limit. An empty `taskIds` returns an empty map with no query.
+ * A task with no entries has no key in the map. Entries come from every
+ * farm member, so a total built from them is the chore's whole tracked time,
+ * not just the caller's share.
+ */
+export async function listTimeEntriesForTasks(
+  supabase: Client,
+  taskIds: string[],
+): Promise<Map<string, TrackedSpan[]>> {
+  const result = new Map<string, TrackedSpan[]>()
+  if (taskIds.length === 0) return result
+  const pages = await Promise.all(
+    chunk(taskIds).map(async (ids) => {
+      const { data, error } = await supabase
+        .from('task_time_entries')
+        .select('task_id, started_at, ended_at')
+        .in('task_id', ids)
+      if (error) throw new Error(error.message)
+      return data
+    }),
+  )
+  for (const { task_id, started_at, ended_at } of pages.flat()) {
+    const span = { started_at, ended_at }
+    const list = result.get(task_id)
+    if (list) list.push(span)
+    else result.set(task_id, [span])
+  }
+  return result
 }
 
 /**

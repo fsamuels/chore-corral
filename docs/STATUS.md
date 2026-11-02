@@ -2,7 +2,15 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-11-02 (chore detail sections load with the page)
+**Last updated:** 2026-11-02 (tracked time vs. estimate on chore cards)
+
+**Tracked time vs. estimate on chore cards (2026-11-02).** Direct user ask: show percent complete on each home-screen card once time has been spent on it.
+
+- **What shows:** a timer-icon item in the card's meta row, on both Home and the Chores list, for any chore with tracked time (all members' entries). With an estimate it shows the percentage of the estimate used. It is plain text under 80%, an amber pill from 80% to 99%, and a red pill at 100% or more. The percentage isn't capped, so an overrun reads e.g. "135%". Without an estimate it shows the tracked time alone ("1h 30m"). A chore with no tracked time shows nothing. Done chores keep their final figure. The tooltip and `aria-label` give "45m of 1h estimated".
+- **Rules:** the percentage rounds down, so it never reads 100% before the estimate is reached. The rules live in `taskTimeProgress` (`app/utils/task-display.ts`), which has tests.
+- **Data:** a new `useTaskTrackedTime` composable loads the listed chores' entries in batched queries via a new `listTimeEntriesForTasks` (chunked `.in()`, which the Progress page's `trackedMsByTask` now reuses). It refetches when the listed chores change or a timer starts or stops, and ticks once a minute while any listed chore has a running entry. A failed load just hides the indicator.
+
+**Checks:** lint, format, typecheck, the 515-case suite and `nuxt build` pass. All five card states were screenshotted from a production build in headless Chromium. Not checked against a live Supabase project, so the refetch on timer start and stop and the minute tick are untested end-to-end.
 
 **Chore detail sections load with the page (2026-11-02).** Follow-up 1 from `docs/TASK_DETAIL_PERFORMANCE.md`. The page now calls the photos, shopping list, tools, reminders and timer composables itself, for the route's task id, before it awaits anything. Their fetches overlap the chore's instead of starting after it renders. Each section component takes the composable's result as a new `state` prop instead of calling it (DECISIONS.md D-6). Counted from the code, the page is now fully loaded after 2 database round trips instead of 4. Direct loads are unchanged: the server HTML shows the section skeletons and the browser fills them in.
 

@@ -10,6 +10,7 @@ import {
   formatTimeForInput,
   locationDisplayName,
   parseEstimatedMinutesInput,
+  taskTimeProgress,
 } from '../app/utils/task-display'
 
 describe('parseEstimatedMinutesInput', () => {
@@ -200,5 +201,55 @@ describe('assigneeDisplayNames', () => {
 
   it('drops an assignee whose id no longer resolves (left the farm)', () => {
     expect(assigneeDisplayNames(['user-1', 'gone'], labels)).toEqual(['Steve'])
+  })
+})
+
+describe('taskTimeProgress', () => {
+  const MIN = 60000
+
+  it('returns null when nothing has been tracked', () => {
+    expect(taskTimeProgress(0, 60)).toBeNull()
+    expect(taskTimeProgress(0, null)).toBeNull()
+  })
+
+  it('shows tracked time alone without an estimate', () => {
+    expect(taskTimeProgress(90 * MIN, null)).toEqual({
+      trackedLabel: '1h 30m',
+      percent: null,
+      level: 'none',
+    })
+    expect(taskTimeProgress(90 * MIN, 0)?.level).toBe('none')
+  })
+
+  it('is ok below 80% of the estimate', () => {
+    expect(taskTimeProgress(30 * MIN, 60)).toEqual({
+      trackedLabel: '30m',
+      percent: 50,
+      level: 'ok',
+    })
+    expect(taskTimeProgress(47 * MIN, 60)?.level).toBe('ok')
+  })
+
+  it('warns from 80% up to just under 100%', () => {
+    expect(taskTimeProgress(48 * MIN, 60)).toMatchObject({
+      percent: 80,
+      level: 'warn',
+    })
+    // 99.9% rounds down, so the label never says 100% before it's reached.
+    expect(taskTimeProgress(60 * MIN - 1000, 60)).toMatchObject({
+      percent: 99,
+      level: 'warn',
+    })
+  })
+
+  it('is over at 100% or more, uncapped', () => {
+    expect(taskTimeProgress(60 * MIN, 60)).toMatchObject({
+      percent: 100,
+      level: 'over',
+    })
+    expect(taskTimeProgress(81 * MIN, 60)).toMatchObject({
+      percent: 135,
+      level: 'over',
+    })
   })
 })

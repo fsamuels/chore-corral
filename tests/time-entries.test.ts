@@ -3,6 +3,7 @@ import {
   deleteTimeEntry,
   getRunningEntry,
   listTimeEntries,
+  listTimeEntriesForTasks,
   startTimer,
   stopTimer,
   totalTrackedMs,
@@ -415,5 +416,70 @@ describe('totalTrackedMs', () => {
     expect(
       totalTrackedMs([entry({ started_at: 'garbage', ended_at: null })]),
     ).toBe(0)
+  })
+})
+
+describe('listTimeEntriesForTasks', () => {
+  it('groups entries by task, keying only tasks with entries', async () => {
+    const fake = new FakeSupabaseClient({
+      task_time_entries: [
+        entry({ id: 'e1', task_id: TASK_A }),
+        entry({
+          id: 'e2',
+          task_id: TASK_A,
+          started_at: '2026-01-01T10:00:00.000Z',
+          ended_at: null,
+        }),
+        entry({ id: 'e3', task_id: TASK_B }),
+        entry({ id: 'e4', task_id: 'task-other' }),
+      ],
+    })
+    const result = await listTimeEntriesForTasks(asSupabaseClient(fake), [
+      TASK_A,
+      TASK_B,
+      'task-empty',
+    ])
+
+    expect(result.get(TASK_A)).toEqual([
+      {
+        started_at: '2026-01-01T08:00:00.000Z',
+        ended_at: '2026-01-01T09:00:00.000Z',
+      },
+      { started_at: '2026-01-01T10:00:00.000Z', ended_at: null },
+    ])
+    expect(result.get(TASK_B)).toHaveLength(1)
+    expect(result.has('task-empty')).toBe(false)
+    expect(result.has('task-other')).toBe(false)
+  })
+
+  it('splits large id lists across queries', async () => {
+    const ids = Array.from({ length: 250 }, (_, i) => `task-${i}`)
+    const fake = new FakeSupabaseClient({
+      task_time_entries: [
+        entry({ id: 'e1', task_id: 'task-0' }),
+        entry({ id: 'e2', task_id: 'task-249' }),
+      ],
+    })
+    const result = await listTimeEntriesForTasks(asSupabaseClient(fake), ids)
+    expect([...result.keys()].sort()).toEqual(['task-0', 'task-249'])
+  })
+
+  it('returns an empty map for no ids without touching the client', async () => {
+    const fake = new FakeSupabaseClient(
+      { task_time_entries: [entry()] },
+      { table: 'task_time_entries', op: 'select', message: 'should not run' },
+    )
+    const result = await listTimeEntriesForTasks(asSupabaseClient(fake), [])
+    expect(result.size).toBe(0)
+  })
+
+  it('throws on a query error', async () => {
+    const fake = new FakeSupabaseClient(
+      { task_time_entries: [] },
+      { table: 'task_time_entries', op: 'select', message: 'boom' },
+    )
+    await expect(
+      listTimeEntriesForTasks(asSupabaseClient(fake), [TASK_A]),
+    ).rejects.toThrow('boom')
   })
 })

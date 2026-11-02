@@ -80,6 +80,7 @@ const tasks = computed<TaskSummary[]>(() => [
 // Thumbnails cover every loaded task, not just the filtered view, so
 // changing filters doesn't trigger a refetch.
 const { thumbnailFor, onThumbnailError } = useTaskThumbnails(tasks)
+const { trackedMsFor } = useTaskTrackedTime(tasks)
 
 // Farm members, resolved to short labels for each card's assignee indicator
 // — mirrors the same fetch on the home page (index.vue).
@@ -462,6 +463,7 @@ function locationName(locationId: string | null): string | null {
           :location-name="locationName(item.location_id)"
           :assignee-names="assigneeNames(item.assignee_ids)"
           :thumbnail-url="thumbnailFor(item)"
+          :tracked-ms="trackedMsFor(item)"
           :today="today"
           hide-check
           @thumbnail-error="onThumbnailError"

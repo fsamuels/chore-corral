@@ -4,6 +4,8 @@ import {
   formatDaysOld,
   formatDaysToComplete,
   formatDueDate,
+  formatEstimatedMinutes,
+  taskTimeProgress,
 } from '~/utils/task-display'
 
 const props = defineProps<{
@@ -31,6 +33,9 @@ const props = defineProps<{
    * falls back to the meta-row photo icon; `undefined` = still loading, so
    * neither renders (avoids an icon → image flicker). */
   thumbnailUrl?: string | null
+  /** Total tracked time on this chore, all members, in ms (page owns the
+   * fetch — see useTaskTrackedTime). 0/omitted shows no time indicator. */
+  trackedMs?: number
 }>()
 
 const emit = defineEmits<{
@@ -94,6 +99,22 @@ const pillLabel = computed(() => {
         : null
   if (priorityLabel && dueText.value) return `${priorityLabel} · `
   return priorityLabel ?? ''
+})
+
+// Tracked time vs. the estimate: "75%" (amber from 80%, red at 100%+) when
+// the chore has an estimate, the bare tracked time otherwise, nothing when
+// no time has been logged.
+const timeProgress = computed(() =>
+  taskTimeProgress(props.trackedMs ?? 0, props.task.estimated_minutes),
+)
+
+const timeProgressTitle = computed(() => {
+  const progress = timeProgress.value
+  if (!progress) return ''
+  const estimate = props.task.estimated_minutes
+  return progress.percent === null || estimate === null
+    ? `${progress.trackedLabel} tracked`
+    : `${progress.trackedLabel} of ${formatEstimatedMinutes(estimate)} estimated`
 })
 
 // Freeform pin (no name to show — a defined location instead renders
@@ -217,6 +238,28 @@ function onToggleTimer() {
               >{{ dueText }}</span
             >
           </span>
+        </span>
+        <span
+          v-if="timeProgress"
+          class="cc-meta task-card__time"
+          :class="`task-card__time--${timeProgress.level}`"
+          :title="timeProgressTitle"
+          :aria-label="
+            timeProgress.percent === null
+              ? timeProgressTitle
+              : `${timeProgress.percent}% of estimate used, ${timeProgressTitle}`
+          "
+        >
+          <v-icon
+            icon="mdi-timer-outline"
+            size="16"
+            class="task-card__time-icon"
+          />
+          {{
+            timeProgress.percent === null
+              ? timeProgress.trackedLabel
+              : `${timeProgress.percent}%`
+          }}
         </span>
         <span
           v-if="locationName"
@@ -440,6 +483,40 @@ function onToggleTimer() {
 
 .task-card__due--overdue {
   color: var(--cc-urgent-ring);
+}
+
+/* Tracked-time indicator. Plain meta text while under 80% of the estimate
+   (or with no estimate); a soft pill in the priority palette once it needs
+   attention — amber ("soon") nearing the estimate, red ("urgent") at or
+   past it — so it reads at a glance among the other meta items. */
+.task-card__time {
+  white-space: nowrap;
+}
+
+.task-card__time-icon {
+  color: inherit;
+  opacity: 0.8;
+}
+
+.task-card__time--warn,
+.task-card__time--over {
+  font-weight: 600;
+  padding: 1px 8px 1px 6px;
+  border-radius: 999px;
+}
+
+/* The ring keeps the amber pill distinct from a "Soon" priority pill, which
+   shares its fill. */
+.task-card__time--warn {
+  background: var(--cc-soon-pill-bg);
+  color: var(--cc-soon-text);
+  box-shadow: inset 0 0 0 1px var(--cc-soon-ring);
+}
+
+.task-card__time--over {
+  background: var(--cc-urgent-pill-bg);
+  color: var(--cc-urgent-text);
+  box-shadow: inset 0 0 0 1px var(--cc-urgent-ring);
 }
 
 .task-card__meta-icon {
