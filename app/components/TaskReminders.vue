@@ -119,9 +119,10 @@ async function onSnooze(
       {{ remindersError }}
     </v-alert>
 
-    <div v-if="reminders === null && loading" class="py-2">
-      <v-progress-circular indeterminate size="24" color="primary" />
-    </div>
+    <SectionSkeleton
+      v-if="reminders === null && loading"
+      label="Loading reminders"
+    />
 
     <p v-else-if="reminders && reminders.length === 0" class="cc-empty-inline">
       No reminders yet.

@@ -466,3 +466,15 @@ Decided 2026-10-13 with the user. Reversibility: _easy_ (a Vitest config block, 
 **Measured during `pnpm build`, not committed.** `build` runs `pnpm test:coverage --silent; nuxt build`, and `scripts/build-info.ts` bakes `coverage/coverage-summary.json` into the About page, so the number always matches the deployed commit. That adds about 6 seconds to each build. The `;` means a failing test never blocks a deploy: Vitest writes no report on failure and clears the directory at the start of each run, so the page says coverage wasn't measured instead of showing a stale number. Committing a summary file was rejected because it goes stale as soon as someone forgets to regenerate it. CI still fails on a failing test, because its test step runs `pnpm test:coverage` on its own.
 
 **No threshold.** CI prints the summary but never fails on the number. Pages and components are deliberately covered by the Playwright E2E suite (see ARCHITECTURE.md), which this number doesn't include, so a floor would push toward unit-testing UI the project chose not to.
+
+## D-5: Chore detail page renders before its data on in-app navigation
+
+Decided 2026-11-02 with the user. Reversibility: _easy_ (one `if` around an `await` in `app/pages/tasks/[id]/index.vue`).
+
+**What changed.** The page used to `await` all of its loads (task, categories, tags, locations, members, then activity) at the top of `<script setup>`. Nuxt's `<Suspense>` then kept the _previous_ page on screen until every one of them finished, so tapping a chore looked like nothing was happening. Now the page awaits that load only on the server and while hydrating a server render (`import.meta.server || nuxtApp.isHydrating`). On an in-app navigation it renders immediately and shows `TaskDetailSkeleton` until the load settles.
+
+**Why not just on the client.** A direct load or refresh still awaits, so the server HTML contains the chore and hydration matches it. Skipping the await there would ship a skeleton in the HTML and then either re-render or hit a hydration mismatch.
+
+**Why the skeleton waits for the lookups too, not only the task.** The category pill, location name and Assigned/Completed-by labels are read from the categories, locations and members lists. Showing the task first would briefly show "(deleted category)" and empty labels. Everything loads in parallel, so waiting for all of it costs only the slowest query.
+
+**Pattern for other pages.** The same pattern fits any page that is reached mostly by in-app navigation and has a meaningful skeleton. See `docs/TASK_DETAIL_PERFORMANCE.md` for the measurements and follow-ups.

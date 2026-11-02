@@ -14,15 +14,16 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full stack breakdown and rat
 
 ## Documentation
 
-| Doc                                     | Purpose                                                                                                    | Changes               |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------- |
-| [SPEC.md](docs/SPEC.md)                 | Functional specification — what the app does, screen-by-screen behavior, field definitions, and edge cases | Rarely                |
-| [DATA_MODEL.md](docs/DATA_MODEL.md)     | Database schema, table relationships, and Row Level Security policy intent                                 | With schema changes   |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Technical stack, rationale, and how the major pieces fit together                                          | Occasionally          |
-| [ROADMAP.md](docs/ROADMAP.md)           | Lightweight, directional list of future features beyond MVP                                                | Occasionally          |
-| [MILESTONES.md](docs/MILESTONES.md)     | Ordered, scoped build plan to reach MVP, with concrete done-states per milestone                           | Rarely                |
-| [STATUS.md](docs/STATUS.md)             | Current build state — what's done, in progress, and known issues                                           | Every merged PR       |
-| [DECISIONS.md](docs/DECISIONS.md)       | Running log of the reasoning behind non-obvious project decisions                                          | As decisions are made |
+| Doc                                                           | Purpose                                                                                                    | Changes                    |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------- |
+| [SPEC.md](docs/SPEC.md)                                       | Functional specification — what the app does, screen-by-screen behavior, field definitions, and edge cases | Rarely                     |
+| [DATA_MODEL.md](docs/DATA_MODEL.md)                           | Database schema, table relationships, and Row Level Security policy intent                                 | With schema changes        |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md)                       | Technical stack, rationale, and how the major pieces fit together                                          | Occasionally               |
+| [ROADMAP.md](docs/ROADMAP.md)                                 | Lightweight, directional list of future features beyond MVP                                                | Occasionally               |
+| [MILESTONES.md](docs/MILESTONES.md)                           | Ordered, scoped build plan to reach MVP, with concrete done-states per milestone                           | Rarely                     |
+| [STATUS.md](docs/STATUS.md)                                   | Current build state — what's done, in progress, and known issues                                           | Every merged PR            |
+| [DECISIONS.md](docs/DECISIONS.md)                             | Running log of the reasoning behind non-obvious project decisions                                          | As decisions are made      |
+| [TASK_DETAIL_PERFORMANCE.md](docs/TASK_DETAIL_PERFORMANCE.md) | Load-performance analysis of the chore detail page, with ranked follow-ups                                 | When those follow-ups land |
 
 ## Getting Started
 

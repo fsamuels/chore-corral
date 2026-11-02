@@ -110,9 +110,10 @@ function onRemove(item: ShoppingItemSummary): void {
       {{ mutationError }}
     </v-alert>
 
-    <div v-if="items === null && loading" class="py-2">
-      <v-progress-circular indeterminate size="24" color="primary" />
-    </div>
+    <SectionSkeleton
+      v-if="items === null && loading"
+      label="Loading shopping list"
+    />
 
     <p v-else-if="items && items.length === 0" class="cc-empty-inline">
       No items yet.

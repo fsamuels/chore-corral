@@ -187,9 +187,11 @@ watch(photos, (list) => {
       {{ photosError }}
     </v-alert>
 
-    <div v-if="photos === null && loading" class="py-2">
-      <v-progress-circular indeterminate size="24" color="primary" />
-    </div>
+    <SectionSkeleton
+      v-if="photos === null && loading"
+      :tiles="1"
+      label="Loading photos"
+    />
 
     <p v-else-if="photos && photos.length === 0" class="cc-empty-inline">
       No photos yet.

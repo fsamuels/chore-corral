@@ -23,21 +23,32 @@ export function useTask(taskId: Ref<string>) {
   const taskError = ref<string | null>(null)
   const loading = ref(false)
 
+  // Latest-request-wins guard: two fetches can overlap (a `?farm=` switch
+  // fires this watch while the page's initial load is also fetching, and
+  // every inline save refetches), and their replies can arrive out of order.
+  // Only the most recently started one may write state.
+  let latestRequest = 0
+
   async function fetchTask(): Promise<void> {
+    const request = ++latestRequest
     const farmId = activeFarmId.value
     if (!farmId) {
       task.value = undefined
+      loading.value = false
       return
     }
     loading.value = true
     try {
-      task.value = await getTask(supabase, { farmId, taskId: taskId.value })
+      const result = await getTask(supabase, { farmId, taskId: taskId.value })
+      if (request !== latestRequest) return
+      task.value = result
       taskError.value = null
     } catch (error) {
+      if (request !== latestRequest) return
       taskError.value =
         error instanceof Error ? error.message : 'Failed to load task'
     } finally {
-      loading.value = false
+      if (request === latestRequest) loading.value = false
     }
   }
 
@@ -46,6 +57,12 @@ export function useTask(taskId: Ref<string>) {
   // fetchFarms()` resolves the active farm) with this watch only covering
   // later changes: switching farms, or navigating between two task ids
   // without a full page reload.
+  //
+  // Moving from one chore to another doesn't reuse the page in practice:
+  // Nuxt's default page key is the route path with params filled in
+  // (`/tasks/<id>`), so `/tasks/A` → `/tasks/B` mounts a fresh page with a
+  // fresh `task`. The taskId half of this watch only matters for a caller
+  // that changes the id without remounting.
   watch([taskId, activeFarmId], () => fetchTask())
 
   return { task, taskError, loading, fetchTask }

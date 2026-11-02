@@ -463,6 +463,58 @@ textarea.cc-field {
   padding: 32px 0;
 }
 
+/* Skeleton placeholder shapes (ListSkeleton, TaskDetailSkeleton,
+   SectionSkeleton): a shimmering track-coloured block standing in for content
+   that's still loading, so the layout doesn't jump when it arrives. Size it
+   with width/height on the element; `--pill` and `--block` change the shape. */
+.cc-skeleton {
+  display: block;
+  height: 14px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--cc-track) 25%,
+    var(--cc-border) 50%,
+    var(--cc-track) 75%
+  );
+  background-size: 200% 100%;
+  animation: cc-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.cc-skeleton--pill {
+  height: 44px;
+}
+
+.cc-skeleton--block {
+  border-radius: 12px;
+}
+
+@keyframes cc-skeleton-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-skeleton {
+    animation: none;
+    background: var(--cc-track);
+  }
+}
+
+/* Visually hidden, still announced (skeleton labels). */
+.cc-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* Inline (section-level) empty text, e.g. "No photos yet." */
 .cc-empty-inline {
   margin: 0;
