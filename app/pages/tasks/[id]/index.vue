@@ -28,7 +28,7 @@ const {
   farms,
   setActiveFarm,
 } = useFarms()
-const { task, taskError, fetchTask } = useTask(taskId)
+const { task, taskError, loading, fetchTask } = useTask(taskId)
 const { setStatus, update, remove } = useTasks()
 const { showToast } = useToast()
 
@@ -67,14 +67,32 @@ if (farmToSwitch) setActiveFarm(farmToSwitch)
 // (only the activity service reads farm_member_profiles), so it's a direct
 // service call into a local ref — refetched when the active farm changes.
 const members = ref<FarmMemberProfile[]>([])
+const membersError = ref<string | null>(null)
+// Latest-request-wins, same as useTask: a farm switch can overlap the
+// initial load.
+let latestMembersRequest = 0
 
-async function fetchMembers() {
+async function fetchMembers(): Promise<void> {
+  const request = ++latestMembersRequest
   const farmId = activeFarmId.value
   if (!farmId) {
     members.value = []
+    membersError.value = null
     return
   }
-  members.value = await listFarmMemberProfiles(useSupabaseClient(), farmId)
+  try {
+    const result = await listFarmMemberProfiles(useSupabaseClient(), farmId)
+    if (request !== latestMembersRequest) return
+    members.value = result
+    membersError.value = null
+  } catch (error) {
+    if (request !== latestMembersRequest) return
+    // Leaves the Assigned-to/Completed-by pickers empty; the rest of the
+    // page still works, so this is shown inline rather than blocking it.
+    members.value = []
+    membersError.value =
+      error instanceof Error ? error.message : 'Failed to load farm members'
+  }
 }
 
 watch(activeFarmId, () => fetchMembers())
@@ -96,19 +114,33 @@ const statusItems: { title: string; value: TaskStatus }[] = [
 
 const activity = ref<ActivityEntry[] | null>(null)
 const activityError = ref<string | null>(null)
+// Drives the activity skeleton, so it only shows while a fetch is actually
+// in flight — never stuck on when there's nothing to fetch.
+const activityLoading = ref(false)
+let latestActivityRequest = 0
 
-async function fetchActivity() {
+async function fetchActivity(): Promise<void> {
+  const request = ++latestActivityRequest
   const farmId = activeFarmId.value
-  if (!farmId) return
+  if (!farmId) {
+    activityLoading.value = false
+    return
+  }
+  activityLoading.value = true
   try {
-    activity.value = await listActivityForTask(useSupabaseClient(), {
+    const result = await listActivityForTask(useSupabaseClient(), {
       farmId,
       taskId: taskId.value,
     })
+    if (request !== latestActivityRequest) return
+    activity.value = result
     activityError.value = null
   } catch (error) {
+    if (request !== latestActivityRequest) return
     activityError.value =
       error instanceof Error ? error.message : 'Failed to load activity'
+  } finally {
+    if (request === latestActivityRequest) activityLoading.value = false
   }
 }
 
@@ -125,34 +157,46 @@ async function fetchActivity() {
 // The skeleton covers all of these, not just the task: the category pill,
 // location and member labels are read from the other lists, and showing the
 // task first would flash "(deleted category)" and raw ids.
+//
+// Activity is fetched up front even though the chore might turn out not to
+// exist. That wastes two queries on a "Chore not found" link (rare) and saves
+// two round trips on every normal open, so it's kept that way deliberately.
+//
+// Each fetch catches its own errors; the catch here is a backstop so that if
+// one ever doesn't, the page reports it instead of failing silently (on the
+// client nothing awaits this promise).
 const nuxtApp = useNuxtApp()
 const initialLoadDone = ref(false)
-const initialLoad = Promise.all([
-  fetchTask(),
-  fetchCategories(),
-  fetchTags(),
-  fetchLocations(),
-  fetchMembers().catch(() => {
-    // Unhandled before too (a failed member list only empties the
-    // Assigned-to/Completed-by pickers); swallowed so it can't block the page.
-  }),
-  fetchActivity(),
-]).finally(() => {
-  initialLoadDone.value = true
-})
+const initialLoadError = ref<string | null>(null)
+
+async function runInitialLoad(): Promise<void> {
+  initialLoadError.value = null
+  try {
+    await Promise.all([
+      fetchTask(),
+      fetchCategories(),
+      fetchTags(),
+      fetchLocations(),
+      fetchMembers(),
+      fetchActivity(),
+    ])
+  } catch (error) {
+    initialLoadError.value =
+      error instanceof Error ? error.message : 'Failed to load chore'
+  } finally {
+    initialLoadDone.value = true
+  }
+}
+
+const initialLoad = runInitialLoad()
 if (import.meta.server || nuxtApp.isHydrating) await initialLoad
 
 // Refresh the feed after each change to the loaded task (every inline save
-// refetches it and logs an event), or after moving to another chore. Skipped
-// during the initial load, which fetches the activity itself.
+// refetches it and logs an event). Skipped during the initial load, which
+// fetches the activity itself. No reset is needed for moving between chores:
+// each `/tasks/<id>` gets its own page instance (Nuxt keys pages by path).
 watch(task, (value) => {
   if (value && initialLoadDone.value) fetchActivity()
-})
-// Navigating straight from one chore to another reuses this page instance;
-// drop the old chore's feed rather than showing it under the new one.
-watch(taskId, () => {
-  activity.value = null
-  activityError.value = null
 })
 
 function categoryDisplay(categoryId: string | null) {
@@ -883,12 +927,15 @@ const taskLocation = computed(() =>
 
     <template v-else-if="activeFarm">
       <LoadErrorAlert
-        v-if="taskError"
+        v-if="taskError || initialLoadError"
         title="Couldn't load chore"
-        :message="taskError"
+        :message="taskError ?? initialLoadError ?? ''"
+        :retry="runInitialLoad"
       />
 
-      <TaskDetailSkeleton v-else-if="!initialLoadDone || task === undefined" />
+      <TaskDetailSkeleton
+        v-else-if="!initialLoadDone || (loading && task === undefined)"
+      />
 
       <EmptyState v-else-if="task === null" icon="mdi-clipboard-alert-outline">
         Chore not found. It may have been deleted, or the link may be out of
@@ -1207,6 +1254,17 @@ const taskLocation = computed(() =>
           class="mb-6"
         >
           {{ statusChangeError }}
+        </v-alert>
+
+        <v-alert
+          v-if="membersError"
+          type="warning"
+          variant="tonal"
+          density="compact"
+          class="mb-4"
+        >
+          Couldn't load farm members, so they can't be picked below:
+          {{ membersError }}
         </v-alert>
 
         <div class="mb-6">
@@ -1695,15 +1753,17 @@ const taskLocation = computed(() =>
           >
             {{ activityError }}
           </v-alert>
-          <SectionSkeleton
-            v-else-if="activity === null"
-            :lines="3"
-            label="Loading activity"
-          />
+          <template v-else-if="activity === null">
+            <SectionSkeleton
+              v-if="activityLoading"
+              :lines="3"
+              label="Loading activity"
+            />
+          </template>
           <p v-else-if="activity.length === 0" class="cc-empty-inline">
             No activity yet.
           </p>
-          <v-timeline v-else-if="activity" density="compact" side="end">
+          <v-timeline v-else density="compact" side="end">
             <v-timeline-item
               v-for="entry in activity"
               :key="entry.id"

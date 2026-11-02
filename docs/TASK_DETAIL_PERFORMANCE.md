@@ -22,7 +22,11 @@ On an in-app tap, `farms` is already cached (`useFarms` keeps it in `useState`),
 2. **`getTask` runs its three lookups in parallel** (tags, completers, assignees), the same way `listTasks` already did. This saves 2 RTT.
 3. **Activity starts with the initial load** instead of after it. It needs only the task id, not the loaded task. This saves 2 RTT.
 4. **Section skeletons.** Photos, shopping list, tools, reminders, timer and activity show `SectionSkeleton` placeholders instead of a spinner, so the cards hold roughly their final height while loading.
-5. **Moving from one chore to another** clears the old chore (`useTask`) and its activity feed. The skeleton shows instead of the previous chore's fields.
+5. **Overlapping fetches can't overwrite newer data.** `fetchTask`, `fetchActivity` and `fetchMembers` only accept the reply to the most recently started request. Requests overlap when a `?farm=` link switches farms during the initial load, and after inline saves.
+
+Moving from one chore to another needs no special handling. Nuxt keys pages by their path with params filled in (`/tasks/<id>`), so each chore gets a fresh page instance and starts on the skeleton.
+
+**Kept on purpose:** activity is fetched alongside the task even though the chore might not exist. That wastes two queries on a "Chore not found" link (rare) and saves two round trips on every normal open.
 
 After:
 
@@ -43,6 +47,7 @@ Ordered by expected payoff relative to risk.
 5. **Photo signed URLs** (−1 RTT on photos). `useTaskPhotos` lists the photos and then requests signed URLs, which takes two round trips. This one is inherent unless the bucket goes public or the list is cached. Low priority.
 6. **Bundle size (not measured).** The page is about 1,900 lines and pulls in Vuetify's date picker, timeline and dialogs. `TaskLocationPreview` (Leaflet) is already client-only. `NuxtLink` prefetches the page chunk when a card scrolls into view, so JS download is probably not the bottleneck on repeat use. Run `nuxi analyze` before spending time here.
 
-## Behaviour change to note
+## Behaviour changes to note
 
-`fetchMembers()` failures used to reject the page's top-level `Promise.all`, which crashed the page. A failure now leaves the Assigned-to and Completed-by pickers empty and the rest of the page loads. All the other initial fetches already caught their own errors.
+- **Members:** a failed `fetchMembers()` used to reject the page's top-level `Promise.all`, which crashed the page. Now `fetchMembers` catches its own error into `membersError`. The page shows a warning above the Assigned-to picker and loads everything else. The farm-switch refetch is covered the same way.
+- **Initial load:** on the client nothing awaits the initial load, so it has a backstop `catch`. If a fetch that doesn't catch its own errors is ever added, the page shows "Couldn't load chore" with "Try again" instead of failing silently.

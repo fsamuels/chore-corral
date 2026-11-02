@@ -9,7 +9,8 @@ Current state of the project. Update this as work progresses — it should alway
 - **Skeletons:** a new `TaskDetailSkeleton`, shaped like the page, replaces the centered spinner. A new `SectionSkeleton` replaces the per-section spinners in photos, shopping list, tools, reminders, timer and activity. The shimmer styles moved into `main.css` (`cc-skeleton`, `cc-sr-only`), and `ListSkeleton` now uses them too.
 - **Faster in-app open** (DECISIONS.md D-5): the page no longer `await`s its data during client-side navigation, so it renders the skeleton immediately instead of freezing on the previous page. It still awaits on the server and while hydrating. `getTask` now runs its tags, completers and assignees lookups in parallel, and activity loads alongside the task. By the code's count, chore content now appears after 2 database round trips instead of 6.
 - **Write-up:** `docs/TASK_DETAIL_PERFORMANCE.md` covers the before/after round-trip analysis and ranked follow-ups that were not done.
-- A failed member-list load no longer crashes the page; it leaves the member pickers empty.
+- **Error handling:** a failed member-list load no longer crashes the page. It shows a warning above the member pickers instead. A backstop error state with "Try again" covers the now-unawaited initial load.
+- **Stale replies:** the chore, activity and member fetches ignore out-of-order replies (latest request wins).
 
 **Checks:** lint, typecheck and the 506-case suite pass. The skeleton components were rendered in headless Chromium and screenshotted at phone width. The page's loading flow was not exercised against a live Supabase project.
 

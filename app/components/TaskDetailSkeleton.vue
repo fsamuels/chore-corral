@@ -31,12 +31,9 @@ const PILL_WIDTHS = ['96px', '132px', '112px', '88px']
       <div class="cc-skeleton task-skeleton__eyebrow mb-2" />
       <div class="cc-skeleton cc-skeleton--pill task-skeleton__status mb-6" />
 
-      <div v-for="n in 3" :key="n" class="cc-card task-skeleton__section mb-6">
+      <div v-for="n in 3" :key="n" class="cc-card mb-6">
         <div class="cc-skeleton task-skeleton__eyebrow mb-3" />
-        <div class="cc-skeleton task-skeleton__line" />
-        <div
-          class="cc-skeleton task-skeleton__line task-skeleton__line--short"
-        />
+        <SectionSkeleton :lines="2" />
       </div>
     </div>
     <span class="cc-sr-only">{{ label }}</span>
@@ -67,20 +64,5 @@ const PILL_WIDTHS = ['96px', '132px', '112px', '88px']
 
 .task-skeleton__status {
   width: 100%;
-}
-
-.task-skeleton__section {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.task-skeleton__line {
-  width: 70%;
-  height: 16px;
-}
-
-.task-skeleton__line--short {
-  width: 45%;
 }
 </style>
