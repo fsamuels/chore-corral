@@ -168,3 +168,10 @@ export function useTaskTimer(taskId: Ref<string | null | undefined>) {
     removeEntry,
   }
 }
+
+/**
+ * What `useTaskTimer` returns. The chore detail page calls the composable itself (so
+ * this section's fetch starts alongside the chore's, not after it renders)
+ * and hands the result to `TaskTimer` as its `state` prop.
+ */
+export type TaskTimerState = ReturnType<typeof useTaskTimer>
