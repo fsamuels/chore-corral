@@ -1,12 +1,14 @@
 <script setup lang="ts">
+import type { TaskRemindersState } from '~/composables/useTaskReminders'
 import { parseLocalDateString } from '~/services/tasks'
 import type { ReminderSummary } from '~/services/reminders'
 import { reminderPresets, type ReminderPreset } from '~/utils/reminder-presets'
 import { SNOOZE_OPTIONS, type SnoozeMinutes } from '~/utils/reminder-snooze'
 
-// Only rendered once a task exists (parent guards with v-if="task"), so a
-// task id is always present.
-const props = defineProps<{ taskId: string }>()
+// State comes from the parent: the chore detail page calls `useTaskReminders` for the
+// route's task id during its own setup, so this section's fetch runs in
+// parallel with the chore's instead of starting once this component mounts.
+const props = defineProps<{ state: TaskRemindersState }>()
 
 const {
   reminders,
@@ -17,7 +19,7 @@ const {
   add,
   remove,
   snooze,
-} = useTaskReminders(toRef(props, 'taskId'))
+} = props.state
 
 // "Jan 5, 8:00 AM" — same shape as the View page's completed-at label.
 function formatReminder(iso: string): string {

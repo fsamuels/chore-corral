@@ -1,14 +1,18 @@
 <script setup lang="ts">
+import type { TaskTimerState } from '~/composables/useTaskTimer'
 import { totalTrackedMs, type TimeEntrySummary } from '~/services/time-entries'
 import { parseLocalDateString, toLocalDateString } from '~/services/tasks'
 
 // Start/stop timer + tracked-time total for the View page. Only rendered
 // once a task exists (parent guards with v-if="task"), so a task id is
 // always present. `estimatedMinutes` lets the total render as
-// "actual / estimate" when the task has an estimate.
+// "actual / estimate" when the task has an estimate. `state` is
+// `useTaskTimer`'s result, called by the page during its own setup so the
+// time entries load in parallel with the chore rather than after it.
 const props = defineProps<{
   taskId: string
   estimatedMinutes: number | null
+  state: TaskTimerState
 }>()
 
 // Starting a timer can flip the task to in_progress server-side — the
@@ -26,7 +30,7 @@ const {
   stop,
   updateEntry,
   removeEntry,
-} = useTaskTimer(toRef(props, 'taskId'))
+} = props.state
 
 const runningHere = computed(() => runningEntry.value?.task_id === props.taskId)
 const runningElsewhere = computed(

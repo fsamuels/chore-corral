@@ -16,7 +16,7 @@ On an in-app tap, `farms` is already cached (`useFarms` keeps it in `useState`),
 | 3. Section components mount and fetch                              | photos (list, then signed URLs), shopping, tools, reminders, timer (all in parallel)    | 2                        |
 | — fully loaded —                                                   |                                                                                         | **8**                    |
 
-## Changed in this branch
+## Changed in PR #130
 
 1. **Render first, load second** (see DECISIONS.md D-5). On in-app navigation the page renders immediately with `TaskDetailSkeleton`, a placeholder shaped like the page. The await stays for SSR and hydration.
 2. **`getTask` runs its three lookups in parallel** (tags, completers, assignees), the same way `listTasks` already did. This saves 2 RTT.
@@ -28,20 +28,26 @@ Moving from one chore to another needs no special handling. Nuxt keys pages by t
 
 **Kept on purpose:** activity is fetched alongside the task even though the chore might not exist. That wastes two queries on a "Chore not found" link (rare) and saves two round trips on every normal open.
 
-After:
+## Section fetches start with the page (follow-up 1, done)
+
+The five section composables (`useTaskPhotos`, `useTaskShoppingList`, `useTaskTools`, `useTaskReminders`, `useTaskTimer`) are now called by the page, ahead of its `await fetchFarms()`, for the route's task id. Each one fetches as soon as it's called, so its round trips overlap the chore's instead of starting once its component mounts. The components take the composable's result as a `state` prop instead of calling it themselves (D-6). They key only on the task id (RLS does the farm scoping), so they don't wait for the active farm.
+
+On a direct load nothing waits for these: the server HTML shows the section skeletons and the browser fills them in, as it did before. On a "Chore not found" link these five queries are wasted (rare).
+
+After both changes:
 
 | Milestone                       | RTT                                     |
 | ------------------------------- | --------------------------------------- |
 | Something on screen (skeleton)  | **0** (was 6, with the old page frozen) |
 | Chore content visible           | **2** (was 6)                           |
-| Fully loaded, sections included | **4** (was 8)                           |
+| Fully loaded, sections included | **2** (was 8; 4 after PR #130)          |
 
 ## Not done: follow-ups worth considering
 
 Ordered by expected payoff relative to risk.
 
-1. **Start the section fetches with the page instead of after it** (−2 RTT to fully loaded). Photos, shopping, tools, reminders and the timer each fetch from their own composable, and those composables only run once their components mount, which happens after the task loads. The page knows the task id from the route, so it could call those composables itself and pass the state down, or mount the sections inside the skeleton. Cost: those five components change from owning their state to receiving it. Moderate refactor.
-2. **Seed the page from the list's data** (content shows at 0 RTT). The chores and home lists already hold a full `TaskSummary` for the tapped chore. Caching it (for example `useState('task-<id>')`) would let the detail page render instantly and refresh in the background. Cost: a shared cache and its invalidation rules, plus the possibility of briefly showing slightly stale data. Worth it if (1) isn't enough.
+1. ~~**Start the section fetches with the page instead of after it.**~~ Done; see above.
+2. **Seed the page from the list's data** (content shows at 0 RTT). The chores and home lists already hold a full `TaskSummary` for the tapped chore. Caching it (for example `useState('task-<id>')`) would let the detail page render instantly and refresh in the background. Cost: a shared cache and its invalidation rules, plus the possibility of briefly showing slightly stale data. The sections would still take up to 2 RTT unless they were cached too.
 3. **Cache categories, tags, locations and members per farm** (−1 query each per visit). They're plain `ref`s, refetched on every visit to the page. Holding them in `useState` per farm, the way `useFarms` already does, would skip four queries on repeat visits. They're small and rarely change, but other pages edit them, so those edits would need to refresh the cache.
 4. **Activity: reuse the page's member list** (−1 RTT on activity). `listActivityForTask` fetches `farm_member_profiles` again after the activity rows, but the page already loads the same profiles. Passing them in would turn activity into a single query. Small service signature change.
 5. **Photo signed URLs** (−1 RTT on photos). `useTaskPhotos` lists the photos and then requests signed URLs, which takes two round trips. This one is inherent unless the bucket goes public or the list is cached. Low priority.

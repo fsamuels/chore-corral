@@ -29,6 +29,22 @@ const {
   setActiveFarm,
 } = useFarms()
 const { task, taskError, loading, fetchTask } = useTask(taskId)
+
+// The per-chore sections' data. Each composable fetches immediately for the
+// route's task id, so calling them here (rather than inside each section
+// component) starts those five fetches alongside the chore's own instead of
+// after it renders. They key only on the task id (RLS does the farm scoping),
+// so they don't wait for the active farm either. The components receive the
+// results as their `state` prop.
+//
+// Not awaited anywhere: on a direct load the server HTML shows these
+// sections' skeletons and the browser fills them in, as before. On a
+// "Chore not found" link these five queries are wasted (rare).
+const photosState = useTaskPhotos(taskId)
+const shoppingState = useTaskShoppingList(taskId)
+const toolsState = useTaskTools(taskId)
+const remindersState = useTaskReminders(taskId)
+const timerState = useTaskTimer(taskId)
 const { setStatus, update, remove } = useTasks()
 const { showToast } = useToast()
 
@@ -1532,6 +1548,7 @@ const taskLocation = computed(() =>
           <TaskTimer
             :task-id="task.id"
             :estimated-minutes="task.estimated_minutes"
+            :state="timerState"
             @started="fetchTask"
             @completed="onStatusChange('done')"
           />
@@ -1727,19 +1744,19 @@ const taskLocation = computed(() =>
         </div>
 
         <div class="cc-card detail-section mb-6">
-          <TaskPhotos :task-id="task.id" />
+          <TaskPhotos :state="photosState" />
         </div>
 
         <div class="cc-card detail-section mb-6">
-          <TaskShoppingList :task-id="task.id" />
+          <TaskShoppingList :state="shoppingState" />
         </div>
 
         <div class="cc-card detail-section mb-6">
-          <TaskTools :task-id="task.id" />
+          <TaskTools :state="toolsState" />
         </div>
 
         <div class="cc-card detail-section mb-6">
-          <TaskReminders :task-id="task.id" />
+          <TaskReminders :state="remindersState" />
         </div>
 
         <div class="cc-card detail-section mb-6">

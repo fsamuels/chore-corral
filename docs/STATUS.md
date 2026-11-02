@@ -2,7 +2,11 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-11-02 (larger running-timer dock bar)
+**Last updated:** 2026-11-02 (chore detail sections load with the page)
+
+**Chore detail sections load with the page (2026-11-02).** Follow-up 1 from `docs/TASK_DETAIL_PERFORMANCE.md`. The page now calls the photos, shopping list, tools, reminders and timer composables itself, for the route's task id, before it awaits anything. Their fetches overlap the chore's instead of starting after it renders. Each section component takes the composable's result as a new `state` prop instead of calling it (DECISIONS.md D-6). Counted from the code, the page is now fully loaded after 2 database round trips instead of 4. Direct loads are unchanged: the server HTML shows the section skeletons and the browser fills them in.
+
+**Checks:** lint, typecheck and the 506-case suite pass. Not exercised against a live Supabase project.
 
 **Larger running-timer dock bar (2026-11-02).** Direct user ask: the footer timer was too small to read and use at a glance.
 

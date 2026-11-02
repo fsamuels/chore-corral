@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import type { TaskPhotosState } from '~/composables/useTaskPhotos'
 import type { PhotoSummary } from '~/services/photos'
 
-// Only rendered once a task exists (parent guards with v-if="editing"), so a
-// task id is always present — no null case to handle here.
-const props = defineProps<{ taskId: string }>()
+// State comes from the parent: the chore detail page calls `useTaskPhotos` for the
+// route's task id during its own setup, so this section's fetch runs in
+// parallel with the chore's instead of starting once this component mounts.
+const props = defineProps<{ state: TaskPhotosState }>()
 
 const {
   photos,
@@ -15,7 +17,7 @@ const {
   upload,
   remove,
   updateCaption,
-} = useTaskPhotos(toRef(props, 'taskId'))
+} = props.state
 
 // Two file inputs: one with `capture` to open the camera on mobile, one
 // without so the OS offers the photo library instead.
