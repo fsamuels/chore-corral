@@ -254,3 +254,42 @@ export function assigneeDisplayNames(
     .filter((label): label is string => label !== undefined)
     .sort((a, b) => a.localeCompare(b))
 }
+
+/** Card colouring for tracked time against the estimate: `ok` under 80%,
+ * `warn` from 80% up to (not including) 100%, `over` at 100% or more, and
+ * `none` when there's no estimate to compare against. */
+export type TimeProgressLevel = 'none' | 'ok' | 'warn' | 'over'
+
+export interface TimeProgress {
+  /** Tracked time, compact ("1h 30m", "<1m") — see `formatElapsedDuration`. */
+  trackedLabel: string
+  /** Whole percent of the estimate used, rounded down so the label never
+   * reads "100%" before the estimate is actually reached; null without an
+   * estimate. Not capped — an overrun shows as e.g. "135%". */
+  percent: number | null
+  level: TimeProgressLevel
+}
+
+/** Where `warn` starts, as a fraction of the estimate. */
+export const TIME_PROGRESS_WARN_RATIO = 0.8
+
+/**
+ * Tracked time against a chore's estimate, for the task card's time
+ * indicator. Null when nothing has been tracked (the card shows nothing).
+ * A missing or non-positive estimate yields the tracked time alone
+ * (`percent: null`, `level: 'none'`).
+ */
+export function taskTimeProgress(
+  trackedMs: number,
+  estimatedMinutes: number | null,
+): TimeProgress | null {
+  if (!(trackedMs > 0)) return null
+  const trackedLabel = formatElapsedDuration(trackedMs)
+  if (estimatedMinutes === null || !(estimatedMinutes > 0)) {
+    return { trackedLabel, percent: null, level: 'none' }
+  }
+  const ratio = trackedMs / (estimatedMinutes * 60000)
+  const level: TimeProgressLevel =
+    ratio >= 1 ? 'over' : ratio >= TIME_PROGRESS_WARN_RATIO ? 'warn' : 'ok'
+  return { trackedLabel, percent: Math.floor(ratio * 100), level }
+}

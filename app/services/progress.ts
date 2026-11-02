@@ -7,7 +7,7 @@ import {
   type TaskStatus,
 } from './tasks'
 import { listCompletersForTasks, type TaskCompleter } from './completers'
-import { totalTrackedMs } from './time-entries'
+import { listTimeEntriesForTasks, totalTrackedMs } from './time-entries'
 import { chunk } from '../utils/chunk'
 
 type Client = SupabaseClient<Database>
@@ -249,23 +249,7 @@ export async function trackedMsByTask(
   taskIds: string[],
   now: Date = new Date(),
 ): Promise<Map<string, number>> {
-  if (taskIds.length === 0) return new Map()
-  const { data, error } = await supabase
-    .from('task_time_entries')
-    .select('task_id, started_at, ended_at')
-    .in('task_id', taskIds)
-  if (error) throw new Error(error.message)
-
-  const entriesByTask = new Map<
-    string,
-    { started_at: string; ended_at: string | null }[]
-  >()
-  for (const entry of data) {
-    const list = entriesByTask.get(entry.task_id)
-    if (list) list.push(entry)
-    else entriesByTask.set(entry.task_id, [entry])
-  }
-
+  const entriesByTask = await listTimeEntriesForTasks(supabase, taskIds)
   const result = new Map<string, number>()
   for (const [taskId, entries] of entriesByTask) {
     result.set(taskId, totalTrackedMs(entries, now))
