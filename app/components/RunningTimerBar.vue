@@ -63,18 +63,17 @@ const elapsedLabel = computed(() => {
         >
           <span class="timer-bar__dot" aria-hidden="true" />
           <span class="timer-bar__text">
-            <span class="timer-bar__eyebrow">Timer running</span>
             <span class="timer-bar__title">{{
               taskTitle ?? 'View chore'
             }}</span>
+            <span class="timer-bar__elapsed" role="timer">{{
+              elapsedLabel
+            }}</span>
           </span>
-          <span class="timer-bar__elapsed" role="timer">{{
-            elapsedLabel
-          }}</span>
         </NuxtLink>
         <button
           type="button"
-          class="cc-icon-btn cc-icon-btn--danger"
+          class="cc-icon-btn cc-icon-btn--danger timer-bar__stop"
           :disabled="stopping"
           aria-label="Stop timer"
           title="Stop timer"
@@ -83,10 +82,10 @@ const elapsedLabel = computed(() => {
           <v-progress-circular
             v-if="stopping"
             indeterminate
-            size="18"
-            width="2"
+            size="24"
+            width="3"
           />
-          <v-icon v-else icon="mdi-stop" size="22" />
+          <v-icon v-else icon="mdi-stop" size="32" />
         </button>
       </div>
     </div>
@@ -124,7 +123,7 @@ const elapsedLabel = computed(() => {
   margin: 0 auto;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   padding: 0 16px;
 }
 
@@ -135,15 +134,15 @@ const elapsedLabel = computed(() => {
   height: 100%;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   text-decoration: none;
   color: inherit;
 }
 
 .timer-bar__dot {
   flex: none;
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: var(--cc-accent);
   animation: timer-bar-pulse 2s ease-in-out infinite;
@@ -157,7 +156,7 @@ const elapsedLabel = computed(() => {
   }
   50% {
     opacity: 0.7;
-    box-shadow: 0 0 0 5px color-mix(in srgb, var(--cc-accent) 0%, transparent);
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--cc-accent) 0%, transparent);
   }
 }
 
@@ -167,31 +166,32 @@ const elapsedLabel = computed(() => {
   flex-direction: column;
 }
 
-.timer-bar__eyebrow {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--cc-ink-muted);
-}
-
 .timer-bar__title {
   font-weight: 600;
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
   line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* The elapsed time is the headline — stacked under the title on its own
+   line so it can be large without squeezing the title on narrow phones. */
 .timer-bar__elapsed {
-  flex: none;
-  margin-left: auto;
   font-family: var(--cc-font-slab);
-  font-size: 1.25rem;
+  font-size: 2.25rem;
   font-weight: 700;
   color: var(--cc-ink);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* Bigger tap target than the default 44px icon button — this is the
+   control people reach for most while a timer runs. */
+.timer-bar__stop {
+  width: 60px;
+  height: 60px;
 }
 
 /* Slide up from the bottom edge when a timer starts, back down when it

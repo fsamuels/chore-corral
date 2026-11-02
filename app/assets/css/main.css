@@ -69,7 +69,7 @@
   /* Running-timer dock bar height — shared by the bar itself
      (RunningTimerBar.vue), the layout's content spacer, and NewTaskFab's
      lifted position, so the three can never drift apart. */
-  --cc-timer-bar-h: 64px;
+  --cc-timer-bar-h: 88px;
 }
 
 /* Base typography: sans body, slab headings. */
