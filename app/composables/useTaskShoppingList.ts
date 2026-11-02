@@ -136,3 +136,10 @@ export function useTaskShoppingList(taskId: Ref<string | null | undefined>) {
     remove,
   }
 }
+
+/**
+ * What `useTaskShoppingList` returns. The chore detail page calls the composable itself (so
+ * this section's fetch starts alongside the chore's, not after it renders)
+ * and hands the result to `TaskShoppingList` as its `state` prop.
+ */
+export type TaskShoppingListState = ReturnType<typeof useTaskShoppingList>

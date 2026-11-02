@@ -154,3 +154,10 @@ export function useTaskPhotos(taskId: Ref<string | null | undefined>) {
     updateCaption,
   }
 }
+
+/**
+ * What `useTaskPhotos` returns. The chore detail page calls the composable itself (so
+ * this section's fetch starts alongside the chore's, not after it renders)
+ * and hands the result to `TaskPhotos` as its `state` prop.
+ */
+export type TaskPhotosState = ReturnType<typeof useTaskPhotos>

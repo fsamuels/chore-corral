@@ -133,3 +133,10 @@ export function useTaskTools(taskId: Ref<string | null | undefined>) {
     remove,
   }
 }
+
+/**
+ * What `useTaskTools` returns. The chore detail page calls the composable itself (so
+ * this section's fetch starts alongside the chore's, not after it renders)
+ * and hands the result to `TaskTools` as its `state` prop.
+ */
+export type TaskToolsState = ReturnType<typeof useTaskTools>

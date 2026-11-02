@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import type { TaskToolsState } from '~/composables/useTaskTools'
 import type { ToolItemSummary } from '~/services/tools'
 
-// Only rendered once a task exists (parents guard with v-if="task"), so a
-// task id is always present.
-const props = defineProps<{ taskId: string }>()
+// State comes from the parent: the chore detail page calls `useTaskTools` for the
+// route's task id during its own setup, so this section's fetch runs in
+// parallel with the chore's instead of starting once this component mounts.
+const props = defineProps<{ state: TaskToolsState }>()
 
 const {
   items,
@@ -15,7 +17,7 @@ const {
   toggle,
   rename,
   remove,
-} = useTaskTools(toRef(props, 'taskId'))
+} = props.state
 
 const newItemName = ref('')
 

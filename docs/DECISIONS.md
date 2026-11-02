@@ -478,3 +478,16 @@ Decided 2026-11-02 with the user. Reversibility: _easy_ (one `if` around an `awa
 **Why the skeleton waits for the lookups too, not only the task.** The category pill, location name and Assigned/Completed-by labels are read from the categories, locations and members lists. Showing the task first would briefly show "(deleted category)" and empty labels. Everything loads in parallel, so waiting for all of it costs only the slowest query.
 
 **Pattern for other pages.** The same pattern fits any page that is reached mostly by in-app navigation and has a meaningful skeleton. See `docs/TASK_DETAIL_PERFORMANCE.md` for the measurements and follow-ups.
+
+## D-6: The chore detail page owns its sections' data
+
+Decided 2026-11-02. The user deferred the choice ("no preference") between the three options below; this is the one recommended to them. Reversibility: _easy_ (five components and one page).
+
+**What changed.** `TaskPhotos`, `TaskShoppingList`, `TaskTools`, `TaskReminders` and `TaskTimer` used to call their own composable (`useTaskPhotos` and so on) with their `taskId` prop. They only mount once the chore has loaded, so their fetches always started after it. Now the page calls the five composables during its own setup, for the route's task id, and passes each result to its component as a `state` prop. Each composable exports its return type (`TaskPhotosState` and so on) for that prop. The section fetches now overlap the chore's, and the page is fully loaded after 2 round trips instead of 4 (see `TASK_DETAIL_PERFORMANCE.md`).
+
+**Alternatives not taken.**
+
+- `provide`/`inject` with a fallback to calling the composable: it keeps the components' props unchanged, but hides the data flow and keeps a fallback path nothing uses. These components are only used on this page.
+- A shared, app-wide cache keyed by task id, warmed by the page: it would also allow reuse across visits, but needs lifetime and invalidation rules and a guard against double fetches. Worth revisiting only together with seeding the page from the list (follow-up 2 in the perf doc).
+
+**Server rendering.** Nothing awaits the section fetches. On a direct load the server HTML shows the section skeletons and the browser fills them in, as before, so the server responds no later than it did.
