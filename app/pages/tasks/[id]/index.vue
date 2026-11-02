@@ -28,7 +28,7 @@ const {
   farms,
   setActiveFarm,
 } = useFarms()
-const { task, taskError, loading, fetchTask } = useTask(taskId)
+const { task, taskError, fetchTask } = useTask(taskId)
 const { setStatus, update, remove } = useTasks()
 const { showToast } = useToast()
 
@@ -77,15 +77,6 @@ async function fetchMembers() {
   members.value = await listFarmMemberProfiles(useSupabaseClient(), farmId)
 }
 
-// Independent reads, so they run in parallel rather than one round trip after
-// another. They all key off the active farm, which is settled above.
-await Promise.all([
-  fetchTask(),
-  fetchCategories(),
-  fetchTags(),
-  fetchLocations(),
-  fetchMembers(),
-])
 watch(activeFarmId, () => fetchMembers())
 
 // Resolve a task's defined-location name/coords from the farm's location
@@ -121,9 +112,47 @@ async function fetchActivity() {
   }
 }
 
-if (task.value) await fetchActivity()
+// Initial load. Independent reads, so they run in parallel rather than one
+// round trip after another — including the activity feed, which only needs
+// the task id, not the loaded task. They all key off the active farm, which
+// is settled above.
+//
+// Only awaited on the server and while hydrating a server render, so the
+// server HTML has the chore in it and hydration matches it. On an in-app
+// navigation (tapping a chore in a list) the page renders straight away and
+// shows TaskDetailSkeleton until these settle; awaiting here would make
+// Suspense hold the *previous* page on screen for the whole load instead.
+// The skeleton covers all of these, not just the task: the category pill,
+// location and member labels are read from the other lists, and showing the
+// task first would flash "(deleted category)" and raw ids.
+const nuxtApp = useNuxtApp()
+const initialLoadDone = ref(false)
+const initialLoad = Promise.all([
+  fetchTask(),
+  fetchCategories(),
+  fetchTags(),
+  fetchLocations(),
+  fetchMembers().catch(() => {
+    // Unhandled before too (a failed member list only empties the
+    // Assigned-to/Completed-by pickers); swallowed so it can't block the page.
+  }),
+  fetchActivity(),
+]).finally(() => {
+  initialLoadDone.value = true
+})
+if (import.meta.server || nuxtApp.isHydrating) await initialLoad
+
+// Refresh the feed after each change to the loaded task (every inline save
+// refetches it and logs an event), or after moving to another chore. Skipped
+// during the initial load, which fetches the activity itself.
 watch(task, (value) => {
-  if (value) fetchActivity()
+  if (value && initialLoadDone.value) fetchActivity()
+})
+// Navigating straight from one chore to another reuses this page instance;
+// drop the old chore's feed rather than showing it under the new one.
+watch(taskId, () => {
+  activity.value = null
+  activityError.value = null
 })
 
 function categoryDisplay(categoryId: string | null) {
@@ -859,7 +888,7 @@ const taskLocation = computed(() =>
         :message="taskError"
       />
 
-      <LoadingState v-else-if="loading && task === undefined" />
+      <TaskDetailSkeleton v-else-if="!initialLoadDone || task === undefined" />
 
       <EmptyState v-else-if="task === null" icon="mdi-clipboard-alert-outline">
         Chore not found. It may have been deleted, or the link may be out of
@@ -1666,10 +1695,12 @@ const taskLocation = computed(() =>
           >
             {{ activityError }}
           </v-alert>
-          <p
-            v-else-if="activity && activity.length === 0"
-            class="cc-empty-inline"
-          >
+          <SectionSkeleton
+            v-else-if="activity === null"
+            :lines="3"
+            label="Loading activity"
+          />
+          <p v-else-if="activity.length === 0" class="cc-empty-inline">
             No activity yet.
           </p>
           <v-timeline v-else-if="activity" density="compact" side="end">

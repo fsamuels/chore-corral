@@ -46,7 +46,13 @@ export function useTask(taskId: Ref<string>) {
   // fetchFarms()` resolves the active farm) with this watch only covering
   // later changes: switching farms, or navigating between two task ids
   // without a full page reload.
-  watch([taskId, activeFarmId], () => fetchTask())
+  watch([taskId, activeFarmId], ([newTaskId], [oldTaskId]) => {
+    // Moving to another chore: forget the old one so the page shows its
+    // loading skeleton rather than the previous chore's fields while the
+    // new one loads. A farm switch keeps it (the refetch replaces it).
+    if (newTaskId !== oldTaskId) task.value = undefined
+    fetchTask()
+  })
 
   return { task, taskError, loading, fetchTask }
 }

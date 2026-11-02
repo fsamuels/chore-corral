@@ -15,10 +15,10 @@ withDefaults(defineProps<{ rows?: number; label?: string }>(), {
       class="cc-card cc-card--row list-skeleton__row"
       aria-hidden="true"
     >
-      <div class="list-skeleton__bar list-skeleton__bar--title" />
-      <div class="list-skeleton__bar list-skeleton__bar--meta" />
+      <div class="cc-skeleton list-skeleton__bar--title" />
+      <div class="cc-skeleton list-skeleton__bar--meta" />
     </div>
-    <span class="list-skeleton__sr">{{ label }}</span>
+    <span class="cc-sr-only">{{ label }}</span>
   </div>
 </template>
 
@@ -29,19 +29,6 @@ withDefaults(defineProps<{ rows?: number; label?: string }>(), {
   gap: 10px;
 }
 
-.list-skeleton__bar {
-  height: 14px;
-  border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    var(--cc-track) 25%,
-    var(--cc-border) 50%,
-    var(--cc-track) 75%
-  );
-  background-size: 200% 100%;
-  animation: list-skeleton-shimmer 1.4s ease-in-out infinite;
-}
-
 .list-skeleton__bar--title {
   width: 60%;
   height: 18px;
@@ -49,31 +36,5 @@ withDefaults(defineProps<{ rows?: number; label?: string }>(), {
 
 .list-skeleton__bar--meta {
   width: 35%;
-}
-
-/* Visually hidden, still announced. */
-.list-skeleton__sr {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-@keyframes list-skeleton-shimmer {
-  from {
-    background-position: 200% 0;
-  }
-  to {
-    background-position: -200% 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .list-skeleton__bar {
-    animation: none;
-    background: var(--cc-track);
-  }
 }
 </style>

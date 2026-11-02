@@ -468,9 +468,14 @@ export async function getTask(
   const task = data[0]
   if (!task) return null
 
-  const tagsByTaskId = await listTagsForTasks(supabase, [task.id])
-  const completersByTaskId = await listCompletersForTasks(supabase, [task.id])
-  const assigneesByTaskId = await listAssigneesForTasks(supabase, [task.id])
+  // Independent lookups keyed only on the task id — run them in parallel so
+  // the detail page pays one round trip for them instead of three.
+  const [tagsByTaskId, completersByTaskId, assigneesByTaskId] =
+    await Promise.all([
+      listTagsForTasks(supabase, [task.id]),
+      listCompletersForTasks(supabase, [task.id]),
+      listAssigneesForTasks(supabase, [task.id]),
+    ])
   return {
     ...task,
     tags: tagsByTaskId.get(task.id) ?? [],

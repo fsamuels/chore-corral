@@ -247,9 +247,11 @@ async function performDeleteEntry(): Promise<void> {
       {{ mutationError }}
     </v-alert>
 
-    <div v-if="entries === null && loading" class="py-2">
-      <v-progress-circular indeterminate size="24" color="primary" />
-    </div>
+    <SectionSkeleton
+      v-if="entries === null && loading"
+      :lines="1"
+      label="Loading time tracked"
+    />
 
     <template v-else-if="entries">
       <div class="timer-readout mb-3">
