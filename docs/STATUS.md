@@ -2,7 +2,16 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-11-02 (chore detail loading skeletons + load performance)
+**Last updated:** 2026-11-02 (larger running-timer dock bar)
+
+**Larger running-timer dock bar (2026-11-02).** Direct user ask: the footer timer was too small to read and use at a glance.
+
+- **Size:** the bar is 88px tall instead of 64px (`--cc-timer-bar-h`, so the FAB lift, toast offset and content spacer follow).
+- **Elapsed time:** now the headline, at 2.25rem slab with tabular numerals. It sits on its own line under the chore title, so it can be large without squeezing the title on narrow phones.
+- **Stop button:** 60px with a 32px icon, up from the default 44px icon button.
+- **Eyebrow removed:** the "Timer running" eyebrow is gone. The pulsing dot and live clock convey it, and the link's `aria-label` still says it.
+
+**Checks:** lint, typecheck, tests and `nuxt build` pass. The bar was screenshotted from a production build in headless Chromium at 360px and 1200px widths. Not checked in a real signed-in session above the mobile bottom nav.
 
 **Chore detail loading skeletons and load performance (2026-11-02).** Direct user ask: show blank placeholders where the content will go while the chore detail page loads, and look into why the page is slow to open from inside the app.
 
