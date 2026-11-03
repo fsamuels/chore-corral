@@ -74,6 +74,57 @@ export async function listTimeEntriesForTasks(
 }
 
 /**
+ * The user's own time entries, most recently started first, for "what was
+ * I just working on" views (the home page's "Jump back in" strip and the
+ * timer dock's switch-to-previous button). `since` drops entries started
+ * before that instant; `limit` caps the row count (default 200) so a busy
+ * week can't pull an unbounded list. Entries span every farm the user
+ * belongs to, so callers intersect the task ids with what they're showing.
+ */
+export async function listRecentTimeEntriesForUser(
+  supabase: Client,
+  userId: string,
+  opts: { since?: string; limit?: number } = {},
+): Promise<TimeEntrySummary[]> {
+  let query = supabase
+    .from('task_time_entries')
+    .select(ENTRY_COLUMNS)
+    .eq('user_id', userId)
+  if (opts.since) query = query.gte('started_at', opts.since)
+  const { data, error } = await query
+    .order('started_at', { ascending: false })
+    .order('id', { ascending: false })
+    .range(0, (opts.limit ?? 200) - 1)
+  if (error) throw new Error(error.message)
+  return data
+}
+
+/**
+ * Distinct task ids from a set of time entries, most recently worked on
+ * first. A task's recency is its latest entry's end time; a running entry
+ * (ended_at null) counts as "now", so the running task always leads.
+ * Entries with an unparseable timestamp are skipped. Ties fall back to the
+ * task id, so the order is stable.
+ */
+export function recentTaskIdsFromEntries(
+  entries: Pick<TimeEntrySummary, 'task_id' | 'started_at' | 'ended_at'>[],
+): string[] {
+  const latest = new Map<string, number>()
+  for (const entry of entries) {
+    const touched =
+      entry.ended_at === null
+        ? Number.POSITIVE_INFINITY
+        : Date.parse(entry.ended_at)
+    if (Number.isNaN(touched)) continue
+    const prev = latest.get(entry.task_id)
+    if (prev === undefined || touched > prev) latest.set(entry.task_id, touched)
+  }
+  return [...latest.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([taskId]) => taskId)
+}
+
+/**
  * The user's currently running entry (ended_at IS NULL), across all tasks
  * in all their farms — the one-running-timer-per-user rule means there is
  * at most one. Null when no timer is running.

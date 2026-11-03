@@ -18,6 +18,13 @@ const {
 } = useRunningTimer()
 watch(() => route.path, refreshRunningTimer, { immediate: true })
 
+// The dock bar's "switch to previous chore" button.
+const {
+  previousTask: previousTimedTask,
+  switching: switchingTimer,
+  switchTo: switchToPreviousTask,
+} = usePreviousTimedTask()
+
 // Hidden on the running task's own detail page — TaskTimer.vue already
 // shows the live timer with a stop control there.
 const showTimerBar = computed(
@@ -237,7 +244,10 @@ async function onPushToggle() {
       :entry="showTimerBar ? runningEntry : null"
       :task-title="runningTaskTitle"
       :stopping="stoppingTimer"
+      :previous-task-title="previousTimedTask?.title ?? null"
+      :switching="switchingTimer"
       @stop="stopRunningTimer"
+      @switch="switchToPreviousTask"
     />
     <NewTaskFab v-if="user" :lifted="showTimerBar" />
     <AppToast :lifted="showTimerBar" />

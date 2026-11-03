@@ -16,6 +16,7 @@ import {
 } from '~/services/members'
 import { memberShortLabels } from '~/utils/member-display'
 import { assigneeDisplayNames } from '~/utils/task-display'
+import { splitJumpBackIn } from '~/utils/recent-tasks'
 
 const supabase = useSupabaseClient<Database>()
 const user = useSupabaseUser()
@@ -31,6 +32,7 @@ const { locations, fetchLocations } = useLocations()
 const { runningEntry, refresh: refreshRunningTimer } = useRunningTimer()
 const { thumbnailFor, onThumbnailError } = useTaskThumbnails(tasks)
 const { trackedMsFor } = useTaskTrackedTime(tasks)
+const { recentTaskIds } = useRecentTimedTaskIds()
 
 // Farm members, resolved to short labels for the assignee indicator on each
 // card — no composable exists for this (only the activity service reads
@@ -92,16 +94,23 @@ const searchedTasks = computed(() =>
   ),
 )
 
+// "Jump back in" comes first: the chores the user most recently tracked time
+// on, most recent first, regardless of priority or due date — so a
+// low-priority chore being worked on stays one tap away. They're taken out
+// of Up next / Backlog so no chore shows twice.
 const homeGroups = computed(() => {
-  const { upNext, backlog } = partitionHomeTasks(
+  const { recent, rest } = splitJumpBackIn(
     searchedTasks.value,
-    today.value,
+    recentTaskIds.value,
   )
+  const { upNext, backlog } = partitionHomeTasks(rest, today.value)
   return {
+    recent,
     upNext: [...upNext].sort(compareUpNext),
     backlog: [...backlog].sort(compareBacklog),
   }
 })
+const jumpBackIn = computed(() => homeGroups.value.recent)
 const upNext = computed(() => homeGroups.value.upNext)
 const backlog = computed(() => homeGroups.value.backlog)
 
@@ -243,6 +252,28 @@ async function toggleTimer(task: TaskSummary) {
         </EmptyState>
 
         <template v-else>
+          <section v-if="jumpBackIn.length > 0" class="home__section">
+            <h2 class="cc-section-title home__section-heading">Jump back in</h2>
+            <div class="cc-card-list">
+              <TaskCard
+                v-for="task in jumpBackIn"
+                :key="task.id"
+                :task="task"
+                :category-name="categoryName(task)"
+                :category-emoji="categoryEmoji(task)"
+                :location-name="locationName(task)"
+                :assignee-names="assigneeNames(task)"
+                :thumbnail-url="thumbnailFor(task)"
+                :tracked-ms="trackedMsFor(task)"
+                :today="today"
+                :updating="updatingTaskId === task.id"
+                :timer-running="isTimerRunning(task)"
+                @thumbnail-error="onThumbnailError"
+                @toggle-timer="toggleTimer"
+              />
+            </div>
+          </section>
+
           <section v-if="upNext.length > 0" class="home__section">
             <h2 class="cc-section-title home__section-heading">Up next</h2>
             <div class="cc-card-list">
