@@ -5,6 +5,7 @@ import {
   buildActivityDayGroups,
   completedTasksInWeek,
   listTaskActivity,
+  rowGapsMs,
   weekDays,
   weekQueryWindow,
   weekStartFor,
@@ -20,6 +21,7 @@ import {
 import {
   formatDaysToComplete,
   formatElapsedDuration,
+  formatEstimatedMinutes,
 } from '~/utils/task-display'
 import { memberShortLabels } from '~/utils/member-display'
 
@@ -244,6 +246,8 @@ interface ProgressRow {
   id: string
   title: string
   time: string
+  // "1h 30m" since the previous row when that gap is 45m+ (see rowGapsMs).
+  gapBefore: string | null
   tracked: string | null
   kind: ActivityKind
   statusLabel: string | null
@@ -268,33 +272,42 @@ const activityGroups = computed(() =>
   buildActivityDayGroups(shownWeek.value, weekTasks.value, activities.value),
 )
 
+function formatGap(ms: number | null): string | null {
+  return ms === null ? null : formatEstimatedMinutes(Math.floor(ms / 60000))
+}
+
 const dayGroups = computed<ProgressDayGroup[]>(() =>
-  activityGroups.value.map((group) => ({
-    day: group.day,
-    heading: parseLocalDateString(group.day).toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-    }),
-    completed: group.completedCount,
-    tracked:
-      group.trackedMs > 0 ? formatElapsedDuration(group.trackedMs) : null,
-    rows: group.rows.map((row) => ({
-      id: row.id,
-      title: row.title,
-      time: formatRowTime(row.timestamp),
-      tracked: row.trackedMs > 0 ? formatElapsedDuration(row.trackedMs) : null,
-      kind: row.kind,
-      statusLabel: STATUS_LABELS[row.kind],
-      completedBy: row.kind === 'completed' ? completedByLabel(row) : null,
-      category: categoryPill(row.category_id),
-      daysToComplete: formatDaysToComplete(
-        row.createdAt,
-        row.completedAt,
-        today.value,
-      ),
-    })),
-  })),
+  activityGroups.value.map((group) => {
+    const gaps = rowGapsMs(group.rows)
+    return {
+      day: group.day,
+      heading: parseLocalDateString(group.day).toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+      }),
+      completed: group.completedCount,
+      tracked:
+        group.trackedMs > 0 ? formatElapsedDuration(group.trackedMs) : null,
+      rows: group.rows.map((row, index) => ({
+        id: row.id,
+        title: row.title,
+        time: formatRowTime(row.timestamp),
+        gapBefore: formatGap(gaps[index] ?? null),
+        tracked:
+          row.trackedMs > 0 ? formatElapsedDuration(row.trackedMs) : null,
+        kind: row.kind,
+        statusLabel: STATUS_LABELS[row.kind],
+        completedBy: row.kind === 'completed' ? completedByLabel(row) : null,
+        category: categoryPill(row.category_id),
+        daysToComplete: formatDaysToComplete(
+          row.createdAt,
+          row.completedAt,
+          today.value,
+        ),
+      })),
+    }
+  }),
 )
 
 // Week "tracked" now means time tracked *during* the week — the sum of the
@@ -390,48 +403,55 @@ const weekTrackedText = computed(() =>
               </div>
             </div>
             <div class="cc-card-list">
-              <NuxtLink
-                v-for="row in group.rows"
-                :key="row.id"
-                :to="`/tasks/${row.id}`"
-                class="cc-card cc-card--row progress-row"
-                :class="{ 'progress-row--worked': row.kind !== 'completed' }"
-              >
-                <div class="progress-row__time">{{ row.time }}</div>
-                <div class="progress-row__title">{{ row.title }}</div>
-                <div class="progress-row__meta">
-                  <span
-                    v-if="row.statusLabel"
-                    class="cc-pill cc-pill--sm"
-                    :class="
-                      row.kind === 'in-progress'
-                        ? 'cc-pill--accent'
-                        : 'cc-pill--muted'
-                    "
-                  >
-                    {{ row.statusLabel }}
-                  </span>
-                  <span v-if="row.completedBy" class="progress-row__by">
-                    {{ row.completedBy }}
-                  </span>
-                  <span v-if="row.tracked" class="progress-row__tracked">
-                    <v-icon icon="mdi-timer-outline" size="14" />
-                    {{ row.tracked }}
-                  </span>
-                  <span
-                    v-if="row.category"
-                    class="cc-pill cc-pill--muted cc-pill--sm"
-                  >
-                    <span v-if="row.category.emoji" aria-hidden="true">
-                      {{ row.category.emoji }}
-                    </span>
-                    {{ row.category.text }}
-                  </span>
-                  <span class="progress-row__age">
-                    {{ row.daysToComplete }}
-                  </span>
+              <template v-for="row in group.rows" :key="row.id">
+                <div
+                  v-if="row.gapBefore"
+                  class="progress-gap"
+                  :aria-label="`${row.gapBefore} gap`"
+                >
+                  {{ row.gapBefore }}
                 </div>
-              </NuxtLink>
+                <NuxtLink
+                  :to="`/tasks/${row.id}`"
+                  class="cc-card cc-card--row progress-row"
+                  :class="{ 'progress-row--worked': row.kind !== 'completed' }"
+                >
+                  <div class="progress-row__time">{{ row.time }}</div>
+                  <div class="progress-row__title">{{ row.title }}</div>
+                  <div class="progress-row__meta">
+                    <span
+                      v-if="row.statusLabel"
+                      class="cc-pill cc-pill--sm"
+                      :class="
+                        row.kind === 'in-progress'
+                          ? 'cc-pill--accent'
+                          : 'cc-pill--muted'
+                      "
+                    >
+                      {{ row.statusLabel }}
+                    </span>
+                    <span v-if="row.completedBy" class="progress-row__by">
+                      {{ row.completedBy }}
+                    </span>
+                    <span v-if="row.tracked" class="progress-row__tracked">
+                      <v-icon icon="mdi-timer-outline" size="14" />
+                      {{ row.tracked }}
+                    </span>
+                    <span
+                      v-if="row.category"
+                      class="cc-pill cc-pill--muted cc-pill--sm"
+                    >
+                      <span v-if="row.category.emoji" aria-hidden="true">
+                        {{ row.category.emoji }}
+                      </span>
+                      {{ row.category.text }}
+                    </span>
+                    <span class="progress-row__age">
+                      {{ row.daysToComplete }}
+                    </span>
+                  </div>
+                </NuxtLink>
+              </template>
             </div>
           </section>
         </div>
@@ -520,6 +540,21 @@ const weekTrackedText = computed(() =>
   display: inline-flex;
   align-items: center;
   gap: 2px;
+}
+
+.progress-gap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.75rem;
+  color: var(--cc-ink-muted);
+}
+
+.progress-gap::before,
+.progress-gap::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--cc-border);
 }
 
 .progress-row__age {
