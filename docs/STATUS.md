@@ -2,7 +2,14 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-11-03 ("Jump back in" strip and timer switch)
+**Last updated:** 2026-11-03 (bolder timer dock with total time)
+
+**Bolder timer dock with total time (2026-11-03).** Direct user ask: make the running timer in the footer stand out more, and add the chore's cumulative time as a small FYI.
+
+- **Look:** the dock bar is now inverted: a deep-ink background with cream text, a 3px accent top edge and a stronger shadow, so it stands apart from the cream app chrome. The elapsed time is near-white, the pulsing dot is larger, and the switch button is translucent so it reads as secondary to stop.
+- **Total line:** under the elapsed time, small dim text such as "3h 20m total". It totals every session on the chore, from all members, with the running one counted live. It only shows when the chore has an earlier session, since otherwise it would repeat the elapsed time. `runningTotalLabel` (`app/utils/task-display.ts`, with tests) builds it. A new `useRunningTaskTotal` composable loads the sessions when the timer changes and on every navigation. A failed load just hides the line.
+
+**Checks:** lint, format, typecheck, the 537-case suite and `nuxt build` pass. The bar was screenshotted from a production build in headless Chromium at 360px and 1200px widths. Not checked against a live Supabase project.
 
 **"Jump back in" strip and timer switch (2026-11-03).** Direct user ask: keep the chore you're going back and forth on at the top of Home, even when it's low priority. The user chose timer activity as the signal and asked that those chores move out of their normal group (DECISIONS.md D-7).
 

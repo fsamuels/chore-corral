@@ -6,6 +6,7 @@ import {
 } from '../services/tasks'
 import type { CategorySummary } from '../services/categories'
 import type { LocationSummary } from '../services/locations'
+import { totalTrackedMs, type TrackedSpan } from '../services/time-entries'
 
 /**
  * The ranch-design priority color system (design tokens). The same values
@@ -292,4 +293,18 @@ export function taskTimeProgress(
   const level: TimeProgressLevel =
     ratio >= 1 ? 'over' : ratio >= TIME_PROGRESS_WARN_RATIO ? 'warn' : 'ok'
   return { trackedLabel, percent: Math.floor(ratio * 100), level }
+}
+
+/**
+ * The running-timer dock bar's "total" line: every session on the chore
+ * (all members', the running one counted up to `now`), e.g. "3h 20m total".
+ * Null when there's nothing to add to the live elapsed time: no spans loaded
+ * yet, or the running session is the chore's only one.
+ */
+export function runningTotalLabel(
+  spans: readonly TrackedSpan[] | null,
+  now: Date = new Date(),
+): string | null {
+  if (!spans || spans.length < 2) return null
+  return `${formatElapsedDuration(totalTrackedMs([...spans], now))} total`
 }
