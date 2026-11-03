@@ -609,3 +609,23 @@ export async function listTaskActivity(
   }
   return result.sort((a, b) => a.id.localeCompare(b.id))
 }
+
+/** Gaps shorter than this between consecutive day rows get no divider. */
+export const ROW_GAP_DIVIDER_MIN_MS = 45 * 60 * 1000
+
+/**
+ * For each row of a day, the elapsed time since the previous row's timestamp
+ * when it's at least `ROW_GAP_DIVIDER_MIN_MS` — the Progress page renders it
+ * as a centered "1h 30m" divider between the two rows — otherwise null. The
+ * first row, a row whose timestamp doesn't follow the previous one (the
+ * completed and worked-on runs are each ordered on their own, so the seam
+ * between them can step backwards), and unparseable timestamps all get null.
+ */
+export function rowGapsMs(rows: readonly Pick<ActivityDayRow, 'timestamp'>[]) {
+  return rows.map((row, index) => {
+    if (index === 0) return null
+    const gap =
+      Date.parse(row.timestamp) - Date.parse(rows[index - 1]!.timestamp)
+    return Number.isFinite(gap) && gap >= ROW_GAP_DIVIDER_MIN_MS ? gap : null
+  })
+}

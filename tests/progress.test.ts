@@ -8,6 +8,7 @@ import {
   isCompletedInWeek,
   listCompletedTasks,
   listTaskActivity,
+  rowGapsMs,
   trackedMsByDay,
   trackedMsByTask,
   trackedMsForTasks,
@@ -879,5 +880,35 @@ describe('listTaskActivity', () => {
     await expect(listTaskActivity(supabase, FARM_A, WINDOW)).rejects.toThrow(
       'entries boom',
     )
+  })
+})
+
+describe('rowGapsMs', () => {
+  const row = (timestamp: string) => ({ timestamp })
+
+  it('returns the gap for consecutive rows 45 minutes or more apart', () => {
+    expect(
+      rowGapsMs([
+        row('2026-07-07T09:00:00Z'),
+        row('2026-07-07T09:44:59Z'),
+        row('2026-07-07T10:29:59Z'),
+        row('2026-07-07T12:00:00Z'),
+      ]),
+    ).toEqual([null, null, 45 * 60_000, (90 * 60 + 1) * 1000])
+  })
+
+  it('ignores backwards steps and unparseable timestamps', () => {
+    expect(
+      rowGapsMs([
+        row('2026-07-07T12:00:00Z'),
+        row('2026-07-07T09:00:00Z'),
+        row('not a date'),
+        row('2026-07-07T15:00:00Z'),
+      ]),
+    ).toEqual([null, null, null, null])
+  })
+
+  it('returns an empty list for no rows', () => {
+    expect(rowGapsMs([])).toEqual([])
   })
 })

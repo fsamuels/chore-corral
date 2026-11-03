@@ -2,7 +2,11 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-11-02 (tracked time vs. estimate on chore cards)
+**Last updated:** 2026-11-03 (gap dividers on the Progress page)
+
+**Gap dividers on the Progress page (2026-11-03).** Direct user ask: when 45 minutes or more pass between two consecutive rows in a day, show the gap ("1h 30m") as small muted text centered between them, with a rule on each side. The gap is the difference between the rows' time labels. `rowGapsMs` (`app/services/progress.ts`, with tests) computes it. It returns null for the first row and for any row whose time is earlier than the row above it. That happens where the day's completed rows end and its worked-on rows begin, because each group is sorted separately.
+
+**Checks:** lint, typecheck and the progress test file pass. Not visually checked in a browser.
 
 **Tracked time vs. estimate on chore cards (2026-11-02).** Direct user ask: show percent complete on each home-screen card once time has been spent on it.
 
