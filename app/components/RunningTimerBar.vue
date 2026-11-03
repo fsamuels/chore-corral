@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import type { TimeEntrySummary } from '~/services/time-entries'
-import { formatElapsedWithSeconds } from '~/utils/task-display'
+import type { TimeEntrySummary, TrackedSpan } from '~/services/time-entries'
+import {
+  formatElapsedWithSeconds,
+  runningTotalLabel,
+} from '~/utils/task-display'
 
 // Global "a timer is running" chrome, rendered once from the layout as a
 // "now playing"-style dock bar: fused with the bottom nav on mobile, pinned
@@ -14,6 +17,8 @@ const props = defineProps<{
   /** Title of the chore the switch button jumps to; null hides the button. */
   previousTaskTitle?: string | null
   switching?: boolean
+  /** Every session on the running chore, for the small "total" line. */
+  taskSpans?: TrackedSpan[] | null
 }>()
 
 defineEmits<{ stop: []; switch: [] }>()
@@ -47,6 +52,12 @@ const elapsedLabel = computed(() => {
   if (Number.isNaN(started)) return ''
   return formatElapsedWithSeconds(now.value.getTime() - started)
 })
+
+// Minute resolution, so the 1s ticker re-renders it but it only changes
+// once a minute.
+const totalLabel = computed(() =>
+  runningTotalLabel(props.taskSpans ?? null, now.value),
+)
 </script>
 
 <template>
@@ -71,6 +82,9 @@ const elapsedLabel = computed(() => {
             }}</span>
             <span class="timer-bar__elapsed" role="timer">{{
               elapsedLabel
+            }}</span>
+            <span v-if="totalLabel" class="timer-bar__total">{{
+              totalLabel
             }}</span>
           </span>
         </NuxtLink>
@@ -113,17 +127,19 @@ const elapsedLabel = computed(() => {
 </template>
 
 <style scoped>
-/* Docked to the bottom edge, styled like the rest of the app chrome (cream
-   surface + hairline border) rather than a floating overlay. */
+/* Docked to the bottom edge. Inverted (deep ink with cream text, an accent
+   top edge) so a running timer is the most prominent thing on any page —
+   the rest of the chrome is cream, so the bar can't be mistaken for it. */
 .timer-bar {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 9;
-  background: var(--cc-surface);
-  border-top: 1px solid var(--cc-border);
-  box-shadow: 0 -2px 10px color-mix(in srgb, var(--cc-ink) 6%, transparent);
+  background: var(--cc-ink);
+  color: var(--cc-bg);
+  border-top: 3px solid var(--cc-accent);
+  box-shadow: 0 -4px 16px color-mix(in srgb, var(--cc-ink) 25%, transparent);
   /* Clear the home-indicator inset when installed to the home screen. */
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -161,8 +177,8 @@ const elapsedLabel = computed(() => {
 
 .timer-bar__dot {
   flex: none;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: var(--cc-accent);
   animation: timer-bar-pulse 2s ease-in-out infinite;
@@ -172,11 +188,11 @@ const elapsedLabel = computed(() => {
   0%,
   100% {
     opacity: 1;
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--cc-accent) 35%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--cc-accent) 60%, transparent);
   }
   50% {
     opacity: 0.7;
-    box-shadow: 0 0 0 7px color-mix(in srgb, var(--cc-accent) 0%, transparent);
+    box-shadow: 0 0 0 9px color-mix(in srgb, var(--cc-accent) 0%, transparent);
   }
 }
 
@@ -204,8 +220,19 @@ const elapsedLabel = computed(() => {
      full size from ~450px wide. */
   font-size: clamp(1.75rem, 8vw, 2.25rem);
   font-weight: 700;
-  color: var(--cc-ink);
+  color: var(--cc-surface);
   line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Cumulative time on the chore: an FYI under the headline, deliberately
+   small and dim so it never competes with the live elapsed time. */
+.timer-bar__total {
+  margin-top: 3px;
+  font-size: 0.8125rem;
+  line-height: 1.2;
+  color: color-mix(in srgb, var(--cc-bg) 55%, transparent);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -222,6 +249,11 @@ const elapsedLabel = computed(() => {
    but still a comfortable thumb target. */
 .timer-bar__switch {
   flex: none;
+  /* Translucent on the dark bar, so it reads as secondary to stop. */
+  background: color-mix(in srgb, var(--cc-bg) 12%, transparent);
+  border-color: color-mix(in srgb, var(--cc-bg) 30%, transparent);
+  box-shadow: none;
+  color: var(--cc-bg);
   width: 44px;
   height: 44px;
   margin-right: -4px;

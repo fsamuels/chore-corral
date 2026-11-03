@@ -25,6 +25,9 @@ const {
   switchTo: switchToPreviousTask,
 } = usePreviousTimedTask()
 
+// Every session on the running chore, for the dock bar's "total" line.
+const { spans: runningTaskSpans } = useRunningTaskTotal()
+
 // Hidden on the running task's own detail page — TaskTimer.vue already
 // shows the live timer with a stop control there.
 const showTimerBar = computed(
@@ -246,6 +249,7 @@ async function onPushToggle() {
       :stopping="stoppingTimer"
       :previous-task-title="previousTimedTask?.title ?? null"
       :switching="switchingTimer"
+      :task-spans="runningTaskSpans"
       @stop="stopRunningTimer"
       @switch="switchToPreviousTask"
     />

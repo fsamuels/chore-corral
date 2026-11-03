@@ -10,6 +10,7 @@ import {
   formatTimeForInput,
   locationDisplayName,
   parseEstimatedMinutesInput,
+  runningTotalLabel,
   taskTimeProgress,
 } from '../app/utils/task-display'
 
@@ -251,5 +252,37 @@ describe('taskTimeProgress', () => {
       percent: 135,
       level: 'over',
     })
+  })
+})
+
+describe('runningTotalLabel', () => {
+  const now = new Date('2026-01-01T12:00:00.000Z')
+
+  it('totals every session, counting the running one up to now', () => {
+    const label = runningTotalLabel(
+      [
+        {
+          started_at: '2026-01-01T08:00:00.000Z',
+          ended_at: '2026-01-01T10:00:00.000Z',
+        },
+        { started_at: '2026-01-01T11:30:00.000Z', ended_at: null },
+      ],
+      now,
+    )
+
+    expect(label).toBe('2h 30m total')
+  })
+
+  it('is null when the running session is the only one', () => {
+    expect(
+      runningTotalLabel(
+        [{ started_at: '2026-01-01T11:00:00.000Z', ended_at: null }],
+        now,
+      ),
+    ).toBeNull()
+  })
+
+  it('is null before the sessions have loaded', () => {
+    expect(runningTotalLabel(null, now)).toBeNull()
   })
 })
