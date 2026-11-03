@@ -491,3 +491,16 @@ Decided 2026-11-02. The user deferred the choice ("no preference") between the t
 - A shared, app-wide cache keyed by task id, warmed by the page: it would also allow reuse across visits, but needs lifetime and invalidation rules and a guard against double fetches. Worth revisiting only together with seeding the page from the list (follow-up 2 in the perf doc).
 
 **Server rendering.** Nothing awaits the section fetches. On a direct load the server HTML shows the section skeletons and the browser fills them in, as before, so the server responds no later than it did.
+
+## D-7: "Jump back in" is driven by the user's own timer activity
+
+Decided 2026-11-03 with the user. Reversibility: _easy_ (one composable feeds the strip; `splitJumpBackIn` decides placement).
+
+**What changed.** Home's "Jump back in" strip and the timer dock's switch button both rank chores by the signed-in user's own `task_time_entries`: a chore's recency is its latest entry's end time, and a running entry counts as now.
+
+**Alternatives not taken.**
+
+- Any action of the user's (activity log). This would also count edits, photos and status changes. The user chose timer only. Timer starts aren't in the activity log anyway (see `startTimer`).
+- Farm-wide recency: another member's work would reorder your Home.
+- Keeping strip chores in their Up next / Backlog group too: the user preferred no duplicates.
+- A manual pin: offered, not chosen. It needs a column and an explicit unpin.

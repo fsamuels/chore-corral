@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   deleteTimeEntry,
   getRunningEntry,
+  listRecentTimeEntriesForUser,
+  recentTaskIdsFromEntries,
   listTimeEntries,
   listTimeEntriesForTasks,
   startTimer,
@@ -481,5 +483,88 @@ describe('listTimeEntriesForTasks', () => {
     await expect(
       listTimeEntriesForTasks(asSupabaseClient(fake), [TASK_A]),
     ).rejects.toThrow('boom')
+  })
+})
+
+describe('listRecentTimeEntriesForUser', () => {
+  it("returns only the user's entries, most recently started first", async () => {
+    const fake = new FakeSupabaseClient({
+      task_time_entries: [
+        entry({ id: 'old', started_at: '2026-01-01T08:00:00.000Z' }),
+        entry({ id: 'new', started_at: '2026-01-03T08:00:00.000Z' }),
+        entry({ id: 'other-user', user_id: 'user-2' }),
+      ],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listRecentTimeEntriesForUser(supabase, ACTOR)
+
+    expect(result.map((e) => e.id)).toEqual(['new', 'old'])
+  })
+
+  it('drops entries started before `since` and honours `limit`', async () => {
+    const fake = new FakeSupabaseClient({
+      task_time_entries: [
+        entry({ id: 'e1', started_at: '2026-01-01T08:00:00.000Z' }),
+        entry({ id: 'e2', started_at: '2026-01-02T08:00:00.000Z' }),
+        entry({ id: 'e3', started_at: '2026-01-03T08:00:00.000Z' }),
+        entry({ id: 'e4', started_at: '2026-01-04T08:00:00.000Z' }),
+      ],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await listRecentTimeEntriesForUser(supabase, ACTOR, {
+      since: '2026-01-02T00:00:00.000Z',
+      limit: 2,
+    })
+
+    expect(result.map((e) => e.id)).toEqual(['e4', 'e3'])
+  })
+
+  it('propagates a select failure', async () => {
+    const fake = new FakeSupabaseClient(
+      { task_time_entries: [] },
+      { table: 'task_time_entries', op: 'select' },
+    )
+    const supabase = asSupabaseClient(fake)
+
+    await expect(
+      listRecentTimeEntriesForUser(supabase, ACTOR),
+    ).rejects.toThrow()
+  })
+})
+
+describe('recentTaskIdsFromEntries', () => {
+  it('orders distinct tasks by their latest end time', () => {
+    const result = recentTaskIdsFromEntries([
+      entry({ task_id: 'a', ended_at: '2026-01-01T09:00:00.000Z' }),
+      entry({ task_id: 'b', ended_at: '2026-01-02T09:00:00.000Z' }),
+      entry({ task_id: 'a', ended_at: '2026-01-03T09:00:00.000Z' }),
+    ])
+
+    expect(result).toEqual(['a', 'b'])
+  })
+
+  it('puts a running entry first', () => {
+    const result = recentTaskIdsFromEntries([
+      entry({ task_id: 'a', ended_at: '2026-01-03T09:00:00.000Z' }),
+      entry({ task_id: 'b', ended_at: null }),
+    ])
+
+    expect(result).toEqual(['b', 'a'])
+  })
+
+  it('skips unparseable timestamps and breaks ties by task id', () => {
+    const result = recentTaskIdsFromEntries([
+      entry({ task_id: 'z', ended_at: '2026-01-01T09:00:00.000Z' }),
+      entry({ task_id: 'y', ended_at: '2026-01-01T09:00:00.000Z' }),
+      entry({ task_id: 'x', ended_at: 'not a date' }),
+    ])
+
+    expect(result).toEqual(['y', 'z'])
+  })
+
+  it('returns an empty list for no entries', () => {
+    expect(recentTaskIdsFromEntries([])).toEqual([])
   })
 })

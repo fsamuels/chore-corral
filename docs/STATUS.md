@@ -2,7 +2,16 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-11-03 (gap dividers on the Progress page)
+**Last updated:** 2026-11-03 ("Jump back in" strip and timer switch)
+
+**"Jump back in" strip and timer switch (2026-11-03).** Direct user ask: keep the chore you're going back and forth on at the top of Home, even when it's low priority. The user chose timer activity as the signal and asked that those chores move out of their normal group (DECISIONS.md D-7).
+
+- **Home strip:** a "Jump back in" section above Up next shows up to 3 open chores the signed-in user tracked time on in the last 7 days, most recent first. The running chore always leads. These chores are removed from Up next / Backlog while shown, so none appears twice. The search box narrows the strip too. It reloads whenever a timer starts, stops or switches.
+- **Dock switch button:** the running-timer bar gains a swap button (next to stop) that starts the timer on the chore timed just before the running one, skipping Done chores. The previous chore can be in another farm. After a switch it offers the chore just left, so one tap goes back and forth. It shows a toast on success or failure.
+- **Code:** `listRecentTimeEntriesForUser` and `recentTaskIdsFromEntries` (`app/services/time-entries.ts`), `getTaskBriefs` (`app/services/tasks.ts`), `splitJumpBackIn` and `pickPreviousTask` (`app/utils/recent-tasks.ts`), all with tests. The `useRecentTimedTaskIds` and `usePreviousTimedTask` composables load the data. Both are client-only, and a failed load just hides the strip or button.
+- **Dock layout:** on narrow phones the elapsed time now scales from 2.25rem down to 1.75rem so it clears both buttons.
+
+**Checks:** lint, format, typecheck, the 534-case suite and `nuxt build` pass. The dock bar was screenshotted from a production build in headless Chromium at 360px and 1200px widths. The Home strip and the switch were not exercised against a live Supabase project.
 
 **Gap dividers on the Progress page (2026-11-03).** Direct user ask: when 45 minutes or more pass between two consecutive rows in a day, show the gap ("1h 30m") as small muted text centered between them, with a rule on each side. The gap is the difference between the rows' time labels. `rowGapsMs` (`app/services/progress.ts`, with tests) computes it. It returns null for the first row and for any row whose time is earlier than the row above it. That happens where the day's completed rows end and its worked-on rows begin, because each group is sorted separately.
 

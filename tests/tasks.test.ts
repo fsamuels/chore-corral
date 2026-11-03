@@ -7,6 +7,7 @@ import {
   createTask,
   deleteTask,
   getTask,
+  getTaskBriefs,
   getTaskTitle,
   isTaskOverdue,
   listDoneTasks,
@@ -1744,5 +1745,48 @@ describe('compareTasksDoneLast', () => {
       status: 'done' as const,
     }
     expect(compareTasksDoneLast(urgentDone, soonDone)).toBeLessThan(0)
+  })
+})
+
+describe('getTaskBriefs', () => {
+  it('returns id, farm, title and status for the requested tasks across farms', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [
+        task({ id: 'task-1', title: 'Fix the gate', farm_id: FARM_A }),
+        task({
+          id: 'task-2',
+          title: 'Feed hens',
+          farm_id: FARM_B,
+          status: 'done',
+        }),
+        task({ id: 'task-3', title: 'Unrequested', farm_id: FARM_A }),
+      ],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await getTaskBriefs(supabase, ['task-1', 'task-2', 'gone'])
+
+    expect(result).toEqual(
+      expect.arrayContaining([
+        {
+          id: 'task-1',
+          farm_id: FARM_A,
+          title: 'Fix the gate',
+          status: 'not_started',
+        },
+        { id: 'task-2', farm_id: FARM_B, title: 'Feed hens', status: 'done' },
+      ]),
+    )
+    expect(result).toHaveLength(2)
+  })
+
+  it('makes no query for an empty id list', async () => {
+    const fake = new FakeSupabaseClient(
+      { tasks: [] },
+      { table: 'tasks', op: 'select' },
+    )
+    const supabase = asSupabaseClient(fake)
+
+    await expect(getTaskBriefs(supabase, [])).resolves.toEqual([])
   })
 })

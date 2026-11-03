@@ -492,6 +492,32 @@ export async function getTask(
  * (farm-membership check on `tasks`) is what actually scopes this, same as
  * every other query here. Null if the task doesn't exist or isn't visible.
  */
+export interface TaskBrief {
+  id: string
+  farm_id: string
+  title: string
+  status: TaskStatus
+}
+
+/**
+ * Id, farm, title and status for a set of tasks, in no particular order —
+ * the minimum the timer dock needs to offer (and start) a switch to another
+ * chore, which may be in a different farm than the active one. Ids the
+ * caller can't see (deleted, or RLS-hidden) are simply missing.
+ */
+export async function getTaskBriefs(
+  supabase: Client,
+  taskIds: string[],
+): Promise<TaskBrief[]> {
+  if (taskIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('id, farm_id, title, status')
+    .in('id', taskIds)
+  if (error) throw new Error(error.message)
+  return data
+}
+
 export async function getTaskTitle(
   supabase: Client,
   taskId: string,
