@@ -2,7 +2,11 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-11-03 (bolder timer dock with total time)
+**Last updated:** 2026-11-04 (green done pill on the Progress page)
+
+**Green done pill on the Progress page (2026-11-04).** Direct user ask: show a green done pill, like the existing "in progress" one. Rows for chores completed that day now show a green "done" pill; before, they showed no status pill. "Done later" rows (worked on that day, finished on another) keep their grey pill, so they read differently from work finished that day. "In progress" is unchanged. The page uses the existing `cc-pill--done` style.
+
+**Checks:** lint, format, typecheck and the 537-case suite pass. Not checked in a browser.
 
 **Bolder timer dock with total time (2026-11-03).** Direct user ask: make the running timer in the footer stand out more, and add the chore's cumulative time as a small FYI.
 

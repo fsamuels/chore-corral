@@ -233,11 +233,13 @@ function formatRowTime(timestamp: string): string {
   })
 }
 
-// The status chip a worked-on row shows so the day reads as "what happened
-// today": a completed row shows none, a task finished on another day reads
-// "done later", and one still open reads "in progress".
+// The status chip every row shows so the day reads as "what happened
+// today": a chore completed that day reads "done", one worked on that day
+// but finished on another reads "done later", and one still open reads
+// "in progress". Only "done" uses the green done pill; "done later" stays
+// muted so it reads differently from work finished that day.
 const STATUS_LABELS: Record<ActivityKind, string | null> = {
-  completed: null,
+  completed: 'done',
   'done-later': 'done later',
   'in-progress': 'in progress',
 }
@@ -422,11 +424,11 @@ const weekTrackedText = computed(() =>
                     <span
                       v-if="row.statusLabel"
                       class="cc-pill cc-pill--sm"
-                      :class="
-                        row.kind === 'in-progress'
-                          ? 'cc-pill--accent'
-                          : 'cc-pill--muted'
-                      "
+                      :class="{
+                        'cc-pill--accent': row.kind === 'in-progress',
+                        'cc-pill--done': row.kind === 'completed',
+                        'cc-pill--muted': row.kind === 'done-later',
+                      }"
                     >
                       {{ row.statusLabel }}
                     </span>
