@@ -45,6 +45,9 @@ const farmName = computed(() => activeFarm.value?.name ?? 'Chore Corral')
 
 const drawer = ref(false)
 
+// The "Start chore" quick-add dialog, opened from the floating button.
+const quickStartOpen = ref(false)
+
 // The drawer's account header shows the signed-in user's Google profile
 // (photo + name) straight from the JWT's `user_metadata` claim — same
 // source the `farm_member_profiles` view reads for other members, no DB
@@ -253,7 +256,12 @@ async function onPushToggle() {
       @stop="stopRunningTimer"
       @switch="switchToPreviousTask"
     />
-    <NewTaskFab v-if="user" :lifted="showTimerBar" />
+    <NewTaskFab
+      v-if="user"
+      :lifted="showTimerBar"
+      @quick-start="quickStartOpen = true"
+    />
+    <QuickStartDialog v-if="user" v-model="quickStartOpen" />
     <AppToast :lifted="showTimerBar" />
 
     <v-bottom-navigation

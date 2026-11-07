@@ -61,6 +61,19 @@ await Promise.all([
 ])
 watch(activeFarmId, () => fetchMembers())
 
+// A timer started elsewhere while Home is open (the quick-start dialog
+// creates a chore and starts its timer, then navigates here — a no-op
+// navigation when already on Home) can be on a chore this list doesn't have
+// yet. Refetch so it appears without a reload.
+watch(
+  () => runningEntry.value?.task_id,
+  (taskId) => {
+    if (taskId && tasks.value && !tasks.value.some((t) => t.id === taskId)) {
+      fetchTasks()
+    }
+  },
+)
+
 const memberLabels = computed(() => memberShortLabels(members.value))
 
 function assigneeNames(task: TaskSummary): string[] {

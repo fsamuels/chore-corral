@@ -2,7 +2,16 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-11-04 (green done pill on the Progress page)
+**Last updated:** 2026-11-07 (quick-start chore button)
+
+**Quick-start chore button (2026-11-07).** Direct user ask: a fast way to add a chore you're about to start, since about half of chores are created that way.
+
+- **Button:** the floating button is now two: a small outlined lightning-bolt circle ("Start chore now") beside the existing "New chore" pill. Both show on every page where the pill did (not on the new-chore page or the map).
+- **Dialog:** title, category and notes only. The category starts on the one last used for a quick start in the farm (kept in the browser's `localStorage`, falling back to Uncategorized if that category is gone). Saving creates the chore with priority Whenever and today's date as the due date, starts the signed-in user's timer on it (which moves it to In progress and stops any other running timer), and goes to Home. If the chore is created but the timer fails, it still goes Home and shows an error toast, so saving again can't create a duplicate.
+- **Home:** refetches its list when a timer starts on a chore it doesn't have yet, so the new chore shows up when the dialog was opened from Home.
+- **Code:** `QuickStartDialog.vue` (rendered once from the default layout), `NewTaskFab.vue`, and `app/utils/quick-start.ts` (`quickStartTaskInput` and the remembered-category helpers, with tests).
+
+**Checks:** lint, format, typecheck, the 543-case suite and `nuxt build` pass. The button and dialog were screenshotted from a production build in headless Chromium at 360px and 1200px widths. Creating a chore and starting its timer was not run against a live Supabase project.
 
 **Green done pill on the Progress page (2026-11-04).** Direct user ask: show a green done pill, like the existing "in progress" one. Rows for chores completed that day now show a green "done" pill; before, they showed no status pill. "Done later" rows (worked on that day, finished on another) keep their grey pill, so they read differently from work finished that day. "In progress" is unchanged. The page uses the existing `cc-pill--done` style.
 
