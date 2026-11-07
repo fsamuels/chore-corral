@@ -1,5 +1,7 @@
 <script setup lang="ts">
-// Floating "+ New task" pill, fixed bottom-right. Rendered once from the
+// Floating "+ New chore" pill, fixed bottom-right, with a smaller "Start
+// chore" circle beside it that opens the quick-start dialog (emitted as
+// `quick-start`; the layout owns the dialog). Rendered once from the
 // layout on every page; hides itself on the new-task page (no point linking
 // to where you already are) and on the map page (the pins already cover most
 // of the screen, and adding a chore isn't this page's job). Collapses to an
@@ -10,6 +12,7 @@
 // `lifted` shifts the pill up by the running-timer dock bar's height so the
 // two never overlap while a timer is running.
 defineProps<{ lifted?: boolean }>()
+defineEmits<{ 'quick-start': [] }>()
 
 const route = useRoute()
 const { mobile } = useDisplay()
@@ -57,21 +60,34 @@ watch(
 </script>
 
 <template>
-  <NuxtLink
+  <div
     v-if="!isHidden"
-    to="/tasks/new"
     class="new-task-fab"
     :class="{
       'new-task-fab--above-bottom-nav': mobile,
       'new-task-fab--collapsed': collapsed,
       'new-task-fab--lifted': lifted,
     }"
-    aria-label="New chore"
-    title="New chore"
   >
-    <v-icon icon="mdi-plus" size="32" />
-    <span class="new-task-fab__label">New chore</span>
-  </NuxtLink>
+    <button
+      type="button"
+      class="new-task-fab__quick"
+      aria-label="Start chore now"
+      title="Start chore now"
+      @click="$emit('quick-start')"
+    >
+      <v-icon icon="mdi-lightning-bolt" size="28" />
+    </button>
+    <NuxtLink
+      to="/tasks/new"
+      class="new-task-fab__main"
+      aria-label="New chore"
+      title="New chore"
+    >
+      <v-icon icon="mdi-plus" size="32" />
+      <span class="new-task-fab__label">New chore</span>
+    </NuxtLink>
+  </div>
 </template>
 
 <style scoped>
@@ -81,6 +97,29 @@ watch(
   /* Clear the home-indicator inset when installed to the home screen. */
   bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: transform 0.25s ease;
+}
+
+/* Secondary to "New chore": smaller, and outlined in the accent rather than
+   filled, so the two never read as the same action. */
+.new-task-fab__quick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: var(--cc-surface);
+  color: var(--cc-accent);
+  border: 2px solid var(--cc-accent);
+  cursor: pointer;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--cc-ink) 25%, transparent);
+}
+
+.new-task-fab__main {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -95,7 +134,6 @@ watch(
   font-size: 0.9375rem;
   text-decoration: none;
   box-shadow: 0 4px 12px color-mix(in srgb, var(--cc-ink) 25%, transparent);
-  transition: transform 0.25s ease;
 }
 
 .new-task-fab--above-bottom-nav {
