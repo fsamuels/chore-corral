@@ -75,12 +75,7 @@ const categoryItems = computed(() => [
 
 // Mini-map starting point before a pin exists (SPEC: the farm's default map
 // center, manually set at farm creation — may be unset).
-const farmCenter = computed(() => {
-  const farm = activeFarm.value
-  return farm?.default_lat != null && farm?.default_lng != null
-    ? { lat: farm.default_lat, lng: farm.default_lng }
-    : null
-})
+const activeFarmCenter = computed(() => farmCenter(activeFarm.value))
 
 const title = ref('')
 const categoryId = ref<string | null>(null)
@@ -301,7 +296,7 @@ async function submit() {
           v-model="location"
           :locations="locations ?? []"
           auto-capture
-          :fallback-center="farmCenter"
+          :fallback-center="activeFarmCenter"
           :disabled="creating"
           class="mb-4"
         />

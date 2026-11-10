@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  farmCenter,
   farmSwitchFromQuery,
   resolveActiveFarmId,
 } from '../app/utils/active-farm'
@@ -70,5 +71,28 @@ describe('farmSwitchFromQuery', () => {
 
   it('switches even when there is no currently active farm', () => {
     expect(farmSwitchFromQuery('farm-b', farms, null)).toBe('farm-b')
+  })
+})
+
+describe('farmCenter', () => {
+  it('returns the default centre when both coordinates are set', () => {
+    expect(farmCenter({ default_lat: 39.7, default_lng: -105 })).toEqual({
+      lat: 39.7,
+      lng: -105,
+    })
+  })
+
+  it('treats 0 as a real coordinate', () => {
+    expect(farmCenter({ default_lat: 0, default_lng: 0 })).toEqual({
+      lat: 0,
+      lng: 0,
+    })
+  })
+
+  it('returns null when unset or there is no farm', () => {
+    expect(farmCenter({ default_lat: 1, default_lng: null })).toBeNull()
+    expect(farmCenter({ default_lat: null, default_lng: 1 })).toBeNull()
+    expect(farmCenter(null)).toBeNull()
+    expect(farmCenter(undefined)).toBeNull()
   })
 })

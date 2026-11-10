@@ -504,3 +504,15 @@ Decided 2026-11-03 with the user. Reversibility: _easy_ (one composable feeds th
 - Farm-wide recency: another member's work would reorder your Home.
 - Keeping strip chores in their Up next / Backlog group too: the user preferred no duplicates.
 - A manual pin: offered, not chosen. It needs a column and an explicit unpin.
+
+## D-8: Sunrise/sunset is computed on-device, and never prompts for location by itself
+
+Decided 2026-11-10. Reversibility: _easy_ (one util, one composable, one pill).
+
+**What changed.** Home's stat row shows today's sunrise and sunset. `computeSunTimes` (`app/utils/sun-times.ts`) uses the standard sunrise equation, accurate to about a minute outside polar latitudes. `useSunTimes` uses the device's position only when location access is already granted; otherwise it shows times for the active farm's default centre, and while the browser would still ask, the pill is a button that requests location on tap.
+
+**Alternatives not taken.**
+
+- A sun-times web API (e.g. sunrise-sunset.org): adds a network dependency, a failure mode and a third party that learns the user's location, for no accuracy the pill needs.
+- An npm package (e.g. suncalc): roughly the same formula as a dependency; the formula is about 30 lines and is tested against reference times.
+- Asking for location on every Home load: a decorative pill would bring up the browser prompt with no context, and some browsers re-ask on every dismissal.
