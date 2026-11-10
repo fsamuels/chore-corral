@@ -2,7 +2,15 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-11-07 (quick-start chore button)
+**Last updated:** 2026-11-10 (sunrise/sunset pill)
+
+**Sunrise/sunset pill on Home (2026-11-10).** Direct user ask: see today's sunrise and sunset for the current location, near the open/urgent/overdue pills.
+
+- **Pill:** sits at the right end of Home's stat row (wraps under the counts on narrow screens) and reads, for example, "↑ 6:39 AM ↓ 4:48 PM" with sunrise/sunset icons, in the device's time zone. Above the polar circles it shows "Sun up all day" or "Sun down all day" instead. It rolls over to the new day at midnight even if Home stays open.
+- **Location:** uses the device's position only if location access is already granted, so Home never brings up a permission prompt by itself. Otherwise it shows times for the active farm's default centre, with a GPS icon; tapping the pill then asks for location. With no farm centre and no access yet, it shows a "Sunrise & sunset" button. If access is denied, the farm centre is used. The last device position is cached in `localStorage`, rounded to about 1 km, for a day, and is cleared on denial and on sign-out.
+- **Code:** `app/utils/sun-times.ts` (`computeSunTimes`, computed on-device with the sunrise equation, no API; see DECISIONS.md D-8), `app/composables/useSunTimes.ts`, and a new `farmCenter` helper in `app/utils/active-farm.ts` now shared by Home and both task pages.
+
+**Checks:** lint, format, typecheck, the 558-case suite and `nuxt build` pass. Computed times are tested against reference times (London, Denver) within 3 minutes, plus polar day/night. Not checked in a browser: Home needs a signed-in Supabase session, which this sandbox doesn't have.
 
 **Quick-start chore button (2026-11-07).** Direct user ask: a fast way to add a chore you're about to start, since about half of chores are created that way.
 

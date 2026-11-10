@@ -56,7 +56,11 @@ export function computeSunTimes(day: Date, coords: Coords): SunTimes {
   // Days since J2000 for this calendar date (at 12:00 UTC, so the rounding
   // can't slip a day), then shifted to local mean solar noon by longitude.
   const noonUtc = Date.UTC(day.getFullYear(), day.getMonth(), day.getDate(), 12)
-  const n = Math.round(noonUtc / MS_PER_DAY + JULIAN_UNIX_EPOCH - J2000)
+  // 0.0008 days is the reference formula's correction for leap seconds and
+  // terrestrial time.
+  const n = Math.round(
+    noonUtc / MS_PER_DAY + JULIAN_UNIX_EPOCH - J2000 + 0.0008,
+  )
   const meanSolarNoon = n - coords.lng / 360
 
   const meanAnomaly = mod360(357.5291 + 0.98560028 * meanSolarNoon)
@@ -97,9 +101,11 @@ export function formatSunTime(date: Date, locale?: string): string {
 }
 
 // Last device position, so the pill can render immediately on the next visit
-// instead of waiting on a fresh GPS fix. Coarse-rounded: sun times don't need
-// more than ~1 km precision, and there's no reason to persist an exact fix.
+// instead of waiting on a fresh fix. Coarse-rounded (sun times don't need
+// more than ~1 km precision, and there's no reason to persist an exact fix),
+// and expired after a day so a trip doesn't leave stale times behind.
 const LAST_COORDS_KEY = 'cc-sun-coords'
+export const LAST_COORDS_MAX_AGE_MS = MS_PER_DAY
 
 function roundCoord(value: number): number {
   return Math.round(value * 100) / 100
@@ -109,21 +115,38 @@ export function roundCoords(coords: Coords): Coords {
   return { lat: roundCoord(coords.lat), lng: roundCoord(coords.lng) }
 }
 
-export function loadLastCoords(): Coords | null {
+export function loadLastCoords(now: Date = new Date()): Coords | null {
   try {
     const raw = localStorage.getItem(LAST_COORDS_KEY)
     if (!raw) return null
-    const parsed: unknown = JSON.parse(raw)
-    return isValidCoords(parsed) ? parsed : null
+    const parsed = JSON.parse(raw) as { savedAt?: unknown } & Partial<Coords>
+    const coords = { lat: parsed.lat, lng: parsed.lng }
+    if (typeof parsed.savedAt !== 'number' || !isValidCoords(coords)) {
+      return null
+    }
+    const age = now.getTime() - parsed.savedAt
+    return age >= 0 && age <= LAST_COORDS_MAX_AGE_MS ? coords : null
   } catch {
     return null
   }
 }
 
-export function saveLastCoords(coords: Coords): void {
+export function saveLastCoords(coords: Coords, now: Date = new Date()): void {
   try {
-    localStorage.setItem(LAST_COORDS_KEY, JSON.stringify(roundCoords(coords)))
+    localStorage.setItem(
+      LAST_COORDS_KEY,
+      JSON.stringify({ ...roundCoords(coords), savedAt: now.getTime() }),
+    )
   } catch {
     // Storage unavailable (private mode, quota) — just skip the cache.
+  }
+}
+
+/** Forget the cached position (location denied, or sign-out). */
+export function clearLastCoords(): void {
+  try {
+    localStorage.removeItem(LAST_COORDS_KEY)
+  } catch {
+    // Storage unavailable — nothing to clear.
   }
 }

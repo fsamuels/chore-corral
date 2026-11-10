@@ -1,4 +1,5 @@
 import type { Database } from '~/types/database.types'
+import { clearLastCoords } from '~/utils/sun-times'
 
 const ACTIVE_FARM_COOKIE = 'cc-active-farm'
 // A year, in seconds — long enough that a manual farm switch survives
@@ -76,6 +77,9 @@ export function useFarms() {
     mostRecentFarmId.value = null
     activeFarmCookie.value = null
     invitesChecked.value = false
+    // The home sun-times pill caches the last device position; don't leave it
+    // behind for whoever signs in next on this device.
+    clearLastCoords()
   }
 
   /**

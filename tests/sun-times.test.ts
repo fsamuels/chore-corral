@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
+  clearLastCoords,
   computeSunTimes,
+  LAST_COORDS_MAX_AGE_MS,
   formatSunTime,
   isValidCoords,
   loadLastCoords,
@@ -75,24 +77,49 @@ describe('isValidCoords', () => {
 
 describe('formatSunTime', () => {
   it('formats hours and minutes', () => {
-    expect(formatSunTime(new Date(2026, 0, 1, 6, 5), 'en-US')).toBe('6:05 AM')
+    // \s: newer ICU puts a narrow no-break space before AM/PM.
+    expect(formatSunTime(new Date(2026, 0, 1, 6, 5), 'en-US')).toMatch(
+      /^6:05\sAM$/u,
+    )
   })
 })
 
 describe('last-coords cache', () => {
+  const savedAt = new Date(2026, 10, 10, 8)
   afterEach(() => localStorage.clear())
 
   it('round-trips a coarsely rounded position', () => {
-    saveLastCoords({ lat: 39.73921, lng: -104.99034 })
-    expect(loadLastCoords()).toEqual({ lat: 39.74, lng: -104.99 })
+    saveLastCoords({ lat: 39.73921, lng: -104.99034 }, savedAt)
+    expect(loadLastCoords(savedAt)).toEqual({ lat: 39.74, lng: -104.99 })
   })
 
-  it('returns null for missing or corrupt entries', () => {
+  it('expires entries older than a day', () => {
+    saveLastCoords({ lat: 1, lng: 2 }, savedAt)
+    const justInside = new Date(savedAt.getTime() + LAST_COORDS_MAX_AGE_MS)
+    const tooOld = new Date(justInside.getTime() + 1)
+    expect(loadLastCoords(justInside)).toEqual({ lat: 1, lng: 2 })
+    expect(loadLastCoords(tooOld)).toBeNull()
+    // A clock set backwards doesn't make an entry "from the future" valid.
+    expect(loadLastCoords(new Date(savedAt.getTime() - 1))).toBeNull()
+  })
+
+  it('returns null for missing, corrupt or untimestamped entries', () => {
     expect(loadLastCoords()).toBeNull()
     localStorage.setItem('cc-sun-coords', '{not json')
     expect(loadLastCoords()).toBeNull()
-    localStorage.setItem('cc-sun-coords', JSON.stringify({ lat: 500, lng: 0 }))
+    localStorage.setItem(
+      'cc-sun-coords',
+      JSON.stringify({ lat: 500, lng: 0, savedAt: Date.now() }),
+    )
     expect(loadLastCoords()).toBeNull()
+    localStorage.setItem('cc-sun-coords', JSON.stringify({ lat: 1, lng: 2 }))
+    expect(loadLastCoords()).toBeNull()
+  })
+
+  it('clears the cached position', () => {
+    saveLastCoords({ lat: 1, lng: 2 }, savedAt)
+    clearLastCoords()
+    expect(loadLastCoords(savedAt)).toBeNull()
   })
 
   it('rounds to two decimals', () => {

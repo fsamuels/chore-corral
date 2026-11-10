@@ -554,12 +554,7 @@ async function onTagsSave() {
 // provides GPS capture, manual placement, and pin removal. No auto-capture
 // on open (editing must never overwrite an existing pin with wherever the
 // editor happens to be standing — same call as the old Edit page).
-const farmCenter = computed(() => {
-  const farm = activeFarm.value
-  return farm?.default_lat != null && farm?.default_lng != null
-    ? { lat: farm.default_lat, lng: farm.default_lng }
-    : null
-})
+const activeFarmCenter = computed(() => farmCenter(activeFarm.value))
 
 const editingLocation = ref(false)
 const locationDraft = ref<TaskLocationValue>({
@@ -1656,7 +1651,7 @@ const taskLocation = computed(() =>
             <TaskLocationInput
               v-model="locationDraft"
               :locations="locations ?? []"
-              :fallback-center="farmCenter"
+              :fallback-center="activeFarmCenter"
               :disabled="fieldSaving === 'location'"
             />
             <div class="cc-actions">

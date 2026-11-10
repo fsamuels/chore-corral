@@ -76,13 +76,9 @@ watch(
 )
 
 // Today's sunrise/sunset beside the stat pills: the device's location when
-// it's shared, otherwise the active farm's default map centre.
-const { sunTimes } = useSunTimes(() => {
-  const farm = activeFarm.value
-  return farm?.default_lat != null && farm.default_lng != null
-    ? { lat: farm.default_lat, lng: farm.default_lng }
-    : null
-})
+// access is granted, otherwise the active farm's default map centre.
+const { sunTimes, canUseDeviceLocation, locating, requestDeviceLocation } =
+  useSunTimes(() => farmCenter(activeFarm.value))
 
 const memberLabels = computed(() => memberShortLabels(members.value))
 
@@ -234,12 +230,27 @@ async function toggleTimer(task: TaskSummary) {
           >
             {{ overdueCount }} overdue
           </span>
-          <span
-            v-if="sunTimes"
+          <component
+            :is="canUseDeviceLocation ? 'button' : 'span'"
+            v-if="sunTimes || canUseDeviceLocation"
             class="cc-pill cc-pill--surface home__sun"
             data-testid="sun-times"
+            v-bind="
+              canUseDeviceLocation
+                ? {
+                    type: 'button',
+                    disabled: locating,
+                    title: 'Use my location for sunrise and sunset',
+                  }
+                : {}
+            "
+            @click="canUseDeviceLocation && requestDeviceLocation()"
           >
-            <template v-if="sunTimes.kind === 'normal'">
+            <template v-if="!sunTimes">
+              <v-icon icon="mdi-weather-sunset" size="16" />
+              Sunrise &amp; sunset
+            </template>
+            <template v-else-if="sunTimes.kind === 'normal'">
               <v-icon icon="mdi-weather-sunset-up" size="16" />
               <span class="cc-sr-only">Sunrise</span>
               {{ formatSunTime(sunTimes.sunrise) }}
@@ -255,7 +266,13 @@ async function toggleTimer(task: TaskSummary) {
               <v-icon icon="mdi-weather-night" size="16" />
               Sun down all day
             </template>
-          </span>
+            <v-icon
+              v-if="canUseDeviceLocation"
+              icon="mdi-crosshairs-gps"
+              size="14"
+              class="ml-1"
+            />
+          </component>
         </div>
 
         <v-text-field
@@ -389,6 +406,17 @@ async function toggleTimer(task: TaskSummary) {
    screens. */
 .home__sun {
   margin-left: auto;
+}
+
+button.home__sun {
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+}
+
+button.home__sun:disabled {
+  cursor: progress;
+  opacity: 0.6;
 }
 
 .home__search {

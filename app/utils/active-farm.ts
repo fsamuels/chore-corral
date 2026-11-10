@@ -6,6 +6,15 @@ export interface FarmSummary {
   default_lng: number | null
 }
 
+/** A farm's default map centre, or null when it was never set. */
+export function farmCenter(
+  farm: Pick<FarmSummary, 'default_lat' | 'default_lng'> | null | undefined,
+): { lat: number; lng: number } | null {
+  return farm?.default_lat != null && farm.default_lng != null
+    ? { lat: farm.default_lat, lng: farm.default_lng }
+    : null
+}
+
 /**
  * Pick the active farm: the saved selection if it's still one of the user's
  * farms; otherwise the farm with the most recent task activity, if known;
