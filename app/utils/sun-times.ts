@@ -92,12 +92,18 @@ export function computeSunTimes(day: Date, coords: Coords): SunTimes {
   }
 }
 
-/** "6:42 AM" style, in the device's locale and time zone. */
-export function formatSunTime(date: Date, locale?: string): string {
-  return date.toLocaleTimeString(locale, {
-    hour: 'numeric',
-    minute: '2-digit',
-  })
+/**
+ * "6:42": the time without its AM/PM marker, in the device's locale and time
+ * zone. The sunrise/sunset icon beside it already says morning vs. evening. 24-hour locales
+ * are unchanged ("18:42").
+ */
+export function formatSunTimeCompact(date: Date, locale?: string): string {
+  return new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' })
+    .formatToParts(date)
+    .filter((part) => part.type !== 'dayPeriod')
+    .map((part) => part.value)
+    .join('')
+    .trim()
 }
 
 // Last device position, so the pill can render immediately on the next visit

@@ -17,7 +17,6 @@ import {
 import { memberShortLabels } from '~/utils/member-display'
 import { assigneeDisplayNames } from '~/utils/task-display'
 import { splitJumpBackIn } from '~/utils/recent-tasks'
-import { formatSunTime } from '~/utils/sun-times'
 
 const supabase = useSupabaseClient<Database>()
 const user = useSupabaseUser()
@@ -74,11 +73,6 @@ watch(
     }
   },
 )
-
-// Today's sunrise/sunset beside the stat pills: the device's location when
-// access is granted, otherwise the active farm's default map centre.
-const { sunTimes, canUseDeviceLocation, locating, requestDeviceLocation } =
-  useSunTimes(() => farmCenter(activeFarm.value))
 
 const memberLabels = computed(() => memberShortLabels(members.value))
 
@@ -230,49 +224,6 @@ async function toggleTimer(task: TaskSummary) {
           >
             {{ overdueCount }} overdue
           </span>
-          <component
-            :is="canUseDeviceLocation ? 'button' : 'span'"
-            v-if="sunTimes || canUseDeviceLocation"
-            class="cc-pill cc-pill--surface home__sun"
-            data-testid="sun-times"
-            v-bind="
-              canUseDeviceLocation
-                ? {
-                    type: 'button',
-                    disabled: locating,
-                    title: 'Use my location for sunrise and sunset',
-                  }
-                : {}
-            "
-            @click="canUseDeviceLocation && requestDeviceLocation()"
-          >
-            <template v-if="!sunTimes">
-              <v-icon icon="mdi-weather-sunset" size="16" />
-              Sunrise &amp; sunset
-            </template>
-            <template v-else-if="sunTimes.kind === 'normal'">
-              <v-icon icon="mdi-weather-sunset-up" size="16" />
-              <span class="cc-sr-only">Sunrise</span>
-              {{ formatSunTime(sunTimes.sunrise) }}
-              <v-icon icon="mdi-weather-sunset-down" size="16" class="ml-2" />
-              <span class="cc-sr-only">Sunset</span>
-              {{ formatSunTime(sunTimes.sunset) }}
-            </template>
-            <template v-else-if="sunTimes.kind === 'polar-day'">
-              <v-icon icon="mdi-white-balance-sunny" size="16" />
-              Sun up all day
-            </template>
-            <template v-else>
-              <v-icon icon="mdi-weather-night" size="16" />
-              Sun down all day
-            </template>
-            <v-icon
-              v-if="canUseDeviceLocation"
-              icon="mdi-crosshairs-gps"
-              size="14"
-              class="ml-1"
-            />
-          </component>
         </div>
 
         <v-text-field
@@ -402,23 +353,6 @@ async function toggleTimer(task: TaskSummary) {
 </template>
 
 <style scoped>
-/* Pushed to the far end of the stat row; wraps under the counts on narrow
-   screens. */
-.home__sun {
-  margin-left: auto;
-}
-
-button.home__sun {
-  cursor: pointer;
-  font-family: inherit;
-  color: inherit;
-}
-
-button.home__sun:disabled {
-  cursor: progress;
-  opacity: 0.6;
-}
-
 .home__search {
   max-width: 320px;
 }

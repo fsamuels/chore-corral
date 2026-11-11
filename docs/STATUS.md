@@ -2,7 +2,14 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-11-10 (sunrise/sunset pill)
+**Last updated:** 2026-11-11 (sun times moved to the header)
+
+**Sun times moved to the header (2026-11-11).** Follow-up to the entry below. The user didn't like the pill wrapping onto its own line under the open/urgent/overdue pills; at 360px those pills leave about 70px and the sun pill needed about 110px. The user picked the header, beside the menu button, on Home only.
+
+- **Look:** two small muted lines just left of the menu button (desktop: left of the Home/Progress/Map buttons), sunrise icon + time over sunset icon + time, with no AM/PM (`formatSunTimeCompact`; 24-hour locales are unchanged). It sits in header space that was empty on mobile, so the header doesn't get taller and the stat row is back to how it was. Before location is shared, with no farm centre, it's an icon-only button rather than "Sunrise & sunset" text.
+- **Code:** new `HeaderSunTimes.vue`, rendered from `default.vue` when the route is `/`; the pill and its styles are gone from `index.vue`. Location behaviour is unchanged (`useSunTimes`).
+
+**Checks:** lint, format, typecheck and the 559-case suite pass. Screenshotted from a production build in headless Chromium at 360px and 1200px, with sign-in bypassed locally (not committed) and emulated geolocation. At 360px, a farm name as wide as "Chore Corral" still fits on one line. Longer farm names already wrapped before this change. Tapping the icon-only button and then allowing location switched it to the times.
 
 **Sunrise/sunset pill on Home (2026-11-10).** Direct user ask: see today's sunrise and sunset for the current location, near the open/urgent/overdue pills.
 
