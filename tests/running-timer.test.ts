@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   isSameRunningEntry,
   reconcileRunningEntry,
+  createLatestGate,
 } from '../app/utils/running-timer'
 import type { TimeEntrySummary } from '../app/services/time-entries'
 
@@ -58,5 +59,31 @@ describe('reconcileRunningEntry', () => {
   it('takes the fetched entry when nothing was running before', () => {
     const fetched = entry()
     expect(reconcileRunningEntry(null, fetched)).toBe(fetched)
+  })
+})
+
+describe('createLatestGate', () => {
+  it('applies only the latest fetch', () => {
+    const gate = createLatestGate({ value: 0 })
+    const poll = gate.begin()
+    const pageFetch = gate.begin()
+    expect(gate.isLatest(poll)).toBe(false)
+    expect(gate.isLatest(pageFetch)).toBe(true)
+  })
+
+  it('voids fetches in flight on invalidate (a local stop)', () => {
+    const gate = createLatestGate({ value: 0 })
+    const poll = gate.begin()
+    gate.invalidate()
+    expect(gate.isLatest(poll)).toBe(false)
+  })
+
+  it('shares state through the counter across gates', () => {
+    const counter = { value: 0 }
+    const a = createLatestGate(counter)
+    const b = createLatestGate(counter)
+    const token = a.begin()
+    b.begin()
+    expect(a.isLatest(token)).toBe(false)
   })
 })

@@ -1,6 +1,5 @@
 import type { Ref } from 'vue'
 import type { Database } from '~/types/database.types'
-import { reconcileRunningEntry } from '~/utils/running-timer'
 import {
   deleteTimeEntry,
   listTimeEntries,
@@ -26,7 +25,8 @@ export function useTaskTimer(taskId: Ref<string | null | undefined>) {
   const supabase = useSupabaseClient<Database>()
   const user = useSupabaseUser()
   const { activeFarmId } = useFarms()
-  const { runningEntry, taskTitle, fetchRunningEntry } = useRunningTimer()
+  const { runningEntry, fetchRunningEntry, beginFetch, applyFetched } =
+    useRunningTimer()
 
   // null = not fetched yet; [] = fetched, no time tracked.
   const entries = ref<TimeEntrySummary[] | null>(null)
@@ -49,6 +49,7 @@ export function useTaskTimer(taskId: Ref<string | null | undefined>) {
       return
     }
     loading.value = true
+    const token = beginFetch()
     try {
       const [list, running] = await Promise.all([
         listTimeEntries(supabase, id),
@@ -59,12 +60,12 @@ export function useTaskTimer(taskId: Ref<string | null | undefined>) {
       // same synchronous block, so `runningHere`/`showTotal` never see a
       // tick where one updated and the other hasn't (that gap was flashing
       // both counters briefly when starting a timer).
-      runningEntry.value = reconcileRunningEntry(
-        runningEntry.value,
-        running.entry,
-      )
-      taskTitle.value = running.title
-      lastSeenRunningId = running.entry?.id ?? null
+      // It goes through the shared latest-fetch gate, so a slower poll
+      // can't overwrite it (and it can't overwrite a newer poll); if it
+      // lost, the newer result is already applied or about to be, and the
+      // watcher below refetches if that changes the running id.
+      applyFetched(token, running.entry, running.title)
+      lastSeenRunningId = runningEntry.value?.id ?? null
       // Staleness guard, same as useTaskTools: a slower fetch for a task
       // that's no longer open must not overwrite the current task's state.
       if (taskId.value !== id) return

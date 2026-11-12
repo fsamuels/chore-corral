@@ -26,3 +26,22 @@ export function reconcileRunningEntry(
 ): TimeEntrySummary | null {
   return isSameRunningEntry(current, fetched) ? current : fetched
 }
+
+/**
+ * Latest-request-wins gate over a shared counter. Each fetch of the running
+ * entry takes a token with `begin()` and applies its result only if
+ * `isLatest(token)` still holds when it lands; `invalidate()` voids every
+ * token in flight (a stop that just happened locally). This stops a slow
+ * poll that started before a start/stop from landing after it and putting
+ * back the stale timer. The counter is passed in so it can live in shared
+ * (`useState`) state across every caller.
+ */
+export function createLatestGate(counter: { value: number }) {
+  return {
+    begin: (): number => ++counter.value,
+    isLatest: (token: number): boolean => token === counter.value,
+    invalidate: (): void => {
+      counter.value++
+    },
+  }
+}

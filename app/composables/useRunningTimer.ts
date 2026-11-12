@@ -5,7 +5,7 @@ import {
   type TimeEntrySummary,
 } from '~/services/time-entries'
 import { getTaskTitle } from '~/services/tasks'
-import { reconcileRunningEntry } from '~/utils/running-timer'
+import { createLatestGate, reconcileRunningEntry } from '~/utils/running-timer'
 
 /**
  * The acting user's running timer, if any, plus the title of the task it's
@@ -38,6 +38,7 @@ export function useRunningTimer() {
   // still the latest when it lands — otherwise a slow poll that started
   // before a start/stop could land after it and resurrect stale state.
   const refreshSeq = useState<number>('running-timer-refresh-seq', () => 0)
+  const gate = createLatestGate(refreshSeq)
 
   /**
    * Fetch the running entry (and its task title) without touching shared
@@ -62,16 +63,37 @@ export function useRunningTimer() {
     }
   }
 
-  async function refresh(): Promise<void> {
-    const seq = ++refreshSeq.value
-    const { entry, title } = await fetchRunningEntry()
-    if (seq !== refreshSeq.value) return
-    // Same session as before: keep the existing object, so the periodic
-    // poll doesn't re-trigger watchers on the entry. The title is a plain
-    // string, so assigning an unchanged one is already a no-op; a changed
-    // one (the chore was renamed elsewhere) still updates.
+  /**
+   * Take a token before fetching the running entry yourself (as
+   * `useTaskTimer` does, alongside its own data), and hand it back to
+   * `applyFetched` with the result. Every writer of the shared entry goes
+   * through this pair, so only the latest fetch wins.
+   */
+  function beginFetch(): number {
+    return gate.begin()
+  }
+
+  /**
+   * Apply a fetched running entry if `token` is still the latest. Same
+   * session as before keeps the existing object, so the periodic poll
+   * doesn't re-trigger watchers on the entry; a changed title (renamed
+   * elsewhere) still updates. Returns whether it applied.
+   */
+  function applyFetched(
+    token: number,
+    entry: TimeEntrySummary | null,
+    title: string | null,
+  ): boolean {
+    if (!gate.isLatest(token)) return false
     runningEntry.value = reconcileRunningEntry(runningEntry.value, entry)
     taskTitle.value = title
+    return true
+  }
+
+  async function refresh(): Promise<void> {
+    const token = beginFetch()
+    const { entry, title } = await fetchRunningEntry()
+    applyFetched(token, entry, title)
   }
 
   /**
@@ -86,10 +108,10 @@ export function useRunningTimer() {
     stopping.value = true
     // Invalidate any poll already in flight — it may have read the entry
     // as still running.
-    refreshSeq.value++
+    gate.invalidate()
     try {
       await stopTimer(supabase, entry.id)
-      refreshSeq.value++
+      gate.invalidate()
       runningEntry.value = null
       taskTitle.value = null
     } catch {
@@ -99,5 +121,14 @@ export function useRunningTimer() {
     }
   }
 
-  return { runningEntry, taskTitle, stopping, refresh, fetchRunningEntry, stop }
+  return {
+    runningEntry,
+    taskTitle,
+    stopping,
+    refresh,
+    fetchRunningEntry,
+    beginFetch,
+    applyFetched,
+    stop,
+  }
 }
