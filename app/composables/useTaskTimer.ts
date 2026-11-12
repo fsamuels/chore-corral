@@ -1,5 +1,6 @@
 import type { Ref } from 'vue'
 import type { Database } from '~/types/database.types'
+import { reconcileRunningEntry } from '~/utils/running-timer'
 import {
   deleteTimeEntry,
   listTimeEntries,
@@ -34,6 +35,12 @@ export function useTaskTimer(taskId: Ref<string | null | undefined>) {
   const mutating = ref(false)
   const mutationError = ref<string | null>(null)
 
+  // The running entry's id as of the last `fetchEntries` — lets the watcher
+  // below tell a change this composable already handled from one that came
+  // from elsewhere (the dock bar's stop, another device via the layout's
+  // sync).
+  let lastSeenRunningId: string | null = null
+
   async function fetchEntries(): Promise<void> {
     const id = taskId.value
     if (!id) {
@@ -52,8 +59,12 @@ export function useTaskTimer(taskId: Ref<string | null | undefined>) {
       // same synchronous block, so `runningHere`/`showTotal` never see a
       // tick where one updated and the other hasn't (that gap was flashing
       // both counters briefly when starting a timer).
-      runningEntry.value = running.entry
+      runningEntry.value = reconcileRunningEntry(
+        runningEntry.value,
+        running.entry,
+      )
       taskTitle.value = running.title
+      lastSeenRunningId = running.entry?.id ?? null
       // Staleness guard, same as useTaskTools: a slower fetch for a task
       // that's no longer open must not overwrite the current task's state.
       if (taskId.value !== id) return
@@ -69,6 +80,17 @@ export function useTaskTimer(taskId: Ref<string | null | undefined>) {
   }
 
   watch(taskId, () => fetchEntries(), { immediate: true })
+
+  // The running entry changed behind this page's back (stopped from the dock
+  // bar or on another device, or switched to another chore): refetch, since
+  // the entry list still holds the old open entry and its live total would
+  // keep ticking.
+  watch(
+    () => runningEntry.value?.id ?? null,
+    (id) => {
+      if (id !== lastSeenRunningId) fetchEntries()
+    },
+  )
 
   /**
    * Start the timer on this task. May flip the task to in_progress (the

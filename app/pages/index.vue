@@ -74,6 +74,11 @@ watch(
   },
 )
 
+// A chore finished from the dock bar (`useFinishChore`) is still in this
+// list — it was fetched before the chore became Done. Refetch.
+const { version: tasksChangedVersion } = useTasksChanged()
+watch(tasksChangedVersion, () => fetchTasks())
+
 const memberLabels = computed(() => memberShortLabels(members.value))
 
 function assigneeNames(task: TaskSummary): string[] {

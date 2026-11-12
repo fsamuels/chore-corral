@@ -5,9 +5,10 @@ const { resetFarms, activeFarm } = useFarms()
 const { mobile } = useDisplay()
 const route = useRoute()
 
-// The layout owns the shared running-timer state's route-driven refresh:
-// there's no realtime push, so refetching on every navigation covers
-// "started/stopped a timer on one page, moved to another". Mutation paths
+// The layout owns the shared running-timer state's refreshes. There's no
+// realtime push, so refetching on every navigation covers "started/stopped a
+// timer on one page, moved to another", and `useRunningTimerSync` (below)
+// polls so a timer changed on another device shows up too. Mutation paths
 // (dock-bar stop, TaskTimer, home cards) update the shared state directly.
 const {
   runningEntry,
@@ -18,12 +19,12 @@ const {
 } = useRunningTimer()
 watch(() => route.path, refreshRunningTimer, { immediate: true })
 
-// The dock bar's "switch to previous chore" button.
-const {
-  previousTask: previousTimedTask,
-  switching: switchingTimer,
-  switchTo: switchToPreviousTask,
-} = usePreviousTimedTask()
+// Periodic / on-focus refresh for timers changed from another device.
+useRunningTimerSync()
+
+// The dock bar's Finish button: stop the timer and mark the chore done, via
+// a confirmation dialog (note + who completed it).
+const finish = useFinishChore()
 
 // Every session on the running chore, for the dock bar's "total" line.
 const { spans: runningTaskSpans } = useRunningTaskTotal()
@@ -251,11 +252,20 @@ async function onPushToggle() {
       :entry="showTimerBar ? runningEntry : null"
       :task-title="runningTaskTitle"
       :stopping="stoppingTimer"
-      :previous-task-title="previousTimedTask?.title ?? null"
-      :switching="switchingTimer"
       :task-spans="runningTaskSpans"
       @stop="stopRunningTimer"
-      @switch="switchToPreviousTask"
+      @finish="finish.begin"
+    />
+    <CompleteChoreDialog
+      v-if="user"
+      :model-value="finish.open.value"
+      :member-items="finish.memberItems.value"
+      :existing-completers="finish.existingCompleters.value"
+      :actor-user-id="finish.actorUserId.value"
+      :busy="finish.busy.value"
+      :error="finish.error.value"
+      @update:model-value="(open) => !open && finish.cancel()"
+      @confirm="finish.confirm"
     />
     <NewTaskFab
       v-if="user"

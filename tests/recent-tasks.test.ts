@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pickPreviousTask, splitJumpBackIn } from '../app/utils/recent-tasks'
-import type { TaskBrief } from '../app/services/tasks'
+import { splitJumpBackIn } from '../app/utils/recent-tasks'
 
 const t = (id: string) => ({ id })
 
@@ -34,35 +33,5 @@ describe('splitJumpBackIn', () => {
 
     expect(recent).toEqual([])
     expect(rest.map((x) => x.id)).toEqual(['a'])
-  })
-})
-
-describe('pickPreviousTask', () => {
-  const brief = (
-    id: string,
-    status: TaskBrief['status'] = 'in_progress',
-  ): TaskBrief => ({ id, farm_id: 'farm-a', title: `Task ${id}`, status })
-
-  it('returns the most recent task other than the running one', () => {
-    const result = pickPreviousTask(['run', 'b', 'c'], 'run', [
-      brief('c'),
-      brief('b'),
-      brief('run'),
-    ])
-
-    expect(result?.id).toBe('b')
-  })
-
-  it('skips done and missing tasks', () => {
-    const result = pickPreviousTask(['gone', 'b', 'c'], 'run', [
-      brief('b', 'done'),
-      brief('c', 'not_started'),
-    ])
-
-    expect(result?.id).toBe('c')
-  })
-
-  it('returns null when there is no other task', () => {
-    expect(pickPreviousTask(['run'], 'run', [brief('run')])).toBeNull()
   })
 })
