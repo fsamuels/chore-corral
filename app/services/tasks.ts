@@ -501,9 +501,9 @@ export interface TaskBrief {
 
 /**
  * Id, farm, title and status for a set of tasks, in no particular order —
- * the minimum the timer dock needs to offer (and start) a switch to another
- * chore, which may be in a different farm than the active one. Ids the
- * caller can't see (deleted, or RLS-hidden) are simply missing.
+ * the minimum the timer dock needs to finish a running chore, which may be
+ * in a different farm than the active one. Ids the caller can't see
+ * (deleted, or RLS-hidden) are simply missing.
  */
 export async function getTaskBriefs(
   supabase: Client,

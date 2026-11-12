@@ -14,14 +14,11 @@ const props = defineProps<{
   entry: TimeEntrySummary | null
   taskTitle: string | null
   stopping: boolean
-  /** Title of the chore the switch button jumps to; null hides the button. */
-  previousTaskTitle?: string | null
-  switching?: boolean
   /** Every session on the running chore, for the small "total" line. */
   taskSpans?: TrackedSpan[] | null
 }>()
 
-defineEmits<{ stop: []; switch: [] }>()
+defineEmits<{ stop: []; finish: [] }>()
 
 const { mobile } = useDisplay()
 
@@ -89,21 +86,14 @@ const totalLabel = computed(() =>
           </span>
         </NuxtLink>
         <button
-          v-if="previousTaskTitle"
           type="button"
-          class="cc-icon-btn timer-bar__switch"
-          :disabled="switching || stopping"
-          :aria-label="`Switch timer to ${previousTaskTitle}`"
-          :title="`Switch to ${previousTaskTitle}`"
-          @click="$emit('switch')"
+          class="cc-icon-btn timer-bar__finish"
+          :disabled="stopping"
+          aria-label="Stop and finish chore"
+          title="Stop and finish chore"
+          @click="$emit('finish')"
         >
-          <v-progress-circular
-            v-if="switching"
-            indeterminate
-            size="20"
-            width="3"
-          />
-          <v-icon v-else icon="mdi-swap-horizontal" size="26" />
+          <v-icon icon="mdi-check" size="26" />
         </button>
         <button
           type="button"
@@ -216,7 +206,7 @@ const totalLabel = computed(() =>
    line so it can be large without squeezing the title on narrow phones. */
 .timer-bar__elapsed {
   font-family: var(--cc-font-slab);
-  /* Scales down on narrow phones so it clears the switch and stop buttons;
+  /* Scales down on narrow phones so it clears the finish and stop buttons;
      full size from ~450px wide. */
   font-size: clamp(1.75rem, 8vw, 2.25rem);
   font-weight: 700;
@@ -246,8 +236,9 @@ const totalLabel = computed(() =>
 }
 
 /* Secondary to stop: a step smaller so the two read as distinct controls,
-   but still a comfortable thumb target. */
-.timer-bar__switch {
+   but still a comfortable thumb target. Opens the mark-done dialog; the
+   timer only stops once that's confirmed. */
+.timer-bar__finish {
   flex: none;
   /* Translucent on the dark bar, so it reads as secondary to stop. */
   background: color-mix(in srgb, var(--cc-bg) 12%, transparent);

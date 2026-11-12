@@ -496,7 +496,7 @@ Decided 2026-11-02. The user deferred the choice ("no preference") between the t
 
 Decided 2026-11-03 with the user. Reversibility: _easy_ (one composable feeds the strip; `splitJumpBackIn` decides placement).
 
-**What changed.** Home's "Jump back in" strip and the timer dock's switch button both rank chores by the signed-in user's own `task_time_entries`: a chore's recency is its latest entry's end time, and a running entry counts as now.
+**What changed.** Home's "Jump back in" strip ranks chores by the signed-in user's own `task_time_entries`: a chore's recency is its latest entry's end time, and a running entry counts as now. (The timer dock's switch button also used this ranking until 2026-11-12, when it was replaced by Finish; see STATUS.md.)
 
 **Alternatives not taken.**
 

@@ -1,5 +1,3 @@
-import type { TaskBrief } from '../services/tasks'
-
 /** How many chores the home page's "Jump back in" strip shows at most. */
 export const JUMP_BACK_IN_LIMIT = 3
 
@@ -27,23 +25,4 @@ export function splitJumpBackIn<T extends { id: string }>(
   }
   const recentIds = new Set(recent.map((task) => task.id))
   return { recent, rest: tasks.filter((task) => !recentIds.has(task.id)) }
-}
-
-/**
- * The chore the timer dock's switch button should offer: the most recently
- * timed task that isn't the one running now and isn't Done. Null when there
- * is none. `briefs` may be in any order and may lack ids (deleted tasks).
- */
-export function pickPreviousTask(
-  recentTaskIds: readonly string[],
-  runningTaskId: string,
-  briefs: readonly TaskBrief[],
-): TaskBrief | null {
-  const byId = new Map(briefs.map((brief) => [brief.id, brief]))
-  for (const id of recentTaskIds) {
-    if (id === runningTaskId) continue
-    const brief = byId.get(id)
-    if (brief && brief.status !== 'done') return brief
-  }
-  return null
 }

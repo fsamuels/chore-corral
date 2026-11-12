@@ -12,6 +12,7 @@ import {
   type FarmMemberProfile,
 } from '~/services/members'
 import { setTaskCompleters, type TaskCompleter } from '~/services/completers'
+import { completerMemberItems, completersFromDrafts } from '~/utils/completers'
 import { setTaskAssignees } from '~/services/assignees'
 import { memberShortLabels } from '~/utils/member-display'
 import type { TaskLocationValue } from '~/components/TaskLocationInput.vue'
@@ -222,37 +223,20 @@ function categoryDisplay(categoryId: string | null) {
 const statusChanging = ref(false)
 const statusChangeError = ref<string | null>(null)
 
-// Status-change note dialog: a move to In progress or Done doesn't apply
-// immediately — it opens this dialog for an optional note (recorded on the
+// Status-change dialogs: a move to In progress or Done doesn't apply
+// immediately — it opens a dialog for an optional note (recorded on the
 // logged status change), doubling as an accidental-change guard, chiefly for
 // Done, which was too easy to hit by mistake. Not started stays immediate:
 // it's a low-stakes move not worth the friction.
+//
+// Done has its own dialog (`CompleteChoreDialog`, shared with the running-
+// timer dock's Finish button) because it also picks who completed the chore;
+// In progress keeps the plain note dialog below.
 const STATUS_NOTE_TARGETS: TaskStatus[] = ['in_progress', 'done']
 const statusNoteDialog = ref(false)
-const pendingStatus = ref<TaskStatus | null>(null)
+const doneDialog = ref(false)
 const statusNote = ref('')
-
-// The Done dialog also picks who completed the chore (same picker as the
-// Completed-by menu below), prefilled with the task's existing completers or,
-// when nobody's credited yet, the signed-in member — the same default
-// changeTaskStatus would auto-credit. Confirming sends this set explicitly.
-const statusCompletersMemberDraft = ref<string[]>([])
-const statusCompletersNamesDraft = ref<string[]>([])
 const currentUser = useSupabaseUser()
-
-const statusNoteDialogTitle = computed(() =>
-  pendingStatus.value === 'done'
-    ? 'Mark chore as done?'
-    : 'Move chore to In progress?',
-)
-const statusNotePrompt = computed(() =>
-  pendingStatus.value === 'done'
-    ? 'Add an optional note about how it went (or leave it blank).'
-    : 'Add an optional note about this change (or leave it blank).',
-)
-const statusNoteConfirmLabel = computed(() =>
-  pendingStatus.value === 'done' ? 'Mark done' : 'Move to In progress',
-)
 
 async function applyStatusChange(
   status: TaskStatus,
@@ -277,47 +261,36 @@ async function applyStatusChange(
 async function onStatusChange(status: TaskStatus) {
   if (!task.value || task.value.status === status) return
   if (STATUS_NOTE_TARGETS.includes(status)) {
-    pendingStatus.value = status
-    statusNote.value = ''
-    if (status === 'done') prefillStatusCompleters()
-    statusNoteDialog.value = true
+    // Drop an error left over from an earlier attempt so a reopened dialog
+    // doesn't open already showing it.
+    statusChangeError.value = null
+    if (status === 'done') {
+      doneDialog.value = true
+    } else {
+      statusNote.value = ''
+      statusNoteDialog.value = true
+    }
     return
   }
   await applyStatusChange(status)
 }
 
-function prefillStatusCompleters() {
-  const existing = task.value?.completers ?? []
-  if (existing.length > 0) {
-    statusCompletersMemberDraft.value = existing
-      .filter((completer) => completer.user_id !== null)
-      .map((completer) => completer.user_id!)
-    statusCompletersNamesDraft.value = existing
-      .filter((completer) => completer.completer_name !== null)
-      .map((completer) => completer.completer_name!)
-    return
-  }
-  const actorUserId = getActorUserId(currentUser.value)
-  statusCompletersMemberDraft.value = actorUserId ? [actorUserId] : []
-  statusCompletersNamesDraft.value = []
-}
-
-async function confirmStatusChange() {
-  const status = pendingStatus.value
-  if (!status) return
-  const completers =
-    status === 'done'
-      ? completersFromDrafts(
-          statusCompletersMemberDraft.value,
-          statusCompletersNamesDraft.value,
-        )
-      : undefined
-  await applyStatusChange(status, statusNote.value, completers)
+async function confirmInProgress() {
+  await applyStatusChange('in_progress', statusNote.value)
   if (statusChangeError.value !== null) return
   statusNoteDialog.value = false
+}
+
+async function confirmDone(payload: {
+  note: string
+  completers: TaskCompleter[]
+}) {
+  await applyStatusChange('done', payload.note, payload.completers)
+  if (statusChangeError.value !== null) return
+  doneDialog.value = false
   // A finished chore needs nothing more here — head back to the home
-  // screen's outstanding work. In progress stays on the page.
-  if (status === 'done') await navigateTo('/')
+  // screen's outstanding work.
+  await navigateTo('/')
 }
 
 // --- In-place field editing (immediate save per field; see DECISIONS.md) ---
@@ -626,13 +599,7 @@ watch(completedByMenu, (open) => {
 // the picker items and the completed-by pill.
 const memberLabels = computed(() => memberShortLabels(members.value))
 
-const memberItems = computed(() =>
-  members.value.map((member) => ({
-    title: memberLabels.value.get(member.user_id) ?? member.user_id,
-    value: member.user_id,
-    avatarUrl: member.avatar_url,
-  })),
-)
+const memberItems = computed(() => completerMemberItems(members.value))
 
 // One completer resolved to a display label: a member's short label
 // (best-effort — "unknown member" if the id is no longer in the fetched
@@ -673,22 +640,6 @@ async function saveCompleters(completers: TaskCompleter[]): Promise<void> {
   } finally {
     fieldSaving.value = null
   }
-}
-
-// Picker drafts → a completer set: members as-is, names trimmed, blanks
-// dropped and de-duplicated. Shared by the Completed-by menu and the Done
-// dialog.
-function completersFromDrafts(
-  memberIds: string[],
-  rawNames: string[],
-): TaskCompleter[] {
-  const names = [
-    ...new Set(rawNames.map((name) => name.trim()).filter(Boolean)),
-  ]
-  return [
-    ...memberIds.map((userId) => ({ user_id: userId, completer_name: null })),
-    ...names.map((name) => ({ user_id: null, completer_name: name })),
-  ]
 }
 
 async function onCompletedBySave() {
@@ -1819,6 +1770,16 @@ const taskLocation = computed(() =>
           “{{ task.title }}” will be permanently deleted.
         </ConfirmDialog>
 
+        <CompleteChoreDialog
+          v-model="doneDialog"
+          :member-items="memberItems"
+          :existing-completers="task.completers"
+          :actor-user-id="getActorUserId(currentUser)"
+          :busy="statusChanging"
+          :error="statusChangeError"
+          @confirm="confirmDone"
+        />
+
         <v-dialog
           v-model="statusNoteDialog"
           max-width="480"
@@ -1826,9 +1787,9 @@ const taskLocation = computed(() =>
           persistent
         >
           <v-card class="cc-dialog-card status-dialog-card">
-            <v-card-title>{{ statusNoteDialogTitle }}</v-card-title>
+            <v-card-title>Move chore to In progress?</v-card-title>
             <v-card-text>
-              {{ statusNotePrompt }}
+              Add an optional note about this change (or leave it blank).
               <v-textarea
                 v-model="statusNote"
                 label="Note (optional)"
@@ -1840,16 +1801,6 @@ const taskLocation = computed(() =>
                 class="mt-3"
                 :disabled="statusChanging"
               />
-              <template v-if="pendingStatus === 'done'">
-                <div class="cc-eyebrow mb-2">Completed by</div>
-                <CompleterPicker
-                  v-model:members="statusCompletersMemberDraft"
-                  v-model:names="statusCompletersNamesDraft"
-                  :member-items="memberItems"
-                  :disabled="statusChanging"
-                  class="mb-3"
-                />
-              </template>
               <v-alert
                 v-if="statusChangeError"
                 type="error"
@@ -1870,14 +1821,9 @@ const taskLocation = computed(() =>
               </button>
               <button
                 type="button"
-                :class="[
-                  'cc-pill-btn cc-pill-btn--lg',
-                  pendingStatus === 'done'
-                    ? 'cc-pill-btn--success'
-                    : 'cc-pill-btn--accent',
-                ]"
+                class="cc-pill-btn cc-pill-btn--lg cc-pill-btn--accent"
                 :disabled="statusChanging"
-                @click="confirmStatusChange"
+                @click="confirmInProgress"
               >
                 <v-progress-circular
                   v-if="statusChanging"
@@ -1885,7 +1831,7 @@ const taskLocation = computed(() =>
                   size="18"
                   width="2"
                 />
-                <template v-else>{{ statusNoteConfirmLabel }}</template>
+                <template v-else>Move to In progress</template>
               </button>
             </div>
           </v-card>
