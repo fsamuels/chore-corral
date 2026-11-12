@@ -3,7 +3,7 @@ import {
   clearLastCoords,
   computeSunTimes,
   LAST_COORDS_MAX_AGE_MS,
-  formatSunTime,
+  formatSunTimeCompact,
   isValidCoords,
   loadLastCoords,
   roundCoords,
@@ -75,11 +75,19 @@ describe('isValidCoords', () => {
   })
 })
 
-describe('formatSunTime', () => {
-  it('formats hours and minutes', () => {
-    // \s: newer ICU puts a narrow no-break space before AM/PM.
-    expect(formatSunTime(new Date(2026, 0, 1, 6, 5), 'en-US')).toMatch(
-      /^6:05\sAM$/u,
+describe('formatSunTimeCompact', () => {
+  it('drops the AM/PM marker in 12-hour locales', () => {
+    expect(formatSunTimeCompact(new Date(2026, 0, 1, 6, 5), 'en-US')).toBe(
+      '6:05',
+    )
+    expect(formatSunTimeCompact(new Date(2026, 0, 1, 16, 48), 'en-US')).toBe(
+      '4:48',
+    )
+  })
+
+  it('leaves 24-hour locales as they are', () => {
+    expect(formatSunTimeCompact(new Date(2026, 0, 1, 16, 48), 'en-GB')).toBe(
+      '16:48',
     )
   })
 })

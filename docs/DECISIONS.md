@@ -509,7 +509,7 @@ Decided 2026-11-03 with the user. Reversibility: _easy_ (one composable feeds th
 
 Decided 2026-11-10. Reversibility: _easy_ (one util, one composable, one pill).
 
-**What changed.** Home's stat row shows today's sunrise and sunset. `computeSunTimes` (`app/utils/sun-times.ts`) uses the standard sunrise equation, accurate to about a minute outside polar latitudes. `useSunTimes` uses the device's position only when location access is already granted; otherwise it shows times for the active farm's default centre, and while the browser would still ask, the pill is a button that requests location on tap.
+**What changed.** Home shows today's sunrise and sunset (first in the stat row, moved to the header beside the menu button on 2026-11-11). `computeSunTimes` (`app/utils/sun-times.ts`) uses the standard sunrise equation, accurate to about a minute outside polar latitudes. `useSunTimes` uses the device's position only when location access is already granted; otherwise it shows times for the active farm's default centre, and while the browser would still ask, the pill is a button that requests location on tap.
 
 **Alternatives not taken.**
 

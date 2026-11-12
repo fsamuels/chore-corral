@@ -216,7 +216,7 @@ Each task's activity history is shown in-app, on that task's View page (see belo
 - Shows completed tasks (filterable, not hidden) — the Status filter is what lets a user narrow to or exclude Done tasks; there is no separate hide-completed switch.
 - Overdue tasks (due date passed, not Done) are visually flagged.
 - Tapping/clicking a row opens that task's View page.
-- The dashboard's outstanding-tasks list (home screen) offers its own priority and due-date-presence filters, scoped to the non-Done subset it already shows; its summary stat cards (Outstanding/Urgent/Overdue) always reflect all outstanding tasks regardless of that list's filter state. Beside them, a pill shows today's sunrise and sunset for the device's location (when location access is granted) or the active farm's default centre.
+- The dashboard's outstanding-tasks list (home screen) offers its own priority and due-date-presence filters, scoped to the non-Done subset it already shows; its summary stat cards (Outstanding/Urgent/Overdue) always reflect all outstanding tasks regardless of that list's filter state. On the home screen only, the header shows today's sunrise and sunset beside the menu button, for the device's location (when location access is granted) or the active farm's default centre.
 
 ### Task View page
 

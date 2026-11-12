@@ -203,6 +203,7 @@ async function onPushToggle() {
           </NuxtLink>
         </div>
         <div v-if="user" class="app-header__actions">
+          <HeaderSunTimes v-if="route.path === '/'" />
           <template v-if="!mobile">
             <NuxtLink
               to="/"
