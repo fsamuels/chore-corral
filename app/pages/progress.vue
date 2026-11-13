@@ -4,6 +4,7 @@ import {
   addWeeks,
   buildActivityDayGroups,
   completedTasksInWeek,
+  dailyTimeSummary,
   listTaskActivity,
   rowGapsMs,
   weekDays,
@@ -24,10 +25,12 @@ import {
   formatEstimatedMinutes,
 } from '~/utils/task-display'
 import { memberShortLabels } from '~/utils/member-display'
+import { getActorUserId } from '~/utils/auth'
 
 const route = useRoute()
 const router = useRouter()
 const supabase = useSupabaseClient<Database>()
+const user = useSupabaseUser()
 
 const { fetchFarms, activeFarm, activeFarmId, farmsError } = useFarms()
 
@@ -258,11 +261,20 @@ interface ProgressRow {
   daysToComplete: string
 }
 
+interface TimeSummaryRow {
+  id: string
+  title: string
+  tracked: string
+}
+
 interface ProgressDayGroup {
   day: string
   heading: string
   completed: number
   tracked: string | null
+  // The signed-in user's own time that day, one line per chore, most time
+  // first (see `dailyTimeSummary`). Empty when they tracked nothing.
+  timeSummary: TimeSummaryRow[]
   rows: ProgressRow[]
 }
 
@@ -278,6 +290,25 @@ function formatGap(ms: number | null): string | null {
   return ms === null ? null : formatEstimatedMinutes(Math.floor(ms / 60000))
 }
 
+// The signed-in user's tracked time per chore per day — "how I spent my time".
+// Keyed by day; only days in `activityGroups` are rendered (every day with an
+// entry already has a group there).
+const myTimeByDay = computed(() => {
+  const userId = getActorUserId(user.value)
+  if (!userId) return new Map<string, TimeSummaryRow[]>()
+  const summary = dailyTimeSummary(shownWeek.value, activities.value, userId)
+  return new Map(
+    [...summary].map(([day, rows]) => [
+      day,
+      rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        tracked: formatElapsedDuration(row.trackedMs),
+      })),
+    ]),
+  )
+})
+
 const dayGroups = computed<ProgressDayGroup[]>(() =>
   activityGroups.value.map((group) => {
     const gaps = rowGapsMs(group.rows)
@@ -291,6 +322,7 @@ const dayGroups = computed<ProgressDayGroup[]>(() =>
       completed: group.completedCount,
       tracked:
         group.trackedMs > 0 ? formatElapsedDuration(group.trackedMs) : null,
+      timeSummary: myTimeByDay.value.get(group.day) ?? [],
       rows: group.rows.map((row, index) => ({
         id: row.id,
         title: row.title,
@@ -403,6 +435,27 @@ const weekTrackedText = computed(() =>
                   {{ group.tracked }}
                 </span>
               </div>
+            </div>
+            <div
+              v-if="group.timeSummary.length > 0"
+              class="cc-card progress-summary"
+            >
+              <h3 class="progress-summary__title">My time</h3>
+              <ol class="progress-summary__list">
+                <li
+                  v-for="item in group.timeSummary"
+                  :key="item.id"
+                  class="progress-summary__item"
+                >
+                  <NuxtLink
+                    :to="`/tasks/${item.id}`"
+                    class="progress-summary__chore"
+                  >
+                    {{ item.title }}
+                  </NuxtLink>
+                  <span class="progress-summary__time">{{ item.tracked }}</span>
+                </li>
+              </ol>
             </div>
             <div class="cc-card-list">
               <template v-for="row in group.rows" :key="row.id">
@@ -557,6 +610,50 @@ const weekTrackedText = computed(() =>
   content: '';
   flex: 1;
   border-top: 1px solid var(--cc-border);
+}
+
+.progress-summary {
+  margin-bottom: 12px;
+}
+
+.progress-summary__title {
+  margin: 0 0 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cc-ink-muted);
+}
+
+.progress-summary__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.progress-summary__item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.progress-summary__item + .progress-summary__item {
+  border-top: 1px solid var(--cc-border);
+}
+
+.progress-summary__chore {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--cc-ink);
+  text-decoration: none;
+}
+
+.progress-summary__time {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--cc-ink-muted);
 }
 
 .progress-row__age {

@@ -237,6 +237,7 @@ Each task's activity history is shown in-app, on that task's View page (see belo
 - Shows one week at a time — Monday-start weeks, computed in the viewer's local timezone — with back/forward arrows to step between weeks; forward navigation is capped at the current week, which is also the default. The selected week is reflected in the URL (`?week=<Monday's date>`) so a view is shareable and back-button-friendly.
 - Weekly summary stats: count of tasks completed that week, and total tracked time (summed timer sessions) across those tasks.
 - Below the stats, the week's completed tasks (source of truth: `tasks.completed_at` — a task later deleted or reopened drops out of history) grouped by completion day, newest day first, each row showing the completion time, title, time tracked on that task (when it has any), who completed it (via the task's completer attribution — one or more people, a mix of members and free-text names), and category.
+- **My time** summary at the top of each day that has any of the signed-in user's tracked time: one line per chore with the total time _they_ tracked on it that day, most time first. Only the viewer's own timer sessions count (other members' time is excluded), and a session belongs to the day it started. Each chore links to its page.
 - Deferred follow-ons (per-person and per-category breakdowns, filters, finer-grained organization) are listed in ROADMAP.md.
 
 ### Map View

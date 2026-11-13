@@ -282,6 +282,9 @@ export async function trackedMsForTasks(
 export interface ActivityEntry {
   started_at: string
   ended_at: string | null
+  // Who ran the timer. Optional so pure-function callers that only care about
+  // farm-wide totals can omit it; `listTaskActivity` always fills it.
+  user_id?: string
 }
 
 /**
@@ -565,7 +568,7 @@ export async function listTaskActivity(
 ): Promise<TaskActivity[]> {
   const { data: entries, error: entriesError } = await supabase
     .from('task_time_entries')
-    .select('task_id, started_at, ended_at')
+    .select('task_id, user_id, started_at, ended_at')
     .gte('started_at', window.from)
     .lt('started_at', window.to)
   if (entriesError) throw new Error(entriesError.message)
@@ -587,9 +590,14 @@ export async function listTaskActivity(
 
   const entriesByTask = new Map<string, ActivityEntry[]>()
   for (const entry of entries) {
+    const activityEntry: ActivityEntry = {
+      started_at: entry.started_at,
+      ended_at: entry.ended_at,
+      user_id: entry.user_id,
+    }
     const list = entriesByTask.get(entry.task_id)
-    if (list) list.push(entry)
-    else entriesByTask.set(entry.task_id, [entry])
+    if (list) list.push(activityEntry)
+    else entriesByTask.set(entry.task_id, [activityEntry])
   }
 
   const result: TaskActivity[] = []
@@ -628,4 +636,67 @@ export function rowGapsMs(rows: readonly Pick<ActivityDayRow, 'timestamp'>[]) {
       Date.parse(row.timestamp) - Date.parse(rows[index - 1]!.timestamp)
     return Number.isFinite(gap) && gap >= ROW_GAP_DIVIDER_MIN_MS ? gap : null
   })
+}
+
+/** One line of a day's personal time summary: a chore and the time spent on it. */
+export interface DailyTimeSummaryRow {
+  id: string
+  title: string
+  trackedMs: number
+}
+
+/**
+ * Per-day "where did my time go" summary for one week: for each local day,
+ * the chores `userId` tracked time on that day with the total for each, most
+ * time first (title, then id, as tiebreaks). Only entries whose `user_id` is
+ * `userId` count, so another member's timer never inflates your totals.
+ *
+ * Day attribution matches `buildActivityDayGroups`: an entry belongs wholly to
+ * the local day it *started* (see `entryLocalDay`), and days outside the week
+ * are dropped. A running entry counts up to `now`. Chores whose total for the
+ * day rounds to nothing (0ms) are left out, and a day with no rows has no key.
+ */
+export function dailyTimeSummary(
+  weekStart: string,
+  activities: TaskActivity[],
+  userId: string,
+  now: Date = new Date(),
+): Map<string, DailyTimeSummaryRow[]> {
+  const weekDaySet = new Set(weekDays(weekStart))
+  const byDay = new Map<string, Map<string, DailyTimeSummaryRow>>()
+  for (const activity of activities) {
+    for (const entry of activity.entries) {
+      if (entry.user_id !== userId) continue
+      const day = entryLocalDay(entry.started_at)
+      if (day === null || !weekDaySet.has(day)) continue
+      const ms = totalTrackedMs([entry], now)
+      if (ms <= 0) continue
+      let dayMap = byDay.get(day)
+      if (!dayMap) {
+        dayMap = new Map()
+        byDay.set(day, dayMap)
+      }
+      const existing = dayMap.get(activity.id)
+      if (existing) existing.trackedMs += ms
+      else
+        dayMap.set(activity.id, {
+          id: activity.id,
+          title: activity.title,
+          trackedMs: ms,
+        })
+    }
+  }
+  const result = new Map<string, DailyTimeSummaryRow[]>()
+  for (const [day, dayMap] of byDay) {
+    result.set(
+      day,
+      [...dayMap.values()].sort(
+        (a, b) =>
+          b.trackedMs - a.trackedMs ||
+          a.title.localeCompare(b.title) ||
+          a.id.localeCompare(b.id),
+      ),
+    )
+  }
+  return result
 }
