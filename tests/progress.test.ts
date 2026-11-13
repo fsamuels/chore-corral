@@ -3,6 +3,7 @@ import {
   addWeeks,
   buildActivityDayGroups,
   completedTasksInWeek,
+  dailyTimeSummary,
   entryLocalDay,
   groupByCompletionDay,
   isCompletedInWeek,
@@ -804,6 +805,7 @@ describe('listTaskActivity', () => {
     expect(result.map((a) => a.id)).toEqual(['has-entries'])
     const withEntries = result[0]!
     expect(withEntries.entries).toHaveLength(2)
+    expect(withEntries.entries[0]!.user_id).toBe(ACTOR)
     expect(withEntries.status).toBe('in_progress')
     expect(withEntries.title).toBe('Fix the gate')
   })
@@ -910,5 +912,185 @@ describe('rowGapsMs', () => {
 
   it('returns an empty list for no rows', () => {
     expect(rowGapsMs([])).toEqual([])
+  })
+})
+
+describe('dailyTimeSummary', () => {
+  const weekStart = '2026-07-06'
+  const ME = ACTOR
+  const OTHER = 'user-2'
+  const HOUR = 60 * 60 * 1000
+
+  function span(day: number, fromH: number, toH: number, userId = ME) {
+    return {
+      started_at: localIso(2026, 7, day, fromH),
+      ended_at: localIso(2026, 7, day, toH),
+      user_id: userId,
+    }
+  }
+
+  it('totals my time per chore per day, most time first', () => {
+    const result = dailyTimeSummary(
+      weekStart,
+      [
+        activity({
+          id: 'fence',
+          title: 'Fix fence',
+          entries: [span(8, 9, 10)],
+        }),
+        activity({
+          id: 'barn',
+          title: 'Muck barn',
+          entries: [span(8, 11, 12), span(8, 13, 15)],
+        }),
+        activity({ id: 'hay', title: 'Stack hay', entries: [span(9, 8, 9)] }),
+      ],
+      ME,
+    )
+
+    expect(result.get('2026-07-08')).toEqual([
+      { id: 'barn', title: 'Muck barn', trackedMs: 3 * HOUR },
+      { id: 'fence', title: 'Fix fence', trackedMs: HOUR },
+    ])
+    expect(result.get('2026-07-09')).toEqual([
+      { id: 'hay', title: 'Stack hay', trackedMs: HOUR },
+    ])
+  })
+
+  it("ignores other members' entries and entries with no user", () => {
+    const result = dailyTimeSummary(
+      weekStart,
+      [
+        activity({
+          id: 'barn',
+          entries: [
+            span(8, 9, 10),
+            span(8, 10, 14, OTHER),
+            {
+              started_at: localIso(2026, 7, 8, 15),
+              ended_at: localIso(2026, 7, 8, 16),
+            },
+          ],
+        }),
+        activity({ id: 'theirs', entries: [span(8, 9, 12, OTHER)] }),
+      ],
+      ME,
+    )
+
+    expect(result.get('2026-07-08')).toEqual([
+      { id: 'barn', title: 'Muck the barn', trackedMs: HOUR },
+    ])
+  })
+
+  it('attributes an entry to the day it started and drops days outside the week', () => {
+    const result = dailyTimeSummary(
+      weekStart,
+      [
+        activity({
+          id: 'night',
+          entries: [
+            {
+              started_at: localIso(2026, 7, 8, 23),
+              ended_at: localIso(2026, 7, 9, 1),
+              user_id: ME,
+            },
+            span(5, 9, 10), // Sunday before the week
+            span(13, 9, 10), // Monday after the week
+          ],
+        }),
+      ],
+      ME,
+    )
+
+    expect([...result.keys()]).toEqual(['2026-07-08'])
+    expect(result.get('2026-07-08')![0]!.trackedMs).toBe(2 * HOUR)
+  })
+
+  it('counts a running entry up to now', () => {
+    const now = new Date(2026, 6, 10, 10, 30)
+    const result = dailyTimeSummary(
+      weekStart,
+      [
+        activity({
+          id: 'trough',
+          title: 'Water trough',
+          entries: [
+            {
+              started_at: localIso(2026, 7, 10, 9, 0),
+              ended_at: null,
+              user_id: ME,
+            },
+          ],
+        }),
+      ],
+      ME,
+      now,
+    )
+
+    expect(result.get('2026-07-10')).toEqual([
+      { id: 'trough', title: 'Water trough', trackedMs: 90 * 60 * 1000 },
+    ])
+  })
+
+  it('breaks ties on displayed minutes by title, not id or seconds', () => {
+    const result = dailyTimeSummary(
+      weekStart,
+      [
+        activity({
+          id: 'a',
+          title: 'Water trough',
+          entries: [
+            {
+              started_at: localIso(2026, 7, 10, 9, 0, 0),
+              ended_at: localIso(2026, 7, 10, 10, 30, 40),
+              user_id: ME,
+            },
+          ],
+        }),
+        activity({
+          id: 'z',
+          title: 'Feed hens',
+          entries: [
+            {
+              started_at: localIso(2026, 7, 10, 7, 0, 0),
+              ended_at: localIso(2026, 7, 10, 8, 30, 10),
+              user_id: ME,
+            },
+          ],
+        }),
+      ],
+      ME,
+    )
+
+    expect(result.get('2026-07-10')!.map((row) => row.id)).toEqual(['z', 'a'])
+  })
+
+  it('leaves out chores under a minute for the day', () => {
+    const result = dailyTimeSummary(
+      weekStart,
+      [
+        activity({
+          id: 'blip',
+          entries: [
+            {
+              started_at: localIso(2026, 7, 8, 9, 0, 0),
+              ended_at: localIso(2026, 7, 8, 9, 0, 4),
+              user_id: ME,
+            },
+          ],
+        }),
+      ],
+      ME,
+    )
+
+    expect(result.size).toBe(0)
+  })
+
+  it('leaves out zero-length entries and returns an empty map with no activity', () => {
+    expect(
+      dailyTimeSummary(weekStart, [activity({ entries: [span(8, 9, 9)] })], ME)
+        .size,
+    ).toBe(0)
+    expect(dailyTimeSummary(weekStart, [], ME).size).toBe(0)
   })
 })

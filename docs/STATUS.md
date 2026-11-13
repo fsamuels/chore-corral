@@ -2,7 +2,14 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-11-12 (dock timer syncs across devices; Finish replaces switch)
+**Last updated:** 2026-11-13 (daily "My time" summary on Progress)
+
+**Daily "My time" summary on the Progress page (2026-11-13).** Direct user ask: for each day, a summary of just chore and total time spent, ordered by most time, to account for how the user spent their time.
+
+- **Look:** a small card titled "My time" at the top of each day on `/progress`, above the timeline rows. Each line is a chore title (linking to the chore) and its total for the day ("1h 30m"), most time first. The card is hidden on days the viewer tracked nothing.
+- **Rules:** only the signed-in user's own time entries count (user choice — the day's existing tracked pill stays farm-wide). An entry belongs wholly to the day it started, as elsewhere on the page; a running timer counts up to the time the page computed it. Chores under a minute for the day are left out. Ordering compares whole minutes (what's shown), so rows that read the same sort by title. Day bucketing is shared with the timeline via `workedByDayAndTask`. The logic is `dailyTimeSummary` in `app/services/progress.ts`, with tests.
+- **Data:** `listTaskActivity` now also selects `user_id` for each entry; no extra queries and no schema change.
+- **Checks:** lint, prettier, typecheck and vitest pass. Not visually checked in a signed-in browser session.
 
 **Dock timer syncs across devices; Finish replaces the switch button (2026-11-12).** Two changes to the running-timer dock bar. The user runs the app on a phone and a laptop at once, and the bar only refreshed on route changes, so a timer started, stopped or switched on one device went unnoticed on the other. And the swap button (switch to the previous chore) gave way to a Finish button that stops the timer and marks the chore done in one step.
 
