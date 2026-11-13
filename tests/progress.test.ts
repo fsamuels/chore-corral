@@ -1006,29 +1006,84 @@ describe('dailyTimeSummary', () => {
     expect(result.get('2026-07-08')![0]!.trackedMs).toBe(2 * HOUR)
   })
 
-  it('counts a running entry up to now and breaks ties by title', () => {
+  it('counts a running entry up to now', () => {
     const now = new Date(2026, 6, 10, 10, 30)
     const result = dailyTimeSummary(
       weekStart,
       [
         activity({
-          id: 'z',
+          id: 'trough',
           title: 'Water trough',
           entries: [
             {
-              started_at: localIso(2026, 7, 10, 9, 30),
+              started_at: localIso(2026, 7, 10, 9, 0),
               ended_at: null,
               user_id: ME,
             },
           ],
         }),
-        activity({ id: 'a', title: 'Feed hens', entries: [span(10, 7, 8)] }),
       ],
       ME,
       now,
     )
 
-    expect(result.get('2026-07-10')!.map((row) => row.id)).toEqual(['a', 'z'])
+    expect(result.get('2026-07-10')).toEqual([
+      { id: 'trough', title: 'Water trough', trackedMs: 90 * 60 * 1000 },
+    ])
+  })
+
+  it('breaks ties on displayed minutes by title, not id or seconds', () => {
+    const result = dailyTimeSummary(
+      weekStart,
+      [
+        activity({
+          id: 'a',
+          title: 'Water trough',
+          entries: [
+            {
+              started_at: localIso(2026, 7, 10, 9, 0, 0),
+              ended_at: localIso(2026, 7, 10, 10, 30, 40),
+              user_id: ME,
+            },
+          ],
+        }),
+        activity({
+          id: 'z',
+          title: 'Feed hens',
+          entries: [
+            {
+              started_at: localIso(2026, 7, 10, 7, 0, 0),
+              ended_at: localIso(2026, 7, 10, 8, 30, 10),
+              user_id: ME,
+            },
+          ],
+        }),
+      ],
+      ME,
+    )
+
+    expect(result.get('2026-07-10')!.map((row) => row.id)).toEqual(['z', 'a'])
+  })
+
+  it('leaves out chores under a minute for the day', () => {
+    const result = dailyTimeSummary(
+      weekStart,
+      [
+        activity({
+          id: 'blip',
+          entries: [
+            {
+              started_at: localIso(2026, 7, 8, 9, 0, 0),
+              ended_at: localIso(2026, 7, 8, 9, 0, 4),
+              user_id: ME,
+            },
+          ],
+        }),
+      ],
+      ME,
+    )
+
+    expect(result.size).toBe(0)
   })
 
   it('leaves out zero-length entries and returns an empty map with no activity', () => {

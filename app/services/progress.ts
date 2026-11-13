@@ -412,6 +412,50 @@ function toCompletedRow(
   }
 }
 
+interface DayTaskWork {
+  firstStart: string
+  trackedMs: number
+}
+
+/**
+ * The shared bucketing behind `buildActivityDayGroups` and `dailyTimeSummary`:
+ * day -> (taskId -> earliest same-day entry start and tracked ms that day).
+ * An entry belongs to the local day it started (see `entryLocalDay`); days
+ * not in `weekDaySet` are dropped. With `userId`, only that user's entries
+ * count. Running entries count up to `now`.
+ */
+function workedByDayAndTask(
+  weekDaySet: ReadonlySet<string>,
+  activities: TaskActivity[],
+  now: Date,
+  userId?: string,
+): Map<string, Map<string, DayTaskWork>> {
+  const byDay = new Map<string, Map<string, DayTaskWork>>()
+  for (const activity of activities) {
+    for (const entry of activity.entries) {
+      if (userId !== undefined && entry.user_id !== userId) continue
+      const day = entryLocalDay(entry.started_at)
+      if (day === null || !weekDaySet.has(day)) continue
+      let dayMap = byDay.get(day)
+      if (!dayMap) {
+        dayMap = new Map()
+        byDay.set(day, dayMap)
+      }
+      const ms = totalTrackedMs([entry], now)
+      const existing = dayMap.get(activity.id)
+      if (existing) {
+        existing.trackedMs += ms
+        if (Date.parse(entry.started_at) < Date.parse(existing.firstStart)) {
+          existing.firstStart = entry.started_at
+        }
+      } else {
+        dayMap.set(activity.id, { firstStart: entry.started_at, trackedMs: ms })
+      }
+    }
+  }
+  return byDay
+}
+
 /**
  * Assemble the Progress page's per-day activity groups for one week, merging
  * two sources:
@@ -459,31 +503,7 @@ export function buildActivityDayGroups(
 
   // day -> (taskId -> { earliest same-day entry start, tracked ms that day }).
   // Every task with an entry that day lands here, completed-that-day or not.
-  const workedByDay = new Map<
-    string,
-    Map<string, { firstStart: string; trackedMs: number }>
-  >()
-  for (const activity of activities) {
-    for (const entry of activity.entries) {
-      const day = entryLocalDay(entry.started_at)
-      if (day === null || !weekDaySet.has(day)) continue
-      let dayMap = workedByDay.get(day)
-      if (!dayMap) {
-        dayMap = new Map()
-        workedByDay.set(day, dayMap)
-      }
-      const ms = totalTrackedMs([entry], now)
-      const existing = dayMap.get(activity.id)
-      if (existing) {
-        existing.trackedMs += ms
-        if (Date.parse(entry.started_at) < Date.parse(existing.firstStart)) {
-          existing.firstStart = entry.started_at
-        }
-      } else {
-        dayMap.set(activity.id, { firstStart: entry.started_at, trackedMs: ms })
-      }
-    }
-  }
+  const workedByDay = workedByDayAndTask(weekDaySet, activities, now)
 
   const days = new Set<string>([
     ...completedByDay.keys(),
@@ -645,16 +665,22 @@ export interface DailyTimeSummaryRow {
   trackedMs: number
 }
 
+/** Chores with less than this tracked on a day are left out of the summary. */
+const SUMMARY_MIN_MS = 60 * 1000
+
 /**
  * Per-day "where did my time go" summary for one week: for each local day,
  * the chores `userId` tracked time on that day with the total for each, most
- * time first (title, then id, as tiebreaks). Only entries whose `user_id` is
- * `userId` count, so another member's timer never inflates your totals.
+ * time first. Only entries whose `user_id` is `userId` count, so another
+ * member's timer never inflates your totals.
  *
- * Day attribution matches `buildActivityDayGroups`: an entry belongs wholly to
- * the local day it *started* (see `entryLocalDay`), and days outside the week
- * are dropped. A running entry counts up to `now`. Chores whose total for the
- * day rounds to nothing (0ms) are left out, and a day with no rows has no key.
+ * Day attribution matches `buildActivityDayGroups` (they share
+ * `workedByDayAndTask`): an entry belongs wholly to the local day it
+ * *started*, and days outside the week are dropped. A running entry counts up
+ * to `now`. Chores under a minute for the day (an accidental start/stop) are
+ * left out, and a day with no rows has no key. Ordering compares whole
+ * minutes — what the page displays — so rows that read the same tie-break by
+ * title, then id.
  */
 export function dailyTimeSummary(
   weekStart: string,
@@ -662,41 +688,33 @@ export function dailyTimeSummary(
   userId: string,
   now: Date = new Date(),
 ): Map<string, DailyTimeSummaryRow[]> {
-  const weekDaySet = new Set(weekDays(weekStart))
-  const byDay = new Map<string, Map<string, DailyTimeSummaryRow>>()
-  for (const activity of activities) {
-    for (const entry of activity.entries) {
-      if (entry.user_id !== userId) continue
-      const day = entryLocalDay(entry.started_at)
-      if (day === null || !weekDaySet.has(day)) continue
-      const ms = totalTrackedMs([entry], now)
-      if (ms <= 0) continue
-      let dayMap = byDay.get(day)
-      if (!dayMap) {
-        dayMap = new Map()
-        byDay.set(day, dayMap)
-      }
-      const existing = dayMap.get(activity.id)
-      if (existing) existing.trackedMs += ms
-      else
-        dayMap.set(activity.id, {
-          id: activity.id,
-          title: activity.title,
-          trackedMs: ms,
-        })
-    }
-  }
+  const titleById = new Map(activities.map((a) => [a.id, a.title]))
+  const byDay = workedByDayAndTask(
+    new Set(weekDays(weekStart)),
+    activities,
+    now,
+    userId,
+  )
+  const wholeMinutes = (ms: number) => Math.floor(ms / 60000)
   const result = new Map<string, DailyTimeSummaryRow[]>()
   for (const [day, dayMap] of byDay) {
-    result.set(
-      day,
-      [...dayMap.values()].sort(
-        (a, b) =>
-          b.trackedMs - a.trackedMs ||
-          a.title.localeCompare(b.title) ||
-          a.id.localeCompare(b.id),
-      ),
+    const rows: DailyTimeSummaryRow[] = []
+    for (const [id, work] of dayMap) {
+      if (work.trackedMs < SUMMARY_MIN_MS) continue
+      rows.push({
+        id,
+        title: titleById.get(id) ?? '',
+        trackedMs: work.trackedMs,
+      })
+    }
+    if (rows.length === 0) continue
+    rows.sort(
+      (a, b) =>
+        wholeMinutes(b.trackedMs) - wholeMinutes(a.trackedMs) ||
+        a.title.localeCompare(b.title) ||
+        a.id.localeCompare(b.id),
     )
+    result.set(day, rows)
   }
   return result
 }
