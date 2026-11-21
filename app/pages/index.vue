@@ -74,8 +74,9 @@ watch(
   },
 )
 
-// A chore finished from the dock bar (`useFinishChore`) is still in this
-// list — it was fetched before the chore became Done. Refetch.
+// Chores changed from the layout (`useTasksChanged`): one finished from the
+// dock bar is still in this list (fetched before it became Done), and one
+// quick-added for tomorrow isn't in it yet. Refetch.
 const { version: tasksChangedVersion } = useTasksChanged()
 watch(tasksChangedVersion, () => fetchTasks())
 

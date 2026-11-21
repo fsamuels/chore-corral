@@ -113,13 +113,14 @@ watch(activeFarmId, () => {
   fetchMembers()
 })
 
-// A chore finished from the dock bar's Finish button (`useFinishChore`)
-// moves from the open list to Done: refetch both halves.
-const { version: tasksChangedVersion } = useTasksChanged()
-watch(tasksChangedVersion, () => {
-  fetchTasks()
-  fetchDonePage(true)
-})
+// Chores changed from the layout (`useTasksChanged`): a chore finished from
+// the dock bar's Finish button moves from the open list to Done, so both
+// halves refetch; a chore quick-added for tomorrow only touches the open
+// list, so Done keeps its loaded pages.
+const { version: tasksChangedVersion, doneVersion: tasksDoneVersion } =
+  useTasksChanged()
+watch(tasksChangedVersion, () => fetchTasks())
+watch(tasksDoneVersion, () => fetchDonePage(true))
 
 // "Try again" on the chores load error: refetch both halves of the list.
 async function retryChores() {

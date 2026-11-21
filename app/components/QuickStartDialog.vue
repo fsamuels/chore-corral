@@ -1,10 +1,12 @@
 <script setup lang="ts">
-// "Start chore" quick add: for a chore you're about to work on right now.
-// Collects only a title, category and note; the rest is fixed (priority
-// Whenever, due today — see `quickStartTaskInput`). Saving creates the chore
-// in the active farm, starts the signed-in user's timer on it (which flips it
-// to In progress and stops any other running timer, service-side), then
-// goes to Home, where the chore leads "Jump back in". Rendered once from the
+// "Start chore" quick add, with a Now / Tomorrow toggle (always opens on
+// Now). Collects only a title, category and note; the rest is fixed
+// (priority Whenever, due today or tomorrow — see `quickStartTaskInput`).
+// Now: saving creates the chore in the active farm, starts the signed-in
+// user's timer on it (which flips it to In progress and stops any other
+// running timer, service-side), then goes to Home, where the chore leads
+// "Jump back in". Tomorrow: saving creates the chore due tomorrow, starts no
+// timer, and stays on the current page with a toast. Rendered once from the
 // default layout and opened by the "Start chore" button in `NewTaskFab`.
 import type { Database } from '~/types/database.types'
 import { createTask } from '~/services/tasks'
@@ -14,6 +16,7 @@ import {
   loadQuickStartCategory,
   quickStartTaskInput,
   saveQuickStartCategory,
+  type QuickStartWhen,
 } from '~/utils/quick-start'
 
 const open = defineModel<boolean>({ required: true })
@@ -24,12 +27,33 @@ const { activeFarmId } = useFarms()
 const { categories, fetchCategories } = useCategories()
 const { refresh: refreshRunningTimer } = useRunningTimer()
 const { showToast } = useToast()
+const { notifyTasksChanged } = useTasksChanged()
 
+const when = ref<QuickStartWhen>('now')
 const title = ref('')
+const titleField = ref<{ focus: () => void } | null>(null)
 const categoryId = ref<string | null>(null)
 const notes = ref('')
 const saving = ref(false)
 const saveError = ref<string | null>(null)
+
+const whenOptions: { value: QuickStartWhen; label: string; icon: string }[] = [
+  { value: 'now', label: 'Now', icon: 'mdi-lightning-bolt' },
+  { value: 'tomorrow', label: 'Tomorrow', icon: 'mdi-calendar-arrow-right' },
+]
+
+// Keep typing flowing: tapping a toggle option would otherwise take focus
+// off the title field.
+function setWhen(value: QuickStartWhen) {
+  when.value = value
+  titleField.value?.focus()
+}
+
+const hint = computed(() =>
+  when.value === 'now'
+    ? 'Due today, priority Whenever. The timer starts when you save.'
+    : 'Due tomorrow, priority Whenever. No timer.',
+)
 
 const categoryItems = computed(() => [
   { title: '❓ Uncategorized', value: null },
@@ -43,6 +67,7 @@ const categoryItems = computed(() => [
 // changed since the last open) before preselecting the remembered one.
 watch(open, async (isOpen) => {
   if (!isOpen) return
+  when.value = 'now'
   title.value = ''
   notes.value = ''
   saveError.value = null
@@ -74,6 +99,7 @@ async function submit() {
         title: title.value,
         categoryId: categoryId.value,
         notes: notes.value,
+        when: when.value,
       }),
       farmId,
       actorUserId,
@@ -86,6 +112,16 @@ async function submit() {
   }
 
   saveQuickStartCategory(farmId, categoryId.value)
+
+  if (when.value === 'tomorrow') {
+    // No timer and no navigation, so a list page that's open (Home, /tasks)
+    // won't otherwise see the new chore.
+    notifyTasksChanged({ done: false })
+    showToast(`Added “${created.title}” for tomorrow`)
+    saving.value = false
+    open.value = false
+    return
+  }
 
   // The chore exists from here on, so a timer failure doesn't keep the
   // dialog open (saving again would duplicate the chore) — it goes Home
@@ -110,13 +146,29 @@ async function submit() {
 <template>
   <v-dialog v-model="open" max-width="440" :persistent="saving">
     <v-card class="cc-dialog-card">
-      <v-card-title>Start a chore</v-card-title>
+      <v-card-title>{{
+        when === 'now' ? 'Start a chore' : 'Add a chore for tomorrow'
+      }}</v-card-title>
       <v-form @submit.prevent="submit">
         <v-card-text>
-          <p class="quick-start__hint">
-            Due today, priority Whenever. The timer starts when you save.
-          </p>
+          <div class="cc-segmented mb-3" role="group" aria-label="When">
+            <button
+              v-for="option in whenOptions"
+              :key="option.value"
+              type="button"
+              class="cc-segmented__option"
+              :class="{ 'cc-segmented__option--active': when === option.value }"
+              :aria-pressed="when === option.value"
+              :disabled="saving"
+              @click="setWhen(option.value)"
+            >
+              <v-icon :icon="option.icon" size="18" />
+              {{ option.label }}
+            </button>
+          </div>
+          <p class="quick-start__hint">{{ hint }}</p>
           <v-text-field
+            ref="titleField"
             v-model="title"
             label="Title"
             :disabled="saving"
@@ -176,7 +228,7 @@ async function submit() {
               size="18"
               width="2"
             />
-            <template v-else>Start</template>
+            <template v-else>{{ when === 'now' ? 'Start' : 'Add' }}</template>
           </button>
         </div>
       </v-form>

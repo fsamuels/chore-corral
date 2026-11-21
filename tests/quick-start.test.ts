@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   initialQuickStartCategory,
   loadQuickStartCategory,
+  quickStartDueDate,
   quickStartTaskInput,
   saveQuickStartCategory,
 } from '../app/utils/quick-start'
@@ -31,6 +32,46 @@ describe('quickStartTaskInput', () => {
     expect(input.notes).toBeNull()
     expect(input.categoryId).toBeNull()
     expect(input.dueDate).toBe('2026-01-02')
+  })
+})
+
+describe('quickStartTaskInput for tomorrow', () => {
+  it('sets the due date to the local tomorrow', () => {
+    const input = quickStartTaskInput(
+      { title: 'Order hay', categoryId: null, notes: '', when: 'tomorrow' },
+      new Date(2026, 10, 7, 23, 30),
+    )
+
+    expect(input).toEqual({
+      title: 'Order hay',
+      categoryId: null,
+      priority: 'whenever',
+      dueDate: '2026-11-08',
+      notes: null,
+    })
+  })
+})
+
+describe('quickStartDueDate', () => {
+  it('is today for now', () => {
+    expect(quickStartDueDate('now', new Date(2026, 10, 7, 0, 5))).toBe(
+      '2026-11-07',
+    )
+  })
+
+  it('rolls over month and year ends for tomorrow', () => {
+    expect(quickStartDueDate('tomorrow', new Date(2026, 10, 30, 12))).toBe(
+      '2026-12-01',
+    )
+    expect(quickStartDueDate('tomorrow', new Date(2026, 11, 31, 23, 59))).toBe(
+      '2027-01-01',
+    )
+  })
+
+  it('handles leap day', () => {
+    expect(quickStartDueDate('tomorrow', new Date(2028, 1, 28))).toBe(
+      '2028-02-29',
+    )
   })
 })
 
