@@ -6,7 +6,10 @@ import {
   type TaskPriority,
   type TaskStatus,
 } from '~/services/tasks'
-import { latestTrackedEnd } from '~/services/time-entries'
+import {
+  latestTrackedEnd,
+  shouldOfferLastTimerStop,
+} from '~/services/time-entries'
 import { listActivityForTask, type ActivityEntry } from '~/services/activity'
 import {
   listFarmMemberProfiles,
@@ -734,12 +737,7 @@ function onCompletedAtDatePick(value: unknown) {
 const completedAtLabel = computed(() => {
   const completedAt = task.value?.completed_at
   if (!completedAt) return null
-  return new Date(completedAt).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
+  return formatShortDateTime(completedAt)
 })
 
 async function onCompletedAtSave() {
@@ -764,21 +762,12 @@ async function onCompletedAtSave() {
 const lastTrackedEnd = computed(() =>
   latestTrackedEnd(timerState.entries.value ?? []),
 )
-const canUseLastTimerStop = computed(() => {
-  const end = lastTrackedEnd.value
-  const completedAt = task.value?.completed_at
-  if (!end) return false
-  return !completedAt || Date.parse(completedAt) !== Date.parse(end)
-})
-const lastTrackedEndLabel = computed(() => {
-  if (!lastTrackedEnd.value) return ''
-  return new Date(lastTrackedEnd.value).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-})
+const canUseLastTimerStop = computed(() =>
+  shouldOfferLastTimerStop(lastTrackedEnd.value, task.value?.completed_at),
+)
+const lastTrackedEndLabel = computed(() =>
+  lastTrackedEnd.value ? formatShortDateTime(lastTrackedEnd.value) : '',
+)
 
 async function onUseLastTimerStop() {
   const completedAt = lastTrackedEnd.value

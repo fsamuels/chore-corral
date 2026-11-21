@@ -308,3 +308,23 @@ export function runningTotalLabel(
   if (!spans || spans.length < 2) return null
   return `${formatElapsedDuration(totalTrackedMs([...spans], now))} total`
 }
+
+/**
+ * Short local date/time label ("Nov 21, 3:05 PM"), with the year added when
+ * the instant falls outside `now`'s year so an after-the-fact timestamp from
+ * a previous year isn't ambiguous. Empty string for an unparseable value.
+ */
+export function formatShortDateTime(
+  iso: string,
+  now: Date = new Date(),
+): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    ...(date.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}),
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}

@@ -318,3 +318,17 @@ export function latestTrackedEnd(
   }
   return Number.isFinite(latestMs) ? new Date(latestMs).toISOString() : null
 }
+
+/**
+ * Whether to offer snapping `completed_at` to the last timer stop: there must
+ * be a stop, and it must be a different instant than the current value
+ * (compared as instants, so `Z` vs `+00:00` and precision don't matter).
+ */
+export function shouldOfferLastTimerStop(
+  lastEnd: string | null,
+  completedAt: string | null | undefined,
+): boolean {
+  if (!lastEnd) return false
+  if (!completedAt) return true
+  return Date.parse(completedAt) !== Date.parse(lastEnd)
+}

@@ -7,6 +7,7 @@ import {
   formatElapsedDuration,
   formatElapsedWithSeconds,
   formatEstimatedMinutes,
+  formatShortDateTime,
   formatTimeForInput,
   locationDisplayName,
   parseEstimatedMinutesInput,
@@ -284,5 +285,29 @@ describe('runningTotalLabel', () => {
 
   it('is null before the sessions have loaded', () => {
     expect(runningTotalLabel(null, now)).toBeNull()
+  })
+})
+
+describe('formatShortDateTime', () => {
+  const now = new Date(2026, 10, 21, 12, 0)
+
+  it('omits the year within the current year', () => {
+    const label = formatShortDateTime(
+      new Date(2026, 10, 20, 15, 5).toISOString(),
+      now,
+    )
+    expect(label).toBe('Nov 20, 3:05 PM')
+  })
+
+  it('adds the year for another year', () => {
+    const label = formatShortDateTime(
+      new Date(2025, 11, 30, 16, 15).toISOString(),
+      now,
+    )
+    expect(label).toBe('Dec 30, 2025, 4:15 PM')
+  })
+
+  it('returns an empty string for an unparseable value', () => {
+    expect(formatShortDateTime('garbage', now)).toBe('')
   })
 })
