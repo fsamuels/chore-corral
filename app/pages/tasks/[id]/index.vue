@@ -6,6 +6,7 @@ import {
   type TaskPriority,
   type TaskStatus,
 } from '~/services/tasks'
+import { latestTrackedEnd } from '~/services/time-entries'
 import { listActivityForTask, type ActivityEntry } from '~/services/activity'
 import {
   listFarmMemberProfiles,
@@ -757,6 +758,34 @@ async function onCompletedAtSave() {
     completedAtMenu.value = false
 }
 
+// "Use last timer stop": snaps completed_at to the end of the most recently
+// stopped time entry, for a task marked done after the fact. Hidden when
+// there is no closed entry or completed_at already matches it.
+const lastTrackedEnd = computed(() =>
+  latestTrackedEnd(timerState.entries.value ?? []),
+)
+const canUseLastTimerStop = computed(() => {
+  const end = lastTrackedEnd.value
+  const completedAt = task.value?.completed_at
+  if (!end) return false
+  return !completedAt || Date.parse(completedAt) !== Date.parse(end)
+})
+const lastTrackedEndLabel = computed(() => {
+  if (!lastTrackedEnd.value) return ''
+  return new Date(lastTrackedEnd.value).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+})
+
+async function onUseLastTimerStop() {
+  const completedAt = lastTrackedEnd.value
+  if (!completedAt) return
+  await saveTaskField('completedAt', { completedAt })
+}
+
 // --- Delete (moved here from the retired Edit page) ---
 const confirmingDelete = ref(false)
 const deleting = ref(false)
@@ -1488,6 +1517,16 @@ const taskLocation = computed(() =>
               </div>
             </v-card>
           </v-menu>
+          <button
+            v-if="canUseLastTimerStop"
+            type="button"
+            class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm ml-2"
+            :disabled="fieldSaving !== null"
+            @click="onUseLastTimerStop"
+          >
+            <v-icon icon="mdi-timer-stop-outline" size="18" />
+            Use last timer stop ({{ lastTrackedEndLabel }})
+          </button>
         </div>
 
         <div class="cc-card detail-section mb-6">
