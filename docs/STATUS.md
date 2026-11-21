@@ -2,7 +2,11 @@
 
 Current state of the project. Update this as work progresses — it should always reflect reality, not intent.
 
-**Last updated:** 2026-11-13 (daily "My time" summary on Progress)
+**Last updated:** 2026-11-21 (sdlc plugin self-heal hook)
+
+**sdlc plugin self-heal hook (2026-11-21).** The shared `sdlc` plugin sometimes fails to install on a fresh cloud session without any error, which leaves no `/sdlc:*` skills and no docs-before-PR check. sdlc-standards 0.6.0 made vendoring its fix the first step of adopting the plugin, and this repo had skipped it. `scripts/ensure-sdlc-plugin.sh` is a verbatim copy of the standard's `plugins/sdlc/scripts/ensure-installed.sh`, run by a `SessionStart` hook in `.claude/settings.json`. It does nothing when the plugin is already installed; otherwise it adds the marketplace and installs the plugin. A plugin it installs only becomes usable after `/reload-plugins` or in the next session.
+
+- **Checks:** run by hand in the session that added it, which turned out to be missing the plugin. It installed `sdlc@sdlc-standards` 0.7.0, and a second run did nothing. The hook firing at the start of a real session has not been seen yet.
 
 **Daily "My time" summary on the Progress page (2026-11-13).** Direct user ask: for each day, a summary of just chore and total time spent, ordered by most time, to account for how the user spent their time.
 

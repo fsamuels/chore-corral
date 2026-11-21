@@ -4,5 +4,17 @@
       "source": { "source": "github", "repo": "fsamuels/sdlc-standards" }
     }
   },
-  "enabledPlugins": { "sdlc@sdlc-standards": true }
+  "enabledPlugins": { "sdlc@sdlc-standards": true },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR}\"/scripts/ensure-sdlc-plugin.sh"
+          }
+        ]
+      }
+    ]
+  }
 }
