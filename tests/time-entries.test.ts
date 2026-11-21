@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   deleteTimeEntry,
   getRunningEntry,
+  latestTrackedEnd,
   listRecentTimeEntriesForUser,
   recentTaskIdsFromEntries,
   listTimeEntries,
@@ -566,5 +567,32 @@ describe('recentTaskIdsFromEntries', () => {
 
   it('returns an empty list for no entries', () => {
     expect(recentTaskIdsFromEntries([])).toEqual([])
+  })
+})
+
+describe('latestTrackedEnd', () => {
+  it('returns the latest ended_at regardless of entry order', () => {
+    const entries = [
+      entry({ ended_at: '2026-01-02T08:30:00.000Z' }),
+      entry({ ended_at: '2026-01-03T10:00:00.000Z' }),
+      entry({ ended_at: '2026-01-01T09:00:00.000Z' }),
+    ]
+
+    expect(latestTrackedEnd(entries)).toBe('2026-01-03T10:00:00.000Z')
+  })
+
+  it('ignores a running entry', () => {
+    const entries = [
+      entry({ ended_at: '2026-01-01T09:00:00.000Z' }),
+      entry({ started_at: '2026-01-05T08:00:00.000Z', ended_at: null }),
+    ]
+
+    expect(latestTrackedEnd(entries)).toBe('2026-01-01T09:00:00.000Z')
+  })
+
+  it('returns null with no closed entries or unparseable timestamps', () => {
+    expect(latestTrackedEnd([])).toBeNull()
+    expect(latestTrackedEnd([entry({ ended_at: null })])).toBeNull()
+    expect(latestTrackedEnd([entry({ ended_at: 'garbage' })])).toBeNull()
   })
 })
