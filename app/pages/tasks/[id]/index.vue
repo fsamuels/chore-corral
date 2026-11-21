@@ -769,10 +769,14 @@ const lastTrackedEndLabel = computed(() =>
   lastTrackedEnd.value ? formatShortDateTime(lastTrackedEnd.value) : '',
 )
 
-async function onUseLastTimerStop() {
+async function onUseLastTimerStop(): Promise<boolean> {
   const completedAt = lastTrackedEnd.value
-  if (!completedAt) return
-  await saveTaskField('completedAt', { completedAt })
+  if (!completedAt) return false
+  return saveTaskField('completedAt', { completedAt })
+}
+
+async function onUseLastTimerStopFromMenu() {
+  if (await onUseLastTimerStop()) completedAtMenu.value = false
 }
 
 // --- Delete (moved here from the retired Edit page) ---
@@ -1480,6 +1484,16 @@ const taskLocation = computed(() =>
                   variant="outlined"
                   hide-details
                 />
+                <button
+                  v-if="canUseLastTimerStop"
+                  type="button"
+                  class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--xs mt-3"
+                  :disabled="fieldSaving !== null"
+                  @click="onUseLastTimerStopFromMenu"
+                >
+                  <v-icon icon="mdi-timer-stop-outline" size="16" />
+                  Last timer stop ({{ lastTrackedEndLabel }})
+                </button>
               </v-card-text>
               <div class="cc-actions detail-menu-actions">
                 <button
@@ -1509,12 +1523,14 @@ const taskLocation = computed(() =>
           <button
             v-if="canUseLastTimerStop"
             type="button"
-            class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm ml-2"
+            class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--xs ml-2"
+            :title="`Set to last timer stop (${lastTrackedEndLabel})`"
+            :aria-label="`Set completed time to last timer stop, ${lastTrackedEndLabel}`"
             :disabled="fieldSaving !== null"
             @click="onUseLastTimerStop"
           >
-            <v-icon icon="mdi-timer-stop-outline" size="18" />
-            Use last timer stop ({{ lastTrackedEndLabel }})
+            <v-icon icon="mdi-timer-stop-outline" size="16" />
+            Last stop
           </button>
         </div>
 

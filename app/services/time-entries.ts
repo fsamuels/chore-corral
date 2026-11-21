@@ -321,8 +321,9 @@ export function latestTrackedEnd(
 
 /**
  * Whether to offer snapping `completed_at` to the last timer stop: there must
- * be a stop, and it must be a different instant than the current value
- * (compared as instants, so `Z` vs `+00:00` and precision don't matter).
+ * be a stop, and it must fall in a different minute than the current value
+ * (compared as instants truncated to the minute, so `Z` vs `+00:00` and
+ * seconds/precision don't matter — the UI only shows minutes).
  */
 export function shouldOfferLastTimerStop(
   lastEnd: string | null,
@@ -330,5 +331,6 @@ export function shouldOfferLastTimerStop(
 ): boolean {
   if (!lastEnd) return false
   if (!completedAt) return true
-  return Date.parse(completedAt) !== Date.parse(lastEnd)
+  const minute = (iso: string) => Math.floor(Date.parse(iso) / 60_000)
+  return minute(completedAt) !== minute(lastEnd)
 }

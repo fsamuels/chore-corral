@@ -623,6 +623,21 @@ describe('shouldOfferLastTimerStop', () => {
     ).toBe(false)
   })
 
+  it('hides when both fall in the same minute, offers across a minute boundary', () => {
+    expect(
+      shouldOfferLastTimerStop(
+        '2026-01-01T09:00:59.900Z',
+        '2026-01-01T09:00:00.000Z',
+      ),
+    ).toBe(false)
+    expect(
+      shouldOfferLastTimerStop(
+        '2026-01-01T09:01:00.000Z',
+        '2026-01-01T09:00:59.900Z',
+      ),
+    ).toBe(true)
+  })
+
   it('hides when there is no stop', () => {
     expect(shouldOfferLastTimerStop(null, '2026-01-01T09:00:00.000Z')).toBe(
       false,
