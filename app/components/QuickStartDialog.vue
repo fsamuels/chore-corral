@@ -116,7 +116,7 @@ async function submit() {
   if (when.value === 'tomorrow') {
     // No timer and no navigation, so a list page that's open (Home, /tasks)
     // won't otherwise see the new chore.
-    notifyTasksChanged()
+    notifyTasksChanged({ done: false })
     showToast(`Added “${created.title}” for tomorrow`)
     saving.value = false
     open.value = false

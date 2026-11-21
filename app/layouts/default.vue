@@ -46,7 +46,8 @@ const farmName = computed(() => activeFarm.value?.name ?? 'Chore Corral')
 
 const drawer = ref(false)
 
-// The "Start chore" quick-add dialog, opened from the floating button.
+// The quick-add dialog (start a chore now, or add one for tomorrow), opened
+// from the floating lightning button.
 const quickStartOpen = ref(false)
 
 // The drawer's account header shows the signed-in user's Google profile

@@ -30,7 +30,7 @@ Current state of the project. Update this as work progresses — it should alway
 **Quick add a chore for tomorrow (2026-11-21).** Direct user ask: add a chore for tomorrow as fast as the quick-start button, by extending that button or dialog.
 
 - **Dialog:** the lightning-bolt button's dialog now has a Now / Tomorrow toggle at the top. It opens on Now every time, so the start-now flow is unchanged. On Tomorrow, the title changes to "Add a chore for tomorrow", the button reads "Add", and saving creates the chore due tomorrow with priority Whenever. No timer starts, and you stay on the current page with an "Added … for tomorrow" toast. Tapping the toggle puts focus back on Title. Category, notes and the remembered category work the same in both modes.
-- **Lists:** saving a tomorrow chore bumps the existing `useTasksChanged` signal, so Home and `/tasks` refetch and show it without a reload.
+- **Lists:** saving a tomorrow chore bumps the existing `useTasksChanged` signal, so Home and `/tasks` refetch and show it without a reload. The signal now has a separate Done counter (`doneVersion`) that only the Finish flow bumps, so a tomorrow chore doesn't reset `/tasks`' "Load more" Done pages.
 - **Code:** `QuickStartDialog.vue`, `app/utils/quick-start.ts` (new `QuickStartWhen` type, `when` field and `quickStartDueDate`), and `NewTaskFab.vue` (button label now "Quick add chore (now or tomorrow)").
 
 **Checks:** lint, format, typecheck, the 585-case suite and `nuxt build` pass. New tests cover tomorrow's due date across month, year and leap-day rollover. The dialog was screenshotted in both modes from a production build in headless Chromium at 360px. Creating a chore was not run against a live Supabase project.

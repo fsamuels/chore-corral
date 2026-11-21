@@ -1,7 +1,8 @@
 <script setup lang="ts">
-// Floating "+ New chore" pill, fixed bottom-right, with a smaller "Start
-// chore" circle beside it that opens the quick-start dialog (emitted as
-// `quick-start`; the layout owns the dialog). Rendered once from the
+// Floating "+ New chore" pill, fixed bottom-right, with a smaller lightning
+// "Quick add chore" circle beside it that opens the quick-start dialog (start
+// now, or add for tomorrow; emitted as `quick-start`; the layout owns the
+// dialog). Rendered once from the
 // layout on every page; hides itself on the new-task page (no point linking
 // to where you already are) and on the map page (the pins already cover most
 // of the screen, and adding a chore isn't this page's job). Collapses to an
