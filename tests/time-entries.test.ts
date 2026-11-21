@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   deleteTimeEntry,
   getRunningEntry,
+  latestTrackedEnd,
+  shouldOfferLastTimerStop,
   listRecentTimeEntriesForUser,
   recentTaskIdsFromEntries,
   listTimeEntries,
@@ -566,5 +568,64 @@ describe('recentTaskIdsFromEntries', () => {
 
   it('returns an empty list for no entries', () => {
     expect(recentTaskIdsFromEntries([])).toEqual([])
+  })
+})
+
+describe('latestTrackedEnd', () => {
+  it('returns the latest ended_at regardless of entry order', () => {
+    const entries = [
+      entry({ ended_at: '2026-01-02T08:30:00.000Z' }),
+      entry({ ended_at: '2026-01-03T10:00:00.000Z' }),
+      entry({ ended_at: '2026-01-01T09:00:00.000Z' }),
+    ]
+
+    expect(latestTrackedEnd(entries)).toBe('2026-01-03T10:00:00.000Z')
+  })
+
+  it('ignores a running entry', () => {
+    const entries = [
+      entry({ ended_at: '2026-01-01T09:00:00.000Z' }),
+      entry({ started_at: '2026-01-05T08:00:00.000Z', ended_at: null }),
+    ]
+
+    expect(latestTrackedEnd(entries)).toBe('2026-01-01T09:00:00.000Z')
+  })
+
+  it('returns null with no closed entries or unparseable timestamps', () => {
+    expect(latestTrackedEnd([])).toBeNull()
+    expect(latestTrackedEnd([entry({ ended_at: null })])).toBeNull()
+    expect(latestTrackedEnd([entry({ ended_at: 'garbage' })])).toBeNull()
+  })
+})
+
+describe('shouldOfferLastTimerStop', () => {
+  it('offers when there is a stop and no completed_at', () => {
+    expect(shouldOfferLastTimerStop('2026-01-01T09:00:00.000Z', null)).toBe(
+      true,
+    )
+  })
+
+  it('offers when completed_at is a different instant', () => {
+    expect(
+      shouldOfferLastTimerStop(
+        '2026-01-01T09:00:00.000Z',
+        '2026-01-03T12:00:00.000Z',
+      ),
+    ).toBe(true)
+  })
+
+  it('hides when completed_at is the same instant in another format', () => {
+    expect(
+      shouldOfferLastTimerStop(
+        '2026-01-01T09:00:00.000Z',
+        '2026-01-01T09:00:00+00:00',
+      ),
+    ).toBe(false)
+  })
+
+  it('hides when there is no stop', () => {
+    expect(shouldOfferLastTimerStop(null, '2026-01-01T09:00:00.000Z')).toBe(
+      false,
+    )
   })
 })

@@ -6,6 +6,10 @@ import {
   type TaskPriority,
   type TaskStatus,
 } from '~/services/tasks'
+import {
+  latestTrackedEnd,
+  shouldOfferLastTimerStop,
+} from '~/services/time-entries'
 import { listActivityForTask, type ActivityEntry } from '~/services/activity'
 import {
   listFarmMemberProfiles,
@@ -733,12 +737,7 @@ function onCompletedAtDatePick(value: unknown) {
 const completedAtLabel = computed(() => {
   const completedAt = task.value?.completed_at
   if (!completedAt) return null
-  return new Date(completedAt).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
+  return formatShortDateTime(completedAt)
 })
 
 async function onCompletedAtSave() {
@@ -755,6 +754,25 @@ async function onCompletedAtSave() {
   }
   if (await saveTaskField('completedAt', { completedAt }))
     completedAtMenu.value = false
+}
+
+// "Use last timer stop": snaps completed_at to the end of the most recently
+// stopped time entry, for a task marked done after the fact. Hidden when
+// there is no closed entry or completed_at already matches it.
+const lastTrackedEnd = computed(() =>
+  latestTrackedEnd(timerState.entries.value ?? []),
+)
+const canUseLastTimerStop = computed(() =>
+  shouldOfferLastTimerStop(lastTrackedEnd.value, task.value?.completed_at),
+)
+const lastTrackedEndLabel = computed(() =>
+  lastTrackedEnd.value ? formatShortDateTime(lastTrackedEnd.value) : '',
+)
+
+async function onUseLastTimerStop() {
+  const completedAt = lastTrackedEnd.value
+  if (!completedAt) return
+  await saveTaskField('completedAt', { completedAt })
 }
 
 // --- Delete (moved here from the retired Edit page) ---
@@ -1488,6 +1506,16 @@ const taskLocation = computed(() =>
               </div>
             </v-card>
           </v-menu>
+          <button
+            v-if="canUseLastTimerStop"
+            type="button"
+            class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--sm ml-2"
+            :disabled="fieldSaving !== null"
+            @click="onUseLastTimerStop"
+          >
+            <v-icon icon="mdi-timer-stop-outline" size="18" />
+            Use last timer stop ({{ lastTrackedEndLabel }})
+          </button>
         </div>
 
         <div class="cc-card detail-section mb-6">

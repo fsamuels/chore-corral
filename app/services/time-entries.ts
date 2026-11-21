@@ -300,3 +300,35 @@ export function totalTrackedMs(
   }
   return total
 }
+
+/**
+ * The ISO timestamp of the most recent end among a task's closed entries, or
+ * null when none has ended (no entries, only a running one, or unparseable
+ * timestamps). Used to snap a done task's `completed_at` to when the last
+ * timer was stopped.
+ */
+export function latestTrackedEnd(
+  entries: Pick<TimeEntrySummary, 'ended_at'>[],
+): string | null {
+  let latestMs = Number.NEGATIVE_INFINITY
+  for (const entry of entries) {
+    if (entry.ended_at === null) continue
+    const end = Date.parse(entry.ended_at)
+    if (!Number.isNaN(end) && end > latestMs) latestMs = end
+  }
+  return Number.isFinite(latestMs) ? new Date(latestMs).toISOString() : null
+}
+
+/**
+ * Whether to offer snapping `completed_at` to the last timer stop: there must
+ * be a stop, and it must be a different instant than the current value
+ * (compared as instants, so `Z` vs `+00:00` and precision don't matter).
+ */
+export function shouldOfferLastTimerStop(
+  lastEnd: string | null,
+  completedAt: string | null | undefined,
+): boolean {
+  if (!lastEnd) return false
+  if (!completedAt) return true
+  return Date.parse(completedAt) !== Date.parse(lastEnd)
+}
