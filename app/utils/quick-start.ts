@@ -1,19 +1,42 @@
 import { toLocalDateString, type CreateTaskInput } from '~/services/tasks'
 
 /**
- * Fields the quick-start dialog collects. Everything else on a quick-started
- * chore is fixed: priority Whenever, due today, no estimate, location, tags
- * or assignees.
+ * When a quick-added chore is for: `now` (due today, timer starts on save)
+ * or `tomorrow` (due tomorrow, no timer).
+ */
+export type QuickStartWhen = 'now' | 'tomorrow'
+
+/**
+ * Fields the quick-start dialog collects. Everything else on a quick-added
+ * chore is fixed: priority Whenever, due today or tomorrow (per `when`), no
+ * estimate, location, tags or assignees.
  */
 export interface QuickStartFields {
   title: string
   categoryId: string | null
   notes: string
+  /** Defaults to `now`. */
+  when?: QuickStartWhen
 }
 
 /**
- * The `createTask` input for a quick-started chore. `now` is injectable so
- * "due today" is testable; it's the local calendar date, like the full form's
+ * The local calendar date a quick-added chore is due: today for `now`,
+ * tomorrow for `tomorrow`. Built from Y/M/D components so month/year
+ * rollover and DST days stay on local calendar days.
+ */
+export function quickStartDueDate(
+  when: QuickStartWhen,
+  now: Date = new Date(),
+): string {
+  const offset = when === 'tomorrow' ? 1 : 0
+  return toLocalDateString(
+    new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset),
+  )
+}
+
+/**
+ * The `createTask` input for a quick-added chore. `now` is injectable so the
+ * due date is testable; it's the local calendar date, like the full form's
  * date picker.
  */
 export function quickStartTaskInput(
@@ -24,7 +47,7 @@ export function quickStartTaskInput(
     title: fields.title.trim(),
     categoryId: fields.categoryId,
     priority: 'whenever',
-    dueDate: toLocalDateString(now),
+    dueDate: quickStartDueDate(fields.when ?? 'now', now),
     notes: fields.notes.trim() || null,
   }
 }

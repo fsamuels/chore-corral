@@ -72,8 +72,8 @@ watch(
     <button
       type="button"
       class="new-task-fab__quick"
-      aria-label="Start chore now"
-      title="Start chore now"
+      aria-label="Quick add chore (now or tomorrow)"
+      title="Quick add chore (now or tomorrow)"
       @click="$emit('quick-start')"
     >
       <v-icon icon="mdi-lightning-bolt" size="28" />

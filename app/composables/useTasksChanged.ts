@@ -1,8 +1,9 @@
 /**
- * A "some chore's status changed outside the page showing the list" signal.
- * The dock bar's Finish flow can mark a chore done while Home is open; Home
- * holds its own `useTasks` list (not shared), so it watches `version` and
- * refetches. Bumped only by flows that change tasks from the layout.
+ * A "chores changed outside the page showing the list" signal. The dock
+ * bar's Finish flow can mark a chore done, and the quick-add dialog can add a
+ * chore for tomorrow, while Home is open; Home holds its own `useTasks` list
+ * (not shared), so it watches `version` and refetches. Bumped only by flows
+ * that change tasks from the layout.
  */
 export function useTasksChanged() {
   const version = useState<number>('tasks-changed-version', () => 0)

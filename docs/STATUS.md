@@ -27,6 +27,14 @@ Current state of the project. Update this as work progresses — it should alway
 
 **Checks:** lint, format, typecheck and the 559-case suite pass. Screenshotted from a production build in headless Chromium at 360px and 1200px, with sign-in bypassed locally (not committed) and emulated geolocation. At 360px, a farm name as wide as "Chore Corral" still fits on one line. Longer farm names already wrapped before this change. Tapping the icon-only button and then allowing location switched it to the times.
 
+**Quick add a chore for tomorrow (2026-11-21).** Direct user ask: add a chore for tomorrow as fast as the quick-start button, by extending that button or dialog.
+
+- **Dialog:** the lightning-bolt button's dialog now has a Now / Tomorrow toggle at the top. It opens on Now every time, so the start-now flow is unchanged. On Tomorrow, the title changes to "Add a chore for tomorrow", the button reads "Add", and saving creates the chore due tomorrow with priority Whenever. No timer starts, and you stay on the current page with an "Added … for tomorrow" toast. Tapping the toggle puts focus back on Title. Category, notes and the remembered category work the same in both modes.
+- **Lists:** saving a tomorrow chore bumps the existing `useTasksChanged` signal, so Home and `/tasks` refetch and show it without a reload.
+- **Code:** `QuickStartDialog.vue`, `app/utils/quick-start.ts` (new `QuickStartWhen` type, `when` field and `quickStartDueDate`), and `NewTaskFab.vue` (button label now "Quick add chore (now or tomorrow)").
+
+**Checks:** lint, format, typecheck, the 585-case suite and `nuxt build` pass. New tests cover tomorrow's due date across month, year and leap-day rollover. The dialog was screenshotted in both modes from a production build in headless Chromium at 360px. Creating a chore was not run against a live Supabase project.
+
 **Sunrise/sunset pill on Home (2026-11-10).** Direct user ask: see today's sunrise and sunset for the current location, near the open/urgent/overdue pills.
 
 - **Pill:** sits at the right end of Home's stat row (wraps under the counts on narrow screens) and reads, for example, "↑ 6:39 AM ↓ 4:48 PM" with sunrise/sunset icons, in the device's time zone. Above the polar circles it shows "Sun up all day" or "Sun down all day" instead. It rolls over to the new day at midnight even if Home stays open.
