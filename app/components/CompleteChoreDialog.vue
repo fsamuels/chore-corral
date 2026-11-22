@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { CompleterMemberItem } from '~/components/CompleterPicker.vue'
 import type { TaskCompleter } from '~/services/completers'
+import { shouldOfferLastTimerStop } from '~/services/time-entries'
 import {
   completersFromDrafts,
   prefillCompleterDrafts,
@@ -24,6 +25,12 @@ const props = defineProps<{
   existingCompleters: readonly TaskCompleter[]
   /** Signed-in member's id, the prefill when nobody's credited yet. */
   actorUserId?: string
+  /**
+   * End of the chore's most recent stopped timer, when the caller has one and
+   * no timer is still running on it. Offered as the completion time, for a
+   * chore closed out well after the work stopped. Omit (or null) to hide.
+   */
+  lastStopAt?: string | null
   busy?: boolean
   error?: string | null
 }>()
@@ -31,18 +38,37 @@ const props = defineProps<{
 const open = defineModel<boolean>({ required: true })
 
 const emit = defineEmits<{
-  confirm: [payload: { note: string; completers: TaskCompleter[] }]
+  confirm: [
+    payload: {
+      note: string
+      completers: TaskCompleter[]
+      completedAt: string | null
+    },
+  ]
 }>()
 
 const note = ref('')
 const membersDraft = ref<string[]>([])
 const namesDraft = ref<string[]>([])
+// Whether to offer (and apply) the last timer stop as the completion time.
+// Offered only when it falls in a different minute than now — otherwise it
+// would change nothing. Decided when the dialog opens so it doesn't flicker.
+const offerLastStop = ref(false)
+const useLastStop = ref(false)
+const lastStopLabel = computed(() =>
+  props.lastStopAt ? formatShortDateTime(props.lastStopAt) : '',
+)
 
 watch(
   open,
   (isOpen) => {
     if (!isOpen) return
     note.value = ''
+    useLastStop.value = false
+    offerLastStop.value = shouldOfferLastTimerStop(
+      props.lastStopAt ?? null,
+      new Date().toISOString(),
+    )
     const drafts = prefillCompleterDrafts(
       props.existingCompleters,
       props.actorUserId,
@@ -57,6 +83,10 @@ function onConfirm() {
   emit('confirm', {
     note: note.value,
     completers: completersFromDrafts(membersDraft.value, namesDraft.value),
+    completedAt:
+      offerLastStop.value && useLastStop.value
+        ? (props.lastStopAt ?? null)
+        : null,
   })
 }
 </script>
@@ -86,6 +116,15 @@ function onConfirm() {
           :member-items="memberItems"
           :disabled="busy"
           class="mb-3"
+        />
+        <v-checkbox
+          v-if="offerLastStop"
+          v-model="useLastStop"
+          density="compact"
+          hide-details
+          class="mb-3"
+          :disabled="busy"
+          :label="`Completed at last timer stop (${lastStopLabel})`"
         />
         <v-alert v-if="error" type="error" variant="tonal" density="compact">
           {{ error }}

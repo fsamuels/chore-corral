@@ -119,7 +119,7 @@ Fixed, multi-state (not binary).
 - **In Progress**
 - **Done**
 
-Moving to Done sets `completed_at`. Moving out of Done (reopening a task) **clears** `completed_at` — no historical record of prior completion times is kept beyond the Activity Log's "status changed" event. `completed_at` (and completion attribution, which may credit more than one person) can also be edited independently afterward, e.g. to correct a task marked done well after it was actually finished. A "Use last timer stop" shortcut on the task page sets `completed_at` to the end of the most recently stopped time entry (a small "Last stop" pill, also offered inside the Completed-at menu; shown only when one exists and falls in a different minute than the current value).
+Moving to Done sets `completed_at`. Moving out of Done (reopening a task) **clears** `completed_at` — no historical record of prior completion times is kept beyond the Activity Log's "status changed" event. `completed_at` (and completion attribution, which may credit more than one person) can also be edited independently afterward, e.g. to correct a task marked done well after it was actually finished. A "Use last timer stop" shortcut on the task page sets `completed_at` to the end of the most recently stopped time entry (a small "Last stop" pill, shown only when one exists and falls in a different minute than the current value). The "Mark chore as done?" dialog also offers it as an opt-in "Completed at last timer stop" checkbox (when no timer is still running on the chore and the stop is in a different minute than now), so a chore closed out late is stamped correctly in the same step..
 
 Completed tasks remain visible and filterable in the task list (not hidden/archived).
 

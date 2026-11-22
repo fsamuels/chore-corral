@@ -246,12 +246,13 @@ async function applyStatusChange(
   status: TaskStatus,
   note?: string | null,
   completers?: TaskCompleter[],
+  completedAt?: string | null,
 ): Promise<void> {
   if (!task.value) return
   statusChanging.value = true
   statusChangeError.value = null
   try {
-    await setStatus(task.value.id, status, note, completers)
+    await setStatus(task.value.id, status, note, completers, completedAt)
     await fetchTask()
     notifySaved()
   } catch (error) {
@@ -288,8 +289,14 @@ async function confirmInProgress() {
 async function confirmDone(payload: {
   note: string
   completers: TaskCompleter[]
+  completedAt: string | null
 }) {
-  await applyStatusChange('done', payload.note, payload.completers)
+  await applyStatusChange(
+    'done',
+    payload.note,
+    payload.completers,
+    payload.completedAt,
+  )
   if (statusChangeError.value !== null) return
   doneDialog.value = false
   // A finished chore needs nothing more here — head back to the home
@@ -769,15 +776,19 @@ const lastTrackedEndLabel = computed(() =>
   lastTrackedEnd.value ? formatShortDateTime(lastTrackedEnd.value) : '',
 )
 
-async function onUseLastTimerStop(): Promise<boolean> {
+async function onUseLastTimerStop() {
   const completedAt = lastTrackedEnd.value
-  if (!completedAt) return false
-  return saveTaskField('completedAt', { completedAt })
+  if (!completedAt) return
+  await saveTaskField('completedAt', { completedAt })
 }
 
-async function onUseLastTimerStopFromMenu() {
-  if (await onUseLastTimerStop()) completedAtMenu.value = false
-}
+// The finish dialog offers the last stop as the completion time — but not
+// while a timer is still running on this chore (its end would be "now").
+const finishDialogLastStop = computed(() =>
+  timerState.runningEntry.value?.task_id === task.value?.id
+    ? null
+    : lastTrackedEnd.value,
+)
 
 // --- Delete (moved here from the retired Edit page) ---
 const confirmingDelete = ref(false)
@@ -1484,16 +1495,6 @@ const taskLocation = computed(() =>
                   variant="outlined"
                   hide-details
                 />
-                <button
-                  v-if="canUseLastTimerStop"
-                  type="button"
-                  class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--xs mt-3"
-                  :disabled="fieldSaving !== null"
-                  @click="onUseLastTimerStopFromMenu"
-                >
-                  <v-icon icon="mdi-timer-stop-outline" size="16" />
-                  Last timer stop ({{ lastTrackedEndLabel }})
-                </button>
               </v-card-text>
               <div class="cc-actions detail-menu-actions">
                 <button
@@ -1819,6 +1820,7 @@ const taskLocation = computed(() =>
           :member-items="memberItems"
           :existing-completers="task.completers"
           :actor-user-id="getActorUserId(currentUser)"
+          :last-stop-at="finishDialogLastStop"
           :busy="statusChanging"
           :error="statusChangeError"
           @confirm="confirmDone"
