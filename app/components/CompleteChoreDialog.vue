@@ -53,10 +53,12 @@ const namesDraft = ref<string[]>([])
 // Whether to offer (and apply) the last timer stop as the completion time.
 // Offered only when it falls in a different minute than now — otherwise it
 // would change nothing. Decided when the dialog opens so it doesn't flicker.
-const offerLastStop = ref(false)
+// The stop is snapshotted on open so the label and the saved time can't
+// drift from what was offered if the prop changes while the dialog is open.
+const offeredStop = ref<string | null>(null)
 const useLastStop = ref(false)
 const lastStopLabel = computed(() =>
-  props.lastStopAt ? formatShortDateTime(props.lastStopAt) : '',
+  offeredStop.value ? formatShortDateTime(offeredStop.value) : '',
 )
 
 watch(
@@ -65,10 +67,10 @@ watch(
     if (!isOpen) return
     note.value = ''
     useLastStop.value = false
-    offerLastStop.value = shouldOfferLastTimerStop(
-      props.lastStopAt ?? null,
-      new Date().toISOString(),
-    )
+    const stop = props.lastStopAt ?? null
+    offeredStop.value = shouldOfferLastTimerStop(stop, new Date().toISOString())
+      ? stop
+      : null
     const drafts = prefillCompleterDrafts(
       props.existingCompleters,
       props.actorUserId,
@@ -83,10 +85,7 @@ function onConfirm() {
   emit('confirm', {
     note: note.value,
     completers: completersFromDrafts(membersDraft.value, namesDraft.value),
-    completedAt:
-      offerLastStop.value && useLastStop.value
-        ? (props.lastStopAt ?? null)
-        : null,
+    completedAt: useLastStop.value ? offeredStop.value : null,
   })
 }
 </script>
@@ -118,7 +117,7 @@ function onConfirm() {
           class="mb-3"
         />
         <v-checkbox
-          v-if="offerLastStop"
+          v-if="offeredStop"
           v-model="useLastStop"
           density="compact"
           hide-details

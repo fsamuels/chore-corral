@@ -321,16 +321,32 @@ export function latestTrackedEnd(
 
 /**
  * Whether to offer snapping `completed_at` to the last timer stop: there must
- * be a stop, and it must fall in a different minute than the current value
+ * be a stop that is not in the future (a hand-edited entry can end later than
+ * now), and it must fall in a different minute than the current value
  * (compared as instants truncated to the minute, so `Z` vs `+00:00` and
  * seconds/precision don't matter — the UI only shows minutes).
  */
 export function shouldOfferLastTimerStop(
   lastEnd: string | null,
   completedAt: string | null | undefined,
+  now: Date = new Date(),
 ): boolean {
   if (!lastEnd) return false
+  if (Date.parse(lastEnd) > now.getTime()) return false
   if (!completedAt) return true
   const minute = (iso: string) => Math.floor(Date.parse(iso) / 60_000)
   return minute(completedAt) !== minute(lastEnd)
+}
+
+/**
+ * The last timer stop to offer in the finish dialog: null while *any* entry on
+ * the chore is still running (entries cover every farm member, so this also
+ * catches a teammate's open session, which the signed-in user's own running
+ * timer wouldn't), otherwise the latest closed end.
+ */
+export function lastStopForFinish(
+  entries: Pick<TimeEntrySummary, 'ended_at'>[],
+): string | null {
+  if (entries.some((entry) => entry.ended_at === null)) return null
+  return latestTrackedEnd(entries)
 }

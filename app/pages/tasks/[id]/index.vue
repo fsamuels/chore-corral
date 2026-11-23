@@ -7,6 +7,7 @@ import {
   type TaskStatus,
 } from '~/services/tasks'
 import {
+  lastStopForFinish,
   latestTrackedEnd,
   shouldOfferLastTimerStop,
 } from '~/services/time-entries'
@@ -783,11 +784,12 @@ async function onUseLastTimerStop() {
 }
 
 // The finish dialog offers the last stop as the completion time — but not
-// while a timer is still running on this chore (its end would be "now").
+// while any timer is still running on this chore (its end would be "now"),
+// whether this user's or another member's.
 const finishDialogLastStop = computed(() =>
   timerState.runningEntry.value?.task_id === task.value?.id
     ? null
-    : lastTrackedEnd.value,
+    : lastStopForFinish(timerState.entries.value ?? []),
 )
 
 // --- Delete (moved here from the retired Edit page) ---
