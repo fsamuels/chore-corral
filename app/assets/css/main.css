@@ -270,6 +270,12 @@
   height: 44px;
 }
 
+.cc-pill-btn--xs {
+  height: 32px;
+  padding-inline: 12px;
+  font-size: 0.8125rem;
+}
+
 .cc-pill-btn--lg {
   height: 52px;
 }

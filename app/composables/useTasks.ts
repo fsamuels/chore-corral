@@ -100,6 +100,7 @@ export function useTasks(options: UseTasksOptions = {}) {
     status: TaskStatus,
     note?: string | null,
     completers?: TaskCompleter[],
+    completedAt?: string | null,
   ): Promise<void> {
     const farmId = activeFarmId.value
     const actorUserId = getActorUserId(user.value)
@@ -113,6 +114,7 @@ export function useTasks(options: UseTasksOptions = {}) {
       actorUserId,
       note,
       completers,
+      completedAt,
     })
     tasks.value =
       tasks.value?.map((task) => (task.id === updated.id ? updated : task)) ??

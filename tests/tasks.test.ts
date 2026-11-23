@@ -447,6 +447,60 @@ describe('createTask', () => {
 })
 
 describe('changeTaskStatus', () => {
+  it('uses an explicit completedAt on the move to done instead of now', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1', status: 'in_progress' })],
+      task_completers: [],
+      activity_log: [],
+    })
+
+    const result = await changeTaskStatus(asSupabaseClient(fake), {
+      farmId: FARM_A,
+      taskId: 'task-1',
+      status: 'done',
+      actorUserId: ACTOR,
+      completedAt: '2026-01-01T09:00:00.000Z',
+    })
+
+    expect(result.completed_at).toBe('2026-01-01T09:00:00.000Z')
+  })
+
+  it('rejects an unparseable completedAt on the move to done', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1', status: 'in_progress' })],
+      task_completers: [],
+      activity_log: [],
+    })
+
+    await expect(
+      changeTaskStatus(asSupabaseClient(fake), {
+        farmId: FARM_A,
+        taskId: 'task-1',
+        status: 'done',
+        actorUserId: ACTOR,
+        completedAt: 'garbage',
+      }),
+    ).rejects.toThrow('Completed date/time is invalid')
+  })
+
+  it('ignores completedAt for a non-done target', async () => {
+    const fake = new FakeSupabaseClient({
+      tasks: [task({ id: 'task-1', status: 'not_started' })],
+      task_completers: [],
+      activity_log: [],
+    })
+
+    const result = await changeTaskStatus(asSupabaseClient(fake), {
+      farmId: FARM_A,
+      taskId: 'task-1',
+      status: 'in_progress',
+      actorUserId: ACTOR,
+      completedAt: '2026-01-01T09:00:00.000Z',
+    })
+
+    expect(result.completed_at).toBeNull()
+  })
+
   it('moves not_started to done, sets completed_at, and auto-credits the actor as the sole completer', async () => {
     const fake = new FakeSupabaseClient({
       tasks: [

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   deleteTimeEntry,
   getRunningEntry,
+  lastStopForFinish,
   latestTrackedEnd,
   shouldOfferLastTimerStop,
   listRecentTimeEntriesForUser,
@@ -623,9 +624,61 @@ describe('shouldOfferLastTimerStop', () => {
     ).toBe(false)
   })
 
+  it('hides when both fall in the same minute, offers across a minute boundary', () => {
+    expect(
+      shouldOfferLastTimerStop(
+        '2026-01-01T09:00:59.900Z',
+        '2026-01-01T09:00:00.000Z',
+      ),
+    ).toBe(false)
+    expect(
+      shouldOfferLastTimerStop(
+        '2026-01-01T09:01:00.000Z',
+        '2026-01-01T09:00:59.900Z',
+      ),
+    ).toBe(true)
+  })
+
   it('hides when there is no stop', () => {
     expect(shouldOfferLastTimerStop(null, '2026-01-01T09:00:00.000Z')).toBe(
       false,
     )
+  })
+})
+
+describe('lastStopForFinish', () => {
+  it('returns the latest closed end when nothing is running', () => {
+    const entries = [
+      entry({ ended_at: '2026-01-01T09:00:00.000Z' }),
+      entry({ ended_at: '2026-01-02T09:00:00.000Z' }),
+    ]
+
+    expect(lastStopForFinish(entries)).toBe('2026-01-02T09:00:00.000Z')
+  })
+
+  it("returns null while any entry is still running, even another member's", () => {
+    const entries = [
+      entry({ ended_at: '2026-01-01T09:00:00.000Z' }),
+      entry({ user_id: 'user-2', ended_at: null }),
+    ]
+
+    expect(lastStopForFinish(entries)).toBeNull()
+  })
+
+  it('returns null with no entries', () => {
+    expect(lastStopForFinish([])).toBeNull()
+  })
+})
+
+describe('shouldOfferLastTimerStop (future stops)', () => {
+  it('does not offer a stop later than now', () => {
+    const now = new Date('2026-01-01T12:00:00.000Z')
+
+    expect(
+      shouldOfferLastTimerStop('2026-01-02T18:00:00.000Z', null, now),
+    ).toBe(false)
+    expect(
+      shouldOfferLastTimerStop('2026-01-01T11:00:00.000Z', null, now),
+    ).toBe(true)
   })
 })

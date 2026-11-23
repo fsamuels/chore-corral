@@ -745,6 +745,10 @@ export async function updateTask(
  * empty one — becomes the task's whole completer set. It's validated before
  * the status write so a bad set fails without half-applying the transition.
  * Ignored for any non-done target (leaving done always clears the set).
+ *
+ * `completedAt` (done target only) overrides the default of "now" — for a
+ * chore finished earlier than it was closed out (see the finish dialog's
+ * "last timer stop" option). Ignored for any other target.
  */
 export async function changeTaskStatus(
   supabase: Client,
@@ -755,11 +759,13 @@ export async function changeTaskStatus(
     actorUserId: string
     note?: string | null
     completers?: TaskCompleter[]
+    completedAt?: string | null
   },
 ): Promise<TaskSummary> {
   if (opts.status === 'done' && opts.completers) {
     assertValidCompleters(opts.completers)
   }
+  if (opts.status === 'done') assertValidCompletedAt(opts.completedAt ?? null)
 
   const { data: current, error: readError } = await supabase
     .from('tasks')
@@ -798,7 +804,10 @@ export async function changeTaskStatus(
     .from('tasks')
     .update({
       status: opts.status,
-      completed_at: opts.status === 'done' ? new Date().toISOString() : null,
+      completed_at:
+        opts.status === 'done'
+          ? (opts.completedAt ?? new Date().toISOString())
+          : null,
     })
     .eq('id', opts.taskId)
     .eq('farm_id', opts.farmId)
