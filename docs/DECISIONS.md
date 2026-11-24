@@ -511,6 +511,8 @@ Decided 2026-11-10. Reversibility: _easy_ (one util, one composable, one pill).
 
 **What changed.** Home shows today's sunrise and sunset (first in the stat row, moved to the header beside the menu button on 2026-11-11). `computeSunTimes` (`app/utils/sun-times.ts`) uses the standard sunrise equation, accurate to about a minute outside polar latitudes. `useSunTimes` uses the device's position only when location access is already granted; otherwise it shows times for the active farm's default centre, and while the browser would still ask, the pill is a button that requests location on tap.
 
+Daylight left (added 2026-11-24) is derived from the same computed sunset and the current time, shown as a third header line between sunrise and sunset only.
+
 **Alternatives not taken.**
 
 - A sun-times web API (e.g. sunrise-sunset.org): adds a network dependency, a failure mode and a third party that learns the user's location, for no accuracy the pill needs.

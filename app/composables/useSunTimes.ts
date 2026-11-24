@@ -29,6 +29,8 @@ export function useSunTimes(fallback: MaybeRefOrGetter<Coords | null>) {
   const permission = ref<LocationPermission>('unsupported')
   const locating = ref(false)
   const today = ref<Date | null>(null)
+  // Ticks every minute so "daylight left" counts down.
+  const now = ref<Date | null>(null)
   let disposed = false
   let dayTimer: ReturnType<typeof setInterval> | undefined
 
@@ -53,9 +55,10 @@ export function useSunTimes(fallback: MaybeRefOrGetter<Coords | null>) {
   // A home screen left open across midnight (a wall tablet, an installed
   // PWA) rolls over to the new day: checked every minute and on refocus.
   function refreshDay() {
-    const now = new Date()
-    if (!today.value || today.value.toDateString() !== now.toDateString()) {
-      today.value = now
+    const current = new Date()
+    now.value = current
+    if (!today.value || today.value.toDateString() !== current.toDateString()) {
+      today.value = current
     }
   }
 
@@ -133,5 +136,11 @@ export function useSunTimes(fallback: MaybeRefOrGetter<Coords | null>) {
     document.removeEventListener('visibilitychange', onVisibilityChange)
   })
 
-  return { sunTimes, canUseDeviceLocation, locating, requestDeviceLocation }
+  return {
+    sunTimes,
+    now,
+    canUseDeviceLocation,
+    locating,
+    requestDeviceLocation,
+  }
 }
