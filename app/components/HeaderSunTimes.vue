@@ -1,14 +1,19 @@
 <script setup lang="ts">
 import { farmCenter } from '~/utils/active-farm'
-import { formatSunTimeCompact } from '~/utils/sun-times'
+import { formatDaylightLeft, formatSunTimeCompact } from '~/utils/sun-times'
 
 // Today's sunrise/sunset, stacked small and muted beside the header's menu
 // button (Home only, see default.vue) — space the mobile header leaves empty,
 // so it costs no vertical room. Device location when access is granted,
 // otherwise the active farm's default map centre; see useSunTimes.
 const { activeFarm } = useFarms()
-const { sunTimes, canUseDeviceLocation, locating, requestDeviceLocation } =
+const { sunTimes, now, canUseDeviceLocation, locating, requestDeviceLocation } =
   useSunTimes(() => farmCenter(activeFarm.value))
+const daylightLeft = computed(() =>
+  sunTimes.value && now.value
+    ? formatDaylightLeft(sunTimes.value, now.value)
+    : null,
+)
 </script>
 
 <template>
@@ -44,6 +49,15 @@ const { sunTimes, canUseDeviceLocation, locating, requestDeviceLocation } =
         <v-icon icon="mdi-weather-sunset-down" size="13" />
         <span class="cc-sr-only">Sunset</span>
         {{ formatSunTimeCompact(sunTimes.sunset) }}
+      </span>
+      <span
+        v-if="daylightLeft"
+        class="header-sun__line header-sun__left"
+        data-testid="daylight-left"
+      >
+        <v-icon icon="mdi-white-balance-sunny" size="13" />
+        {{ daylightLeft }}
+        <span class="cc-sr-only">of daylight left</span>
       </span>
     </template>
     <span v-else class="header-sun__line">

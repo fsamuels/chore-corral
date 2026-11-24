@@ -93,6 +93,20 @@ export function computeSunTimes(day: Date, coords: Coords): SunTimes {
 }
 
 /**
+ * "5h 12m": daylight remaining at `now`, or null before sunrise / after
+ * sunset (and on polar days/nights, where there's no sunset to count to).
+ */
+export function formatDaylightLeft(sun: SunTimes, now: Date): string | null {
+  if (sun.kind !== 'normal') return null
+  const ms = sun.sunset.getTime() - now.getTime()
+  if (now < sun.sunrise || ms <= 0) return null
+  const minutes = Math.ceil(ms / 60_000)
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return h > 0 ? `${h}h ${m}m` : `${m}m`
+}
+
+/**
  * "6:42": the time without its AM/PM marker, in the device's locale and time
  * zone. The sunrise/sunset icon beside it already says morning vs. evening. 24-hour locales
  * are unchanged ("18:42").
