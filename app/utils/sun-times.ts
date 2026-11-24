@@ -100,7 +100,7 @@ export function formatDaylightLeft(sun: SunTimes, now: Date): string | null {
   if (sun.kind !== 'normal') return null
   const ms = sun.sunset.getTime() - now.getTime()
   if (now < sun.sunrise || ms <= 0) return null
-  const minutes = Math.floor(ms / 60_000)
+  const minutes = Math.ceil(ms / 60_000)
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
   return h > 0 ? `${h}h ${m}m` : `${m}m`

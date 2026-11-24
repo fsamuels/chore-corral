@@ -153,6 +153,12 @@ describe('formatDaylightLeft', () => {
     expect(formatDaylightLeft(sun, new Date(2026, 10, 24, 16, 10))).toBe('30m')
   })
 
+  it('rounds up so the last minute of daylight never reads 0m', () => {
+    expect(formatDaylightLeft(sun, new Date(2026, 10, 24, 16, 39, 30))).toBe(
+      '1m',
+    )
+  })
+
   it('is null before sunrise, after sunset, and on polar days', () => {
     expect(formatDaylightLeft(sun, new Date(2026, 10, 24, 5, 0))).toBeNull()
     expect(formatDaylightLeft(sun, new Date(2026, 10, 24, 17, 0))).toBeNull()
