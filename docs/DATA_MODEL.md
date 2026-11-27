@@ -286,6 +286,7 @@ Per-task time tracking: one row per start/stop timer session. A task's "actual" 
 | `user_id`    | uuid, FK → `auth.users.id`, not null | Who ran the timer — attribution when two people work the same task                      |
 | `started_at` | timestamptz, not null, default now() |                                                                                         |
 | `ended_at`   | timestamptz, nullable                | **Null = timer currently running.** `CHECK (ended_at IS NULL OR ended_at > started_at)` |
+| `labels`     | text[], not null, default `'{}'`     | Short labels for what the session covered (D-9). `CHECK (cardinality(labels) <= 8)`     |
 | `created_at` | timestamptz, default now()           |                                                                                         |
 
 **One running timer per user, farm-wide** (the Toggl model), enforced by a partial unique index on `user_id` where `ended_at IS NULL`. Application code auto-stops the user's running entry when they start a timer on another task; the index is the backstop against races.
@@ -294,6 +295,7 @@ Behavior decisions (see DECISIONS.md):
 
 - Starting a timer on a `not_started` task flips it to `in_progress` (with the normal `task_status_changed` activity-log entry). The link is one-way: stopping never touches status, and marking a task done does not auto-stop timers.
 - Timer start/stop is **not** an `activity_log` event — the log is major-events-only, and the entries table is its own record.
+- Session labels (D-9) can be changed on a running or a closed entry. The app trims them, cuts each to 40 characters, drops case-insensitive duplicates and reuses the spelling already used on the chore (`normalizeLabels` / `canonicalizeLabels` in `app/utils/session-labels.ts`); the DB only enforces the count.
 - Manual add/edit of entries ("forgot to start the timer") is out of scope for now, but needs no future migration — it's just inserting a row with both timestamps set.
 
 Like the other task-child tables, this table carries no `farm_id`; it is scoped to a farm through its parent task, and its RLS policy joins through `tasks`. Entries are listed per task oldest-session-first: `ORDER BY started_at ASC, id ASC`. An index on `started_at` backs the Progress page's week-window query (`listTaskActivity`, see DECISIONS.md D-2).

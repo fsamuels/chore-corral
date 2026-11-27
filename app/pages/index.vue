@@ -8,7 +8,7 @@ import {
   toLocalDateString,
   type TaskSummary,
 } from '~/services/tasks'
-import { startTimer, stopTimer } from '~/services/time-entries'
+import { startTimer } from '~/services/time-entries'
 import { matchesSearch } from '~/utils/task-filters'
 import {
   listFarmMemberProfiles,
@@ -30,6 +30,7 @@ const { tasks, tasksError, loading, fetchTasks } = useTasks({
 const { categories, fetchCategories } = useCategories()
 const { locations, fetchLocations } = useLocations()
 const { runningEntry, refresh: refreshRunningTimer } = useRunningTimer()
+const sessionLabels = useSessionLabelsPrompt()
 const { thumbnailFor, onThumbnailError } = useTaskThumbnails(tasks)
 const { trackedMsFor } = useTaskTrackedTime(tasks)
 const { recentTaskIds } = useRecentTimedTaskIds()
@@ -173,15 +174,19 @@ async function toggleTimer(task: TaskSummary) {
   if (!farmId || !actorUserId) return
 
   const running = runningEntry.value
+  // Stopping goes through the shared session-labels dialog, which does the
+  // stop itself; only a confirmed stop needs the toast and refetch.
+  if (running && running.task_id === task.id) {
+    if (await sessionLabels.requestStop()) {
+      notify(`Timer stopped for “${task.title}”`, 'success')
+      await fetchTasks()
+    }
+    return
+  }
   updatingTaskId.value = task.id
   try {
-    if (running && running.task_id === task.id) {
-      await stopTimer(supabase, running.id)
-      notify(`Timer stopped for “${task.title}”`, 'success')
-    } else {
-      await startTimer(supabase, { farmId, taskId: task.id, actorUserId })
-      notify(`Timer started for “${task.title}”`, 'success')
-    }
+    await startTimer(supabase, { farmId, taskId: task.id, actorUserId })
+    notify(`Timer started for “${task.title}”`, 'success')
     await refreshRunningTimer()
     await fetchTasks()
   } catch (error) {

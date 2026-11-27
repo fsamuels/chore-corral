@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~/types/database.types'
 import { changeTaskStatus, type TaskStatus } from './tasks'
 import { chunk } from '../utils/chunk'
+import { normalizeLabels } from '../utils/session-labels'
 
 export interface TimeEntrySummary {
   id: string
@@ -9,10 +10,13 @@ export interface TimeEntrySummary {
   user_id: string
   started_at: string
   ended_at: string | null
+  /** Short labels for what this session covered; see `normalizeLabels`. */
+  labels: string[]
   created_at: string
 }
 
-const ENTRY_COLUMNS = 'id, task_id, user_id, started_at, ended_at, created_at'
+const ENTRY_COLUMNS =
+  'id, task_id, user_id, started_at, ended_at, labels, created_at'
 
 type Client = SupabaseClient<Database>
 
@@ -192,15 +196,20 @@ export async function startTimer(
 /**
  * Stop a running entry. The `.is('ended_at', null)` guard makes a
  * double-stop (two tabs, a stale button) a "not found" error rather than
- * silently rewriting a closed entry's end time.
+ * silently rewriting a closed entry's end time. `labels`, when given, are
+ * saved in the same update (the stop dialog's labels), normalized first.
  */
 export async function stopTimer(
   supabase: Client,
   entryId: string,
+  opts: { labels?: readonly string[] } = {},
 ): Promise<TimeEntrySummary> {
   const { data, error } = await supabase
     .from('task_time_entries')
-    .update({ ended_at: new Date().toISOString() })
+    .update({
+      ended_at: new Date().toISOString(),
+      ...(opts.labels ? { labels: normalizeLabels(opts.labels) } : {}),
+    })
     .eq('id', entryId)
     .is('ended_at', null)
     .select(ENTRY_COLUMNS)
@@ -227,6 +236,25 @@ export async function updateTimeEntry(
     .update({ started_at: opts.startedAt, ended_at: opts.endedAt })
     .eq('id', opts.entryId)
     .not('ended_at', 'is', null)
+    .select(ENTRY_COLUMNS)
+  if (error) throw new Error(error.message)
+  const entry = data[0]
+  if (!entry) throw new Error('Time entry not found')
+  return entry
+}
+
+/**
+ * Replace a session's labels (normalized first). Works on a running or a
+ * closed entry: labelling the session in progress is the main use.
+ */
+export async function updateTimeEntryLabels(
+  supabase: Client,
+  opts: { entryId: string; labels: readonly string[] },
+): Promise<TimeEntrySummary> {
+  const { data, error } = await supabase
+    .from('task_time_entries')
+    .update({ labels: normalizeLabels(opts.labels) })
+    .eq('id', opts.entryId)
     .select(ENTRY_COLUMNS)
   if (error) throw new Error(error.message)
   const entry = data[0]

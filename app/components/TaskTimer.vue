@@ -2,6 +2,7 @@
 import type { TaskTimerState } from '~/composables/useTaskTimer'
 import { totalTrackedMs, type TimeEntrySummary } from '~/services/time-entries'
 import { parseLocalDateString, toLocalDateString } from '~/services/tasks'
+import { labelBreakdown } from '~/utils/session-labels'
 
 // Start/stop timer + tracked-time total for the View page. Only rendered
 // once a task exists (parent guards with v-if="task"), so a task id is
@@ -30,7 +31,31 @@ const {
   stop,
   updateEntry,
   removeEntry,
+  fetchEntries,
 } = props.state
+
+// Stop and session labels go through the shared labels dialog (rendered by
+// the layout). A stop there clears the shared running entry, which
+// `useTaskTimer` already watches to refetch; a label edit refetches here.
+const sessionLabels = useSessionLabelsPrompt()
+
+function onStop(): void {
+  sessionLabels.requestStop()
+}
+
+async function onEditLabels(entry: TimeEntrySummary): Promise<void> {
+  if (await sessionLabels.requestLabels(entry)) await fetchEntries()
+}
+
+// Average time per label combination over finished sessions, so sessions
+// can be compared by what they covered ("morning feeding · mucking" with
+// and without "Aaron helped").
+const breakdown = computed(() => labelBreakdown(entries.value ?? []))
+const breakdownOpen = ref(true)
+
+function formatAverage(ms: number): string {
+  return formatTracked(ms, false)
+}
 
 const runningHere = computed(() => runningEntry.value?.task_id === props.taskId)
 const runningElsewhere = computed(
@@ -300,7 +325,7 @@ async function performDeleteEntry(): Promise<void> {
             type="button"
             class="cc-pill-btn cc-pill-btn--outline cc-pill-btn--lg timer-btn"
             :disabled="mutating"
-            @click="stop"
+            @click="onStop"
           >
             <v-progress-circular
               v-if="mutating"
@@ -455,12 +480,39 @@ async function performDeleteEntry(): Promise<void> {
                 >
                   Running
                 </span>
+                <span
+                  v-if="sessionEntry.labels.length > 0"
+                  class="timer-session__labels"
+                >
+                  <span
+                    v-for="label in sessionEntry.labels"
+                    :key="label"
+                    class="timer-label"
+                    >{{ label }}</span
+                  >
+                </span>
               </div>
-              <div
-                v-if="sessionEntry.ended_at !== null"
-                class="timer-session__actions"
-              >
+              <div class="timer-session__actions">
                 <button
+                  type="button"
+                  class="cc-icon-btn cc-icon-btn--sm"
+                  :aria-label="
+                    sessionEntry.labels.length > 0
+                      ? 'Edit session labels'
+                      : 'Add session labels'
+                  "
+                  :title="
+                    sessionEntry.labels.length > 0
+                      ? 'Edit session labels'
+                      : 'Add session labels'
+                  "
+                  :disabled="mutating"
+                  @click="onEditLabels(sessionEntry)"
+                >
+                  <v-icon icon="mdi-tag-outline" size="18" />
+                </button>
+                <button
+                  v-if="sessionEntry.ended_at !== null"
                   type="button"
                   class="cc-icon-btn cc-icon-btn--sm"
                   aria-label="Edit session"
@@ -471,6 +523,7 @@ async function performDeleteEntry(): Promise<void> {
                   <v-icon icon="mdi-pencil-outline" size="18" />
                 </button>
                 <button
+                  v-if="sessionEntry.ended_at !== null"
                   type="button"
                   class="cc-icon-btn cc-icon-btn--sm"
                   aria-label="Delete session"
@@ -484,6 +537,45 @@ async function performDeleteEntry(): Promise<void> {
             </template>
           </div>
         </div>
+      </div>
+
+      <div v-if="breakdown.length > 0" class="mt-3">
+        <button
+          type="button"
+          class="cc-text-link cc-text-link--muted timer-sessions-toggle"
+          :aria-expanded="breakdownOpen"
+          @click="breakdownOpen = !breakdownOpen"
+        >
+          Time by label
+          <v-icon
+            :icon="breakdownOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+            size="18"
+          />
+        </button>
+        <ul v-if="breakdownOpen" class="timer-breakdown mt-1">
+          <li
+            v-for="row in breakdown"
+            :key="row.labels.join('|')"
+            class="timer-breakdown__row"
+          >
+            <span class="timer-breakdown__labels">
+              <span
+                v-for="label in row.labels"
+                :key="label"
+                class="timer-label"
+                >{{ label }}</span
+              >
+            </span>
+            <span class="timer-breakdown__stats">
+              <span class="timer-breakdown__avg">
+                avg {{ formatAverage(row.averageMs) }}
+              </span>
+              <span class="text-caption cc-muted">
+                {{ row.count }} {{ row.count === 1 ? 'session' : 'sessions' }}
+              </span>
+            </span>
+          </li>
+        </ul>
       </div>
 
       <ConfirmDialog
@@ -579,6 +671,64 @@ async function performDeleteEntry(): Promise<void> {
 .timer-session__running {
   color: var(--cc-accent);
   font-weight: 600;
+}
+
+.timer-session__labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex-basis: 100%;
+  margin-top: 4px;
+}
+
+/* A session label: a small tinted pill, shared by the sessions list and
+   the time-by-label breakdown. */
+.timer-label {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cc-accent) 12%, transparent);
+  color: var(--cc-ink);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.timer-breakdown {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.timer-breakdown__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.timer-breakdown__row + .timer-breakdown__row {
+  border-top: 1px solid var(--cc-border);
+}
+
+.timer-breakdown__labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.timer-breakdown__stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex: none;
+  text-align: right;
+}
+
+.timer-breakdown__avg {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .timer-session-edit {

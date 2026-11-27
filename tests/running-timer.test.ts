@@ -12,6 +12,7 @@ const entry = (over: Partial<TimeEntrySummary> = {}): TimeEntrySummary => ({
   user_id: 'u1',
   started_at: '2026-11-12T10:00:00Z',
   ended_at: null,
+  labels: [],
   created_at: '2026-11-12T10:00:00Z',
   ...over,
 })
@@ -50,6 +51,19 @@ describe('reconcileRunningEntry', () => {
   it('takes the fetched entry when it is a different session or task', () => {
     const fetched = entry({ id: 'e2', task_id: 't2' })
     expect(reconcileRunningEntry(entry(), fetched)).toBe(fetched)
+  })
+
+  it('takes the fetched entry when its labels changed elsewhere', () => {
+    const current = entry()
+    const fetched = entry({ labels: ['mucking'] })
+    expect(reconcileRunningEntry(current, fetched)).toBe(fetched)
+  })
+
+  it('keeps the existing object when the labels are unchanged', () => {
+    const current = entry({ labels: ['mucking'] })
+    expect(reconcileRunningEntry(current, entry({ labels: ['mucking'] }))).toBe(
+      current,
+    )
   })
 
   it('takes null when the timer was stopped elsewhere', () => {

@@ -15,7 +15,6 @@ const {
   taskTitle: runningTaskTitle,
   stopping: stoppingTimer,
   refresh: refreshRunningTimer,
-  stop: stopRunningTimer,
 } = useRunningTimer()
 watch(() => route.path, refreshRunningTimer, { immediate: true })
 
@@ -25,6 +24,14 @@ useRunningTimerSync()
 // The dock bar's Finish button: stop the timer and mark the chore done, via
 // a confirmation dialog (note + who completed it).
 const finish = useFinishChore()
+
+// The dock's Stop and label buttons open the shared session-labels dialog
+// (rendered below), so a session can be labelled while it runs or as it
+// ends.
+const sessionLabels = useSessionLabelsPrompt()
+function labelRunningSession() {
+  if (runningEntry.value) sessionLabels.requestLabels(runningEntry.value)
+}
 
 // Every session on the running chore, for the dock bar's "total" line.
 const { spans: runningTaskSpans } = useRunningTaskTotal()
@@ -254,9 +261,11 @@ async function onPushToggle() {
       :task-title="runningTaskTitle"
       :stopping="stoppingTimer"
       :task-spans="runningTaskSpans"
-      @stop="stopRunningTimer"
+      @stop="sessionLabels.requestStop"
+      @labels="labelRunningSession"
       @finish="finish.begin"
     />
+    <SessionLabelsDialog v-if="user" />
     <CompleteChoreDialog
       v-if="user"
       :model-value="finish.open.value"

@@ -2,6 +2,7 @@ import type { Database } from '~/types/database.types'
 import {
   getRunningEntry,
   stopTimer,
+  updateTimeEntryLabels,
   type TimeEntrySummary,
 } from '~/services/time-entries'
 import { getTaskTitle } from '~/services/tasks'
@@ -97,12 +98,13 @@ export function useRunningTimer() {
   }
 
   /**
-   * Stop the running timer from the dock bar. A failure resyncs instead of
+   * Stop the running timer from the dock bar, saving the stop dialog's
+   * `labels` (when given) in the same update. A failure resyncs instead of
    * surfacing an error: the realistic failure ("Timer is not running" after
    * a double-tap or a stop from another tab) means the bar is stale, and
    * refreshing hides it.
    */
-  async function stop(): Promise<void> {
+  async function stop(labels?: readonly string[]): Promise<void> {
     const entry = runningEntry.value
     if (!entry || stopping.value) return
     stopping.value = true
@@ -110,7 +112,7 @@ export function useRunningTimer() {
     // as still running.
     gate.invalidate()
     try {
-      await stopTimer(supabase, entry.id)
+      await stopTimer(supabase, entry.id, { labels })
       gate.invalidate()
       runningEntry.value = null
       taskTitle.value = null
@@ -121,10 +123,33 @@ export function useRunningTimer() {
     }
   }
 
+  /**
+   * Replace the running session's labels (the dock's label button). Unlike
+   * `stop`, errors are thrown for the dialog to show. If the timer has moved
+   * on meanwhile, the saved entry is a closed one, so this resyncs instead
+   * of putting it back as running.
+   */
+  async function setLabels(labels: readonly string[]): Promise<void> {
+    const entry = runningEntry.value
+    if (!entry) throw new Error('Timer is not running')
+    gate.invalidate()
+    const updated = await updateTimeEntryLabels(supabase, {
+      entryId: entry.id,
+      labels,
+    })
+    if (updated.ended_at === null && runningEntry.value?.id === updated.id) {
+      gate.invalidate()
+      runningEntry.value = updated
+    } else {
+      await refresh()
+    }
+  }
+
   return {
     runningEntry,
     taskTitle,
     stopping,
+    setLabels,
     refresh,
     fetchRunningEntry,
     beginFetch,

@@ -13,6 +13,7 @@ import {
   stopTimer,
   totalTrackedMs,
   updateTimeEntry,
+  updateTimeEntryLabels,
 } from '../app/services/time-entries'
 import { FakeSupabaseClient, asSupabaseClient } from './helpers/fake-supabase'
 import type { Database } from '../app/types/database.types'
@@ -32,6 +33,7 @@ function entry(overrides: Partial<EntryRow> = {}): EntryRow {
     user_id: ACTOR,
     started_at: '2026-01-01T08:00:00.000Z',
     ended_at: '2026-01-01T09:00:00.000Z',
+    labels: [],
     created_at: '2026-01-01T08:00:00.000Z',
     ...overrides,
   }
@@ -680,5 +682,76 @@ describe('shouldOfferLastTimerStop (future stops)', () => {
     expect(
       shouldOfferLastTimerStop('2026-01-01T11:00:00.000Z', null, now),
     ).toBe(true)
+  })
+})
+
+describe('stopTimer with labels', () => {
+  it('saves normalized labels in the same update as the stop', async () => {
+    const fake = new FakeSupabaseClient({
+      task_time_entries: [entry({ id: 'entry-1', ended_at: null })],
+    })
+    const supabase = asSupabaseClient(fake)
+
+    const result = await stopTimer(supabase, 'entry-1', {
+      labels: ['  morning   feeding ', 'Mucking', 'mucking', ''],
+    })
+
+    expect(result.ended_at).not.toBeNull()
+    expect(result.labels).toEqual(['morning feeding', 'Mucking'])
+  })
+
+  it('leaves labels alone when none are passed', async () => {
+    const fake = new FakeSupabaseClient({
+      task_time_entries: [
+        entry({ id: 'entry-1', ended_at: null, labels: ['mucking'] }),
+      ],
+    })
+
+    const result = await stopTimer(asSupabaseClient(fake), 'entry-1')
+
+    expect(result.labels).toEqual(['mucking'])
+  })
+})
+
+describe('updateTimeEntryLabels', () => {
+  it("replaces a running entry's labels", async () => {
+    const fake = new FakeSupabaseClient({
+      task_time_entries: [entry({ id: 'entry-1', ended_at: null })],
+    })
+
+    const result = await updateTimeEntryLabels(asSupabaseClient(fake), {
+      entryId: 'entry-1',
+      labels: ['Aaron helped', ' aaron helped '],
+    })
+
+    expect(result.labels).toEqual(['Aaron helped'])
+    expect(result.ended_at).toBeNull()
+    expect(fake.getTable('task_time_entries')[0]?.labels).toEqual([
+      'Aaron helped',
+    ])
+  })
+
+  it("replaces a closed entry's labels, including clearing them", async () => {
+    const fake = new FakeSupabaseClient({
+      task_time_entries: [entry({ id: 'entry-1', labels: ['mucking'] })],
+    })
+
+    const result = await updateTimeEntryLabels(asSupabaseClient(fake), {
+      entryId: 'entry-1',
+      labels: [],
+    })
+
+    expect(result.labels).toEqual([])
+  })
+
+  it('throws when the entry does not exist', async () => {
+    const fake = new FakeSupabaseClient({ task_time_entries: [] })
+
+    await expect(
+      updateTimeEntryLabels(asSupabaseClient(fake), {
+        entryId: 'missing',
+        labels: ['x'],
+      }),
+    ).rejects.toThrow('Time entry not found')
   })
 })

@@ -518,3 +518,16 @@ Daylight left (added 2026-11-24) is derived from the same computed sunset and th
 - A sun-times web API (e.g. sunrise-sunset.org): adds a network dependency, a failure mode and a third party that learns the user's location, for no accuracy the pill needs.
 - An npm package (e.g. suncalc): roughly the same formula as a dependency; the formula is about 30 lines and is tested against reference times.
 - Asking for location on every Home load: a decorative pill would bring up the browser prompt with no context, and some browsers re-ask on every dismissal.
+
+## D-9: Session labels are a `text[]` on each time entry, with suggestions taken from the chore's own sessions
+
+Decided 2026-11-27 with the user. Reversibility: _easy_ (one nullable-free column with a default; the UI reads it in one composable and two components).
+
+**What changed.** A timer session can carry a few short labels for what it covered ("morning feeding", "mucking", "Aaron helped"). This is the first take on a "subtask" idea: rather than child tasks, each chunk of tracked time says which part of the chore it was, so a recurring chore's sessions can be compared. Labels live in `task_time_entries.labels` (`text[] not null default '{}'`, at most 8). Labels can be set from the running-timer dock, on any session in the chore page's sessions list, and in a dialog that every Stop button now opens. The chore page shows average time per label combination. This also settles the pause-note question deferred in "Status-change notes" above: the session itself, not the activity log, holds the description.
+
+**Alternatives not taken.**
+
+- One free-text note per session: the user picked combinable labels, because "feed" vs "feeding" or a different word order would split the history and make the per-combination averages useless.
+- A farm-wide label table (like `tags`) or a `task_time_entry_labels` join table: labels carry no state of their own and are always read with their session, so a join adds queries and RLS for nothing. Suggestions come from the chore's own sessions, so there's no vocabulary to keep in sync. Moving to a table later is a straightforward backfill.
+- Farm-wide suggestions: offered, not chosen. Labels are mostly chore-specific, and per-chore suggestions keep the one-tap list short.
+- Case-sensitive labels: "Aaron helped" and "aaron helped" would count as different combinations. The app reuses a known label's spelling and drops case-insensitive duplicates (`canonicalizeLabels`).

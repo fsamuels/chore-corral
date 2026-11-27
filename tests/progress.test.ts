@@ -57,6 +57,7 @@ function entry(overrides: Partial<EntryRow> = {}): EntryRow {
     user_id: ACTOR,
     started_at: '2026-01-01T08:00:00.000Z',
     ended_at: '2026-01-01T09:00:00.000Z',
+    labels: [],
     created_at: '2026-01-01T08:00:00.000Z',
     ...overrides,
   }

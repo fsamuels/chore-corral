@@ -1,8 +1,8 @@
 import type { TimeEntrySummary } from '../services/time-entries'
+import { sameLabels } from './session-labels'
 
 /**
- * Same running session? A time entry is immutable while it runs (only its
- * `ended_at` changes, when it stops), so id + started_at identifies it —
+ * Same running session? A session is identified by id + started_at —
  * started_at is compared too in case an edit moved the start on another
  * device, which the dock's elapsed time must pick up.
  */
@@ -16,15 +16,21 @@ export function isSameRunningEntry(
 
 /**
  * The value the shared running-entry state should hold after a fetch: the
- * existing object when the fetch found the same session (so anything
- * watching the entry — or keyed on its id — isn't re-triggered by a periodic
- * poll that changed nothing), otherwise the fetched one.
+ * existing object when the fetch found the same session with the same
+ * labels (so anything watching the entry — or keyed on its id — isn't
+ * re-triggered by a periodic poll that changed nothing), otherwise the
+ * fetched one. Labels are compared so a label added on another device shows
+ * up in the dock; a new object with the same id doesn't re-trigger
+ * id-keyed watchers.
  */
 export function reconcileRunningEntry(
   current: TimeEntrySummary | null,
   fetched: TimeEntrySummary | null,
 ): TimeEntrySummary | null {
-  return isSameRunningEntry(current, fetched) ? current : fetched
+  return isSameRunningEntry(current, fetched) &&
+    sameLabels(current?.labels, fetched?.labels)
+    ? current
+    : fetched
 }
 
 /**

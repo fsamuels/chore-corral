@@ -18,7 +18,7 @@ const props = defineProps<{
   taskSpans?: TrackedSpan[] | null
 }>()
 
-defineEmits<{ stop: []; finish: [] }>()
+defineEmits<{ stop: []; labels: []; finish: [] }>()
 
 const { mobile } = useDisplay()
 
@@ -55,6 +55,13 @@ const elapsedLabel = computed(() => {
 const totalLabel = computed(() =>
   runningTotalLabel(props.taskSpans ?? null, now.value),
 )
+
+const labelCount = computed(() => props.entry?.labels?.length ?? 0)
+const labelsButtonText = computed(() =>
+  labelCount.value > 0
+    ? `Session labels: ${props.entry?.labels.join(', ')}`
+    : 'Add session labels',
+)
 </script>
 
 <template>
@@ -87,7 +94,24 @@ const totalLabel = computed(() =>
         </NuxtLink>
         <button
           type="button"
-          class="cc-icon-btn timer-bar__finish"
+          class="cc-icon-btn timer-bar__secondary timer-bar__labels"
+          :class="{ 'timer-bar__labels--set': labelCount > 0 }"
+          :disabled="stopping"
+          :aria-label="labelsButtonText"
+          :title="labelsButtonText"
+          @click="$emit('labels')"
+        >
+          <v-icon
+            :icon="labelCount > 0 ? 'mdi-tag' : 'mdi-tag-plus-outline'"
+            size="22"
+          />
+          <span v-if="labelCount > 0" class="timer-bar__labels-count">{{
+            labelCount
+          }}</span>
+        </button>
+        <button
+          type="button"
+          class="cc-icon-btn timer-bar__secondary timer-bar__finish"
           :disabled="stopping"
           aria-label="Stop and finish chore"
           title="Stop and finish chore"
@@ -206,9 +230,9 @@ const totalLabel = computed(() =>
    line so it can be large without squeezing the title on narrow phones. */
 .timer-bar__elapsed {
   font-family: var(--cc-font-slab);
-  /* Scales down on narrow phones so it clears the finish and stop buttons;
-     full size from ~450px wide. */
-  font-size: clamp(1.75rem, 8vw, 2.25rem);
+  /* Scales down on narrow phones so it clears the labels, finish and stop
+     buttons; full size from ~480px wide. */
+  font-size: clamp(1.5rem, 7.5vw, 2.25rem);
   font-weight: 700;
   color: var(--cc-surface);
   line-height: 1;
@@ -235,19 +259,50 @@ const totalLabel = computed(() =>
   height: 60px;
 }
 
-/* Secondary to stop: a step smaller so the two read as distinct controls,
-   but still a comfortable thumb target. Opens the mark-done dialog; the
-   timer only stops once that's confirmed. */
-.timer-bar__finish {
+/* Secondary to stop (labels, finish): a step smaller so they read as
+   distinct controls, but still comfortable thumb targets. Translucent on
+   the dark bar, so they read as secondary to stop. */
+.timer-bar__secondary {
   flex: none;
-  /* Translucent on the dark bar, so it reads as secondary to stop. */
   background: color-mix(in srgb, var(--cc-bg) 12%, transparent);
   border-color: color-mix(in srgb, var(--cc-bg) 30%, transparent);
   box-shadow: none;
   color: var(--cc-bg);
   width: 44px;
   height: 44px;
+}
+
+/* Finish opens the mark-done dialog; the timer only stops once that's
+   confirmed. */
+.timer-bar__finish {
   margin-right: -4px;
+}
+
+/* Labels: the session's label count as a small accent badge once any are
+   set, so it's clear at a glance whether this session is labelled. */
+.timer-bar__labels {
+  position: relative;
+  margin-right: -6px;
+}
+
+.timer-bar__labels--set {
+  color: var(--cc-accent);
+}
+
+.timer-bar__labels-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--cc-accent);
+  color: var(--cc-surface);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
 }
 
 /* Slide up from the bottom edge when a timer starts, back down when it

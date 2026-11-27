@@ -477,6 +477,7 @@ export interface Database {
           user_id: string
           started_at: string
           ended_at: string | null
+          labels: string[]
           created_at: string
         }
         Insert: {
@@ -485,6 +486,7 @@ export interface Database {
           user_id: string
           started_at?: string
           ended_at?: string | null
+          labels?: string[]
           created_at?: string
         }
         Update: {
@@ -493,6 +495,7 @@ export interface Database {
           user_id?: string
           started_at?: string
           ended_at?: string | null
+          labels?: string[]
           created_at?: string
         }
         Relationships: [
